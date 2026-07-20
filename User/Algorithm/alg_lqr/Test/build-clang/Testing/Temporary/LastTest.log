@@ -1,0 +1,19 @@
+Start testing: Jul 20 17:03 中国标准时间
+----------------------------------------------------------
+1/1 Testing: alg_lqr_tests
+1/1 Test: alg_lqr_tests
+Command: "D:/ACE/general_framework/User/Algorithm/alg_lqr/Test/build-clang/alg_lqr_tests.exe"
+Directory: D:/ACE/general_framework/User/Algorithm/alg_lqr/Test/build-clang
+"alg_lqr_tests" start time: Jul 20 17:03 中国标准时间
+Output:
+----------------------------------------------------------
+All alg_lqr tests passed.
+<end of output>
+Test time =   0.04 sec
+----------------------------------------------------------
+Test Passed.
+"alg_lqr_tests" end time: Jul 20 17:03 中国标准时间
+"alg_lqr_tests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Jul 20 17:03 中国标准时间

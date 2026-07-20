@@ -1,0 +1,16 @@
+# ninja log v5
+32	162	8062411490506342	alg_lqr_library/CMakeFiles/alg_lqr.dir/alg_lqr_matrix.c.obj	6985c7475b355da8
+40	173	8062411490571714	alg_lqr_library/CMakeFiles/alg_lqr.dir/alg_lqr_riccati.c.obj	f0326bbaf561ff63
+26	181	8062411490721453	CMakeFiles/alg_lqr_tests.dir/alg_lqr_test.c.obj	4c7dc61f1d7dbb9
+45	189	8062411490765490	alg_lqr_library/CMakeFiles/alg_lqr.dir/alg_lqr_controller.c.obj	60b74a260cac5c6e
+63	197	8062411490815566	alg_lqr_library/CMakeFiles/alg_lqr.dir/alg_lqr_model.c.obj	1fc89ba979938132
+197	373	8062411493090452	alg_lqr_library/libalg_lqr.a	869f6a71166405cc
+373	666	8062411495704300	alg_lqr_tests.exe	6253be639e716138
+21	107	8062413048596631	CMakeFiles/alg_lqr_tests.dir/alg_lqr_test.c.obj	4c7dc61f1d7dbb9
+108	279	8062413050385447	alg_lqr_tests.exe	6253be639e716138
+22	100	8062413757829395	alg_lqr_library/CMakeFiles/alg_lqr.dir/alg_lqr_riccati.c.obj	f0326bbaf561ff63
+101	268	8062413759678329	alg_lqr_library/libalg_lqr.a	869f6a71166405cc
+269	452	8062413761431781	alg_lqr_tests.exe	6253be639e716138
+24	97	8062414309811983	alg_lqr_library/CMakeFiles/alg_lqr.dir/alg_lqr_riccati.c.obj	f0326bbaf561ff63
+97	237	8062414311367766	alg_lqr_library/libalg_lqr.a	869f6a71166405cc
+237	397	8062414312902743	alg_lqr_tests.exe	6253be639e716138
