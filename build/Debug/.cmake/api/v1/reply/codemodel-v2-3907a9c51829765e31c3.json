@@ -1,0 +1,213 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					],
+					"jsonFile" : "directory-.-Debug-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.22"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						6
+					]
+				},
+				{
+					"build" : "cmake/stm32cubemx",
+					"jsonFile" : "directory-cmake.stm32cubemx-Debug-a874d3cc84b5982fda2e.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.22"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "cmake/stm32cubemx",
+					"targetIndexes" : 
+					[
+						0
+					]
+				},
+				{
+					"build" : "User/Algorithm/alg_filter",
+					"jsonFile" : "directory-User.Algorithm.alg_filter-Debug-252c2713526f717d969e.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.22"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "User/Algorithm/alg_filter",
+					"targetIndexes" : 
+					[
+						1
+					]
+				},
+				{
+					"build" : "User/Algorithm/alg_kalman",
+					"jsonFile" : "directory-User.Algorithm.alg_kalman-Debug-c1e8aa74f2a808951bc6.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.22"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "User/Algorithm/alg_kalman",
+					"targetIndexes" : 
+					[
+						3
+					]
+				},
+				{
+					"build" : "User/Algorithm/alg_imu_ekf",
+					"jsonFile" : "directory-User.Algorithm.alg_imu_ekf-Debug-b6710ff96e441baf25e0.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.22"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "User/Algorithm/alg_imu_ekf",
+					"targetIndexes" : 
+					[
+						2
+					]
+				},
+				{
+					"build" : "User/Algorithm/alg_pid",
+					"jsonFile" : "directory-User.Algorithm.alg_pid-Debug-ca9862039188a53e1799.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.22"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "User/Algorithm/alg_pid",
+					"targetIndexes" : 
+					[
+						5
+					]
+				},
+				{
+					"build" : "User/Algorithm/alg_lqr",
+					"jsonFile" : "directory-User.Algorithm.alg_lqr-Debug-bd26b244dce51fdc8983.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.22"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "User/Algorithm/alg_lqr",
+					"targetIndexes" : 
+					[
+						4
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					],
+					"name" : "general_framework",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 1,
+					"id" : "STM32_Drivers::@768a070a0fe75716b479",
+					"jsonFile" : "target-STM32_Drivers-Debug-76fc713b34fa056b8bfb.json",
+					"name" : "STM32_Drivers",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "alg_filter::@a31673cef259e85e807e",
+					"jsonFile" : "target-alg_filter-Debug-75a27da78346143f64b1.json",
+					"name" : "alg_filter",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 4,
+					"id" : "alg_imu_ekf::@d8f6923d4b10b1569ab4",
+					"jsonFile" : "target-alg_imu_ekf-Debug-4b92db26c3df382fc8cb.json",
+					"name" : "alg_imu_ekf",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "alg_kalman::@b4831a5cced42d24bc81",
+					"jsonFile" : "target-alg_kalman-Debug-678a5cbdae03687709dc.json",
+					"name" : "alg_kalman",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "alg_lqr::@239e4a88c06c49c40dcc",
+					"jsonFile" : "target-alg_lqr-Debug-57c6266fc3904fa72fa2.json",
+					"name" : "alg_lqr",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "alg_pid::@183c9025ae4c36bc13d9",
+					"jsonFile" : "target-alg_pid-Debug-55b5671aa2cc9279e54c.json",
+					"name" : "alg_pid",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "general_framework::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-general_framework-Debug-4ea9ec8b79d1a100ed4f.json",
+					"name" : "general_framework",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "D:/ACE/general_framework/build/Debug",
+		"source" : "D:/ACE/general_framework"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 6
+	}
+}

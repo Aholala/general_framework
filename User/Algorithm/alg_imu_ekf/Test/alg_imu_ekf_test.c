@@ -122,7 +122,7 @@ static void TestTiltCorrection(void)
         .x = 0.173648178F,
         .y = 0.0F,
         .z = 0.0F};
-    const float zero_bias[3] = {0.0F, 0.0F, 0.0F};
+    const float zero_bias[2] = {0.0F, 0.0F};
     const float gyroscope[3] = {0.0F, 0.0F, 0.0F};
     const float accelerometer[3] = {0.0F, 0.0F, TEST_GRAVITY};
     AlgImuEkfEuler_t euler;
@@ -177,7 +177,9 @@ static void TestAccelerometerRejection(void)
 
     Test_InitFilter(&filter);
 
-    TEST_EXPECT_TRUE(AlgImuEkf_CorrectAccelerometer(&filter, accelerometer) ==
+    TEST_EXPECT_TRUE(AlgImuEkf_CorrectAccelerometer(&filter,
+                                                    accelerometer,
+                                                    0.01F) ==
                      ALG_IMU_EKF_STATUS_ACCELEROMETER_REJECTED);
     TEST_EXPECT_TRUE(AlgImuEkf_Update(&filter,
                                      gyroscope,
@@ -186,6 +188,132 @@ static void TestAccelerometerRejection(void)
                                      &accelerometer_used) ==
                      ALG_IMU_EKF_STATUS_OK);
     TEST_EXPECT_TRUE(!accelerometer_used);
+}
+
+static void TestSixStateBiasConstraint(void)
+{
+    AlgImuEkf_t filter;
+    const AlgImuEkfQuaternion_t quaternion = {
+        .w = 1.0F, .x = 0.0F, .y = 0.0F, .z = 0.0F};
+    const float initial_bias[2] = {0.01F, -0.02F};
+    const float gyroscope[3] = {0.03F, -0.04F, 0.30F};
+    float bias[3];
+    float corrected[3];
+
+    TEST_EXPECT_TRUE(ALG_IMU_EKF_STATE_DIMENSION == 6U);
+    Test_InitFilter(&filter);
+    TEST_EXPECT_TRUE(AlgImuEkf_Reset(&filter, &quaternion, initial_bias) ==
+                     ALG_IMU_EKF_STATUS_OK);
+    TEST_EXPECT_TRUE(AlgImuEkf_GetGyroBias(&filter, bias) ==
+                     ALG_IMU_EKF_STATUS_OK);
+    TEST_EXPECT_TRUE(AlgImuEkf_GetCorrectedGyroscope(&filter,
+                                                    gyroscope,
+                                                    corrected) ==
+                     ALG_IMU_EKF_STATUS_OK);
+    TEST_EXPECT_NEAR(bias[0], 0.01F, TEST_TOLERANCE);
+    TEST_EXPECT_NEAR(bias[1], -0.02F, TEST_TOLERANCE);
+    TEST_EXPECT_NEAR(bias[2], 0.0F, TEST_TOLERANCE);
+    TEST_EXPECT_NEAR(corrected[0], 0.02F, TEST_TOLERANCE);
+    TEST_EXPECT_NEAR(corrected[1], -0.02F, TEST_TOLERANCE);
+    TEST_EXPECT_NEAR(corrected[2], 0.30F, TEST_TOLERANCE);
+}
+
+static void TestChiSquareDirectionRejection(void)
+{
+    AlgImuEkf_t filter;
+    const float horizontal_acceleration[3] = {TEST_GRAVITY, 0.0F, 0.0F};
+    AlgImuEkfDiagnostics_t diagnostics;
+
+    Test_InitFilter(&filter);
+    TEST_EXPECT_TRUE(AlgImuEkf_CorrectAccelerometer(
+                         &filter, horizontal_acceleration, 0.01F) ==
+                     ALG_IMU_EKF_STATUS_ACCELEROMETER_REJECTED);
+    TEST_EXPECT_TRUE(AlgImuEkf_GetDiagnostics(&filter, &diagnostics) ==
+                     ALG_IMU_EKF_STATUS_OK);
+    TEST_EXPECT_NEAR(diagnostics.accelerometer_deviation_g,
+                     0.0F,
+                     TEST_TOLERANCE);
+    TEST_EXPECT_TRUE(diagnostics.normalized_innovation_squared >
+                     filter.config.chi_square_rejection_threshold);
+    TEST_EXPECT_TRUE(!diagnostics.was_accelerometer_used);
+}
+
+static void TestAdaptiveMeasurementNoise(void)
+{
+    AlgImuEkfConfig_t config;
+    AlgImuEkf_t filter;
+    const float angle_rad = TEST_PI_F / 12.0F;
+    const float accelerometer[3] = {
+        TEST_GRAVITY * sinf(angle_rad),
+        0.0F,
+        TEST_GRAVITY * cosf(angle_rad)};
+    AlgImuEkfDiagnostics_t diagnostics;
+
+    (void)AlgImuEkfConfig_Init(&config);
+    config.chi_square_adaptation_threshold = 0.1F;
+    config.chi_square_rejection_threshold = 100.0F;
+    TEST_EXPECT_TRUE(AlgImuEkf_Init(&filter, &config) ==
+                     ALG_IMU_EKF_STATUS_OK);
+    TEST_EXPECT_TRUE(AlgImuEkf_CorrectAccelerometer(&filter,
+                                                    accelerometer,
+                                                    0.01F) ==
+                     ALG_IMU_EKF_STATUS_OK);
+    (void)AlgImuEkf_GetDiagnostics(&filter, &diagnostics);
+    TEST_EXPECT_TRUE(diagnostics.normalized_innovation_squared >
+                     config.chi_square_adaptation_threshold);
+    TEST_EXPECT_TRUE(diagnostics.measurement_noise_scale > 1.0F);
+    TEST_EXPECT_TRUE(diagnostics.measurement_noise_scale <=
+                     config.maximum_measurement_noise_scale);
+    TEST_EXPECT_TRUE(diagnostics.was_accelerometer_used);
+}
+
+static void TestAccelerometerLowPass(void)
+{
+    AlgImuEkfConfig_t config;
+    AlgImuEkf_t filter;
+    const float stationary[3] = {0.0F, 0.0F, TEST_GRAVITY};
+    const float impulse[3] = {
+        0.5F * TEST_GRAVITY, 0.0F, 0.8660254038F * TEST_GRAVITY};
+    AlgImuEkfDiagnostics_t diagnostics;
+
+    (void)AlgImuEkfConfig_Init(&config);
+    config.accelerometer_lpf_cutoff_hz = 1.0F;
+    config.chi_square_rejection_threshold = 1000000.0F;
+    TEST_EXPECT_TRUE(AlgImuEkf_Init(&filter, &config) ==
+                     ALG_IMU_EKF_STATUS_OK);
+    TEST_EXPECT_TRUE(AlgImuEkf_CorrectAccelerometer(&filter,
+                                                    stationary,
+                                                    0.01F) ==
+                     ALG_IMU_EKF_STATUS_OK);
+    TEST_EXPECT_TRUE(AlgImuEkf_CorrectAccelerometer(&filter,
+                                                    impulse,
+                                                    0.01F) ==
+                     ALG_IMU_EKF_STATUS_OK);
+    (void)AlgImuEkf_GetDiagnostics(&filter, &diagnostics);
+    TEST_EXPECT_TRUE(diagnostics.filtered_accelerometer_m_s2[0] > 0.0F);
+    TEST_EXPECT_TRUE(diagnostics.filtered_accelerometer_m_s2[0] < impulse[0]);
+    TEST_EXPECT_TRUE(diagnostics.filtered_accelerometer_m_s2[2] > impulse[2]);
+}
+
+static void TestBiasFading(void)
+{
+    AlgImuEkfConfig_t config;
+    AlgImuEkf_t filter;
+    const float gyroscope[3] = {0.0F, 0.0F, 0.0F};
+    float initial_bias_variance;
+
+    (void)AlgImuEkfConfig_Init(&config);
+    config.gyro_noise_std_rad_s = 0.0F;
+    config.gyro_bias_random_walk_std_rad_s2 = 0.0F;
+    config.gyro_bias_fading_factor = 1.10F;
+    TEST_EXPECT_TRUE(AlgImuEkf_Init(&filter, &config) ==
+                     ALG_IMU_EKF_STATUS_OK);
+    initial_bias_variance = filter.covariance[(4U * 6U) + 4U];
+    TEST_EXPECT_TRUE(AlgImuEkf_Predict(&filter, gyroscope, 0.01F) ==
+                     ALG_IMU_EKF_STATUS_OK);
+    TEST_EXPECT_NEAR(filter.covariance[(4U * 6U) + 4U],
+                     initial_bias_variance * config.gyro_bias_fading_factor,
+                     1.0e-6F);
 }
 
 static void TestErrors(void)
@@ -212,6 +340,11 @@ int main(void)
     TestTiltCorrection();
     TestBiasEstimation();
     TestAccelerometerRejection();
+    TestSixStateBiasConstraint();
+    TestChiSquareDirectionRejection();
+    TestAdaptiveMeasurementNoise();
+    TestAccelerometerLowPass();
+    TestBiasFading();
     TestErrors();
 
     if (s_failure_count == 0)

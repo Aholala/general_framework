@@ -85,7 +85,7 @@ AlgImuEkfStatus_t AlgImuEkf_GetGyroBias(
 
     gyro_bias_rad_s[0] = self->state[4];
     gyro_bias_rad_s[1] = self->state[5];
-    gyro_bias_rad_s[2] = self->state[6];
+    gyro_bias_rad_s[2] = 0.0F;
     return ALG_IMU_EKF_STATUS_OK;
 }
 
@@ -110,11 +110,45 @@ AlgImuEkfStatus_t AlgImuEkf_GetCorrectedGyroscope(
         return ALG_IMU_EKF_STATUS_OUT_OF_RANGE;
     }
 
-    for (axis = 0U; axis < 3U; ++axis)
+    for (axis = 0U; axis < 2U; ++axis)
     {
         corrected_gyroscope_rad_s[axis] =
             gyroscope_rad_s[axis] - self->state[4U + axis];
     }
+    corrected_gyroscope_rad_s[2] = gyroscope_rad_s[2];
+    return ALG_IMU_EKF_STATUS_OK;
+}
+
+AlgImuEkfStatus_t AlgImuEkf_GetDiagnostics(
+    const AlgImuEkf_t *self,
+    AlgImuEkfDiagnostics_t *diagnostics)
+{
+    size_t index;
+
+    if ((self == NULL) || (diagnostics == NULL))
+    {
+        return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
+    }
+    if (!self->is_initialized)
+    {
+        return ALG_IMU_EKF_STATUS_NOT_INITIALIZED;
+    }
+
+    for (index = 0U; index < 3U; ++index)
+    {
+        diagnostics->filtered_accelerometer_m_s2[index] =
+            self->filtered_accelerometer_m_s2[index];
+        diagnostics->innovation[index] = self->innovation[index];
+    }
+    diagnostics->accelerometer_norm_m_s2 =
+        self->last_accelerometer_norm_m_s2;
+    diagnostics->accelerometer_deviation_g =
+        self->last_accelerometer_deviation_g;
+    diagnostics->normalized_innovation_squared =
+        self->last_normalized_innovation_squared;
+    diagnostics->measurement_noise_scale =
+        self->last_measurement_noise_scale;
+    diagnostics->was_accelerometer_used = self->was_accelerometer_used;
     return ALG_IMU_EKF_STATUS_OK;
 }
 

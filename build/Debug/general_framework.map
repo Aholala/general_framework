@@ -4217,6 +4217,7 @@ LOAD User/Algorithm/alg_kalman/libalg_kalman.a
 LOAD User/Algorithm/alg_imu_ekf/libalg_imu_ekf.a
 LOAD User/Algorithm/alg_pid/libalg_pid.a
 LOAD User/Algorithm/alg_lqr/libalg_lqr.a
+LOAD User/Algorithm/alg_filter/libalg_filter.a
 LOAD User/Algorithm/alg_kalman/libalg_kalman.a
 LOAD C:/ST/STM32CubeCLT_1.20.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard\libm.a
 START GROUP

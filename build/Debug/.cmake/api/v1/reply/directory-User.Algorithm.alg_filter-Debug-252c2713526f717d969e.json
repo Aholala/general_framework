@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "User/Algorithm/alg_filter",
+		"source" : "User/Algorithm/alg_filter"
+	}
+}

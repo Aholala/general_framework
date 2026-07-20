@@ -1,241 +1,154 @@
 # alg_imu_ekf
 
-`alg_imu_ekf` 是专门面向六轴 IMU 的四元数扩展卡尔曼滤波器。它使用三轴陀螺仪进行姿态预测，使用三轴加速度计观测重力方向，估计姿态四元数和陀螺仪零偏。
+`alg_imu_ekf` 是面向六轴 IMU 的四元数扩展卡尔曼滤波模块。模块只依赖
+`alg_filter`、`alg_kalman` 和标准数学库，不依赖 MCU、HAL、RTOS，不使用动态内存。
 
-模块依赖通用 `alg_kalman` 数学内核，但向应用提供固定、清晰的 IMU 接口，不需要应用自行编写 EKF 状态函数和雅可比。
+## 状态与观测
 
-## 状态定义
-
-EKF 使用 7 维状态：
+状态为 6 维：
 
 ```text
-x = [qw, qx, qy, qz, bias_x, bias_y, bias_z]
+x = [qw, qx, qy, qz, bias_x, bias_y]
 ```
 
-其中：
+- `q` 是机体系到世界系的单位四元数。
+- `bias_x`、`bias_y` 是陀螺仪 X/Y 轴零偏，单位为 `rad/s`。
+- 三轴陀螺仪是预测输入，三轴单位化加速度是重力方向观测。
+- 加速度计无法观测 Yaw，因此不估计 Z 轴零偏；对外读取的 Z 轴零偏恒为 0。
 
-- `q` 是从机体坐标系旋转到世界坐标系的单位四元数。
-- `bias_x/y/z` 是陀螺仪零偏，单位为 `rad/s`。
-- 陀螺仪测量作为 EKF 控制输入。
-- 归一化加速度计作为三维重力方向观测。
+六轴系统只能长期校正 Roll/Pitch。Yaw 依赖 Z 轴陀螺仪积分，会随零偏和温漂逐渐漂移。
+需要稳定绝对航向时，应增加磁力计、视觉、双天线 GNSS 或其他航向观测。
 
-## 已实现功能
+## 数据处理流程
 
-- 四元数姿态传播。
-- 四元数单位化。
-- 四元数归一化后的协方差投影。
-- 三轴陀螺仪零偏状态。
-- 完整 7×7 状态雅可比。
-- 完整 3×7 重力观测雅可比。
-- 姿态相关陀螺过程噪声映射。
-- 加速度计方向归一化。
-- 动态加速度硬拒绝。
-- 接近拒绝阈值时自适应增大测量噪声。
-- 从静止加速度计初始化 Roll/Pitch。
-- 四元数输出。
-- Roll/Pitch/Yaw 输出。
-- 估计零偏输出。
-- 去零偏角速度输出。
-- 机体系重力向量输出。
-- 机体系与世界系线加速度输出。
+一次 `AlgImuEkf_Update()` 执行以下流程：
 
-## 六轴系统的物理限制
+1. 对 X/Y 零偏协方差应用渐消因子，保留慢漂移跟踪能力。
+2. 用去除 X/Y 零偏后的角速度传播四元数和协方差。
+3. 检查原始加速度模长，明显偏离 1g 时直接拒绝观测。
+4. 对三轴加速度分别执行一阶低通滤波，然后单位化为重力方向。
+5. 计算残差、创新协方差和归一化创新平方 NIS。
+6. NIS 超过卡方拒绝阈值时跳过校正，仅保留陀螺仪预测。
+7. NIS 位于自适应区间时放大测量噪声，平滑降低校正增益。
+8. 执行 EKF 校正、四元数归一化和协方差投影。
 
-六轴 IMU 没有磁力计或其他航向观测，因此：
+NIS 定义为：
 
-- Roll 和 Pitch 可以通过重力长期校正。
-- Yaw 只能通过陀螺仪积分获得。
-- Yaw 会随 Z 轴陀螺零偏和温漂逐渐漂移。
-- Z 轴零偏在只有重力观测时不可完全观测。
-- EKF 不能突破这个可观测性限制。
+```text
+NIS = innovation^T * S^-1 * innovation
+S   = H * P * H^T + R
+```
 
-如果需要长期稳定的绝对航向，必须增加磁力计、视觉、双天线 GNSS、轮式运动约束或其他外部航向观测。
+默认拒绝阈值 `11.345` 对应 3 自由度卡方分布的约 99% 分位点。
 
-## 坐标系和符号约定
+## 坐标与单位约定
 
-输入 IMU 数据必须先由 BSP 或 Module 层映射到统一的右手坐标系。算法层不处理传感器安装方向。
-
-本模块约定：
-
-- 四元数表示机体系到世界系的主动旋转。
-- 世界系 `+Z` 为向上方向。
-- 静止且水平时，加速度计输入为 `[0, 0, +g]`。
-- 陀螺仪使用右手定则。
+- 右手坐标系。
+- 四元数表示机体系到世界系的旋转。
+- 世界系 `+Z` 向上。
+- 水平静止时加速度输入为 `[0, 0, +g]`。
 - 陀螺仪单位必须为 `rad/s`。
-- 加速度计单位必须为 `m/s²`。
-- 时间单位必须为秒。
+- 加速度计单位必须为 `m/s^2`。
+- `delta_time_s` 单位为秒，必须大于 0。
 
-如果驱动在静止水平时输出 `[0, 0, -g]`，必须在 Module 或传感器适配层完成符号转换后再传入 EKF。
+传感器安装方向、轴交换和符号转换应在 Module/BSP 层完成，不放入算法层。
 
-## 初始化
+## 初始化与更新
 
 ```c
 static AlgImuEkf_t s_imu_ekf;
 
-void ImuEstimator_Init(const float accelerometer_m_s2[3])
+void AppImuEstimator_Init(const float accelerometer_m_s2[3])
 {
     AlgImuEkfConfig_t config;
 
     (void)AlgImuEkfConfig_Init(&config);
-
-    config.gyro_noise_std_rad_s = 0.015F;
-    config.gyro_bias_random_walk_std_rad_s2 = 0.0005F;
-    config.accelerometer_direction_noise_std = 0.03F;
+    config.accelerometer_lpf_cutoff_hz = 30.0F;
     config.accelerometer_rejection_threshold_g = 0.20F;
+    config.chi_square_adaptation_threshold = 3.0F;
+    config.chi_square_rejection_threshold = 11.345F;
+    config.maximum_measurement_noise_scale = 20.0F;
+    config.gyro_bias_fading_factor = 1.0001F;
 
     (void)AlgImuEkf_Init(&s_imu_ekf, &config);
     (void)AlgImuEkf_ResetFromAccelerometer(&s_imu_ekf,
                                            accelerometer_m_s2);
 }
+
+void AppImuEstimator_Update(const float gyroscope_rad_s[3],
+                            const float accelerometer_m_s2[3],
+                            float delta_time_s)
+{
+    bool accelerometer_used;
+
+    (void)AlgImuEkf_Update(&s_imu_ekf,
+                           gyroscope_rad_s,
+                           accelerometer_m_s2,
+                           delta_time_s,
+                           &accelerometer_used);
+}
 ```
 
-调用 `ResetFromAccelerometer()` 时设备应尽量保持静止。该函数根据重力确定 Roll 和 Pitch，初始 Yaw 固定为零。
+`ResetFromAccelerometer` 应在设备静止时调用，它初始化 Roll/Pitch、将 Yaw 设为 0，
+并用当前加速度预置低通滤波器。也可使用 `AlgImuEkf_Reset()` 传入四元数和两轴零偏。
 
-如果已经有合法的初始四元数和离线标定零偏，可以调用 `AlgImuEkf_Reset()`。
-
-## 周期更新
-
-```c
-bool accelerometer_used;
-
-AlgImuEkfStatus_t status = AlgImuEkf_Update(
-    &s_imu_ekf,
-    gyroscope_rad_s,
-    accelerometer_m_s2,
-    delta_time_s,
-    &accelerometer_used);
-```
-
-每次调用都会：
-
-1. 使用陀螺仪减去估计零偏。
-2. 传播四元数。
-3. 更新协方差。
-4. 检查加速度模长。
-5. 条件允许时使用重力方向进行 EKF 校正。
-6. 重新归一化四元数并投影协方差。
-
-动态加速度超出阈值时，预测仍然有效，但本次不使用加速度计。此时 `accelerometer_used` 返回 `false`，函数仍返回 `ALG_IMU_EKF_STATUS_OK`。
-
-也可以分开调用：
+预测和校正可以分开调用：
 
 ```c
 AlgImuEkf_Predict(&s_imu_ekf, gyroscope_rad_s, delta_time_s);
-AlgImuEkf_CorrectAccelerometer(&s_imu_ekf, accelerometer_m_s2);
+AlgImuEkf_CorrectAccelerometer(&s_imu_ekf,
+                               accelerometer_m_s2,
+                               delta_time_s);
 ```
 
-单独校正时，被拒绝的加速度计返回 `ALG_IMU_EKF_STATUS_ACCELEROMETER_REJECTED`。
-
-## 姿态输出
-
-```c
-AlgImuEkfQuaternion_t quaternion;
-AlgImuEkfEuler_t euler;
-float gyro_bias_rad_s[3];
-
-AlgImuEkf_GetQuaternion(&s_imu_ekf, &quaternion);
-AlgImuEkf_GetEuler(&s_imu_ekf, &euler);
-AlgImuEkf_GetGyroBias(&s_imu_ekf, gyro_bias_rad_s);
-```
-
-欧拉角输出单位是弧度。控制系统内部推荐继续使用四元数或旋转矩阵，欧拉角更适合显示和低维控制接口。
-
-Pitch 接近 ±90° 时，欧拉角仍然存在固有奇异性；四元数本身不存在万向节锁。
-
-## 重力和线加速度
-
-```c
-float gravity_body_m_s2[3];
-float linear_acceleration_body_m_s2[3];
-float linear_acceleration_world_m_s2[3];
-
-AlgImuEkf_GetGravityBody(&s_imu_ekf, gravity_body_m_s2);
-AlgImuEkf_GetLinearAccelerationBody(&s_imu_ekf,
-                                     accelerometer_m_s2,
-                                     linear_acceleration_body_m_s2);
-AlgImuEkf_GetLinearAccelerationWorld(&s_imu_ekf,
-                                      accelerometer_m_s2,
-                                      linear_acceleration_world_m_s2);
-```
-
-线加速度由加速度计测量减去估计重力得到。它对以下误差非常敏感：
-
-- 姿态误差。
-- 加速度计零偏。
-- 传感器比例因子误差。
-- 机械振动。
-- 坐标轴安装误差。
-
-六轴 IMU 的线加速度不能长期二次积分得到可靠位置，必须结合其他位置或速度观测。
+单独校正时，观测被拒绝会返回 `ALG_IMU_EKF_STATUS_ACCELEROMETER_REJECTED`；组合更新时
+仍返回 `ALG_IMU_EKF_STATUS_OK`，并通过 `accelerometer_used` 返回本次是否使用了观测。
 
 ## 参数说明
 
-### `gyro_noise_std_rad_s`
+| 参数 | 作用 |
+| --- | --- |
+| `gravity_m_s2` | 标准重力模长 |
+| `gyro_noise_std_rad_s` | 陀螺仪白噪声标准差 |
+| `gyro_bias_random_walk_std_rad_s2` | X/Y 零偏随机游走标准差 |
+| `accelerometer_direction_noise_std` | 单位重力方向观测噪声 |
+| `accelerometer_lpf_cutoff_hz` | 内置三轴一阶低通截止频率 |
+| `accelerometer_rejection_threshold_g` | 原始模长偏离 1g 的硬拒绝比例 |
+| `chi_square_adaptation_threshold` | 开始自适应降低增益的 NIS 阈值 |
+| `chi_square_rejection_threshold` | 完全拒绝加速度观测的 NIS 阈值 |
+| `maximum_measurement_noise_scale` | 自适应测量噪声最大倍率 |
+| `gyro_bias_fading_factor` | 每次预测对零偏协方差的渐消倍率，必须不小于 1 |
+| `initial_attitude_variance` | 初始四元数状态方差 |
+| `initial_gyro_bias_variance` | 初始 X/Y 零偏方差 |
 
-陀螺仪单次角速度噪声标准差。值越大，预测协方差增长越快，加速度计校正权重相对越高。
+参数建议按“静态标定 → 单位和轴向检查 → 噪声估计 → LPF → NIS 门限 → 零偏跟踪”
+的顺序整定。渐消因子应接近 1，过大会使零偏估计噪声明显增加。
 
-### `gyro_bias_random_walk_std_rad_s2`
+## 输出与诊断
 
-陀螺零偏变化率噪声标准差。值太小会导致零偏跟踪温漂过慢；值太大可能把真实低频运动错误吸收到零偏状态。
+模块提供四元数、欧拉角、X/Y 零偏、校正角速度、机体系重力以及机体/世界系线加速度。
+`AlgImuEkf_GetDiagnostics()` 可一次读取：
 
-### `accelerometer_direction_noise_std`
+- 低通后的三轴加速度；
+- 三维创新残差；
+- 原始加速度模长与相对 1g 偏差；
+- 最近一次 NIS；
+- 最近一次测量噪声倍率；
+- 最近一次加速度观测是否被使用。
 
-归一化加速度方向的标准差。值越小，Roll/Pitch 越相信加速度计，但振动影响也越明显。
+线加速度对姿态误差、加速度零偏、比例误差和机械振动敏感，不应仅靠六轴 IMU 长期
+二次积分得到位置。
 
-### `accelerometer_rejection_threshold_g`
+## 生命周期与并发
 
-加速度模长相对标准重力的最大允许偏差。例如 `0.20F` 表示偏离 1g 超过 20% 时拒绝本次加速度校正。
+`AlgImuEkf_t` 内部的通用 EKF 保存了指向对象自身数组的指针。初始化后不能按值复制、
+按值返回或移动对象；新实例必须重新调用 `AlgImuEkf_Init()`。
 
-### `accelerometer_noise_multiplier`
-
-加速度模长接近拒绝阈值时，测量噪声的放大强度。它使校正权重在硬拒绝前平滑下降。
-
-## 参数整定建议
-
-1. 先完成陀螺仪和加速度计静态标定。
-2. 确认轴向、符号、单位和采样周期。
-3. 静止采集数据，估算陀螺标准差。
-4. 从较大的加速度方向噪声开始，避免振动造成姿态抖动。
-5. 观察 `was_accelerometer_used` 和 `last_accelerometer_deviation_g`。
-6. 最后调整零偏随机游走，使 Roll/Pitch 零偏既能收敛又不追踪真实运动。
-
-## 对象生命周期
-
-`AlgImuEkf_t` 内部的通用 EKF 保存了指向对象自身数组的指针。因此对象初始化后不能通过结构体赋值、按值返回或直接复制到另一个地址。
-
-正确方式：
-
-```c
-static AlgImuEkf_t s_filter;
-AlgImuEkf_Init(&s_filter, &config);
-```
-
-不要这样做：
-
-```c
-AlgImuEkf_t copied_filter = initialized_filter;
-```
-
-需要重新创建实例时，应对新对象重新调用 `AlgImuEkf_Init()`。
-
-## 实时和并发
-
-- 同一个对象只应由一个执行上下文更新。
-- 不要同时在中断和任务中调用同一实例。
-- 推荐在固定周期任务中更新。
-- `delta_time_s` 应使用实际测量周期，而不是写死一个与真实周期不一致的常数。
-- 算法不使用动态内存，也不调用任何操作系统接口。
+同一个实例只应由一个执行上下文更新。不要同时在中断和任务中调用同一实例。算法模块
+不分配内存、不访问硬件，也不调用操作系统接口。
 
 ## 测试覆盖
 
-`Test/alg_imu_ekf_test.c` 覆盖：
-
-- 静止水平姿态。
-- 从加速度计初始化已知 Roll。
-- 恒定 Z 轴角速度的 Yaw 积分。
-- Roll 倾斜误差的重力校正。
-- X 轴陀螺零偏收敛。
-- 动态加速度拒绝。
-- 四元数和欧拉角输出。
-- 重力向量和去重力线加速度。
-- 非法配置和未初始化对象。
+主机测试覆盖静止姿态、加速度初始化、Yaw 积分、倾斜收敛、X 轴零偏收敛、模长拒绝、
+等模长错误方向的卡方拒绝、自适应噪声倍率、低通滤波、渐消因子、Z 轴零偏约束、
+重力/线加速度输出和非法参数。

@@ -1,10 +1,10 @@
-Start testing: Jul 20 17:23 中国标准时间
+Start testing: Jul 20 17:39 中国标准时间
 ----------------------------------------------------------
 1/1 Testing: alg_imu_ekf_tests
 1/1 Test: alg_imu_ekf_tests
 Command: "D:/ACE/general_framework/User/Algorithm/alg_imu_ekf/Test/build-clang/alg_imu_ekf_tests.exe"
 Directory: D:/ACE/general_framework/User/Algorithm/alg_imu_ekf/Test/build-clang
-"alg_imu_ekf_tests" start time: Jul 20 17:23 中国标准时间
+"alg_imu_ekf_tests" start time: Jul 20 17:39 中国标准时间
 Output:
 ----------------------------------------------------------
 All alg_imu_ekf tests passed.
@@ -12,8 +12,8 @@ All alg_imu_ekf tests passed.
 Test time =   0.06 sec
 ----------------------------------------------------------
 Test Passed.
-"alg_imu_ekf_tests" end time: Jul 20 17:23 中国标准时间
+"alg_imu_ekf_tests" end time: Jul 20 17:39 中国标准时间
 "alg_imu_ekf_tests" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-End testing: Jul 20 17:23 中国标准时间
+End testing: Jul 20 17:39 中国标准时间

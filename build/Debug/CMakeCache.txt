@@ -111,6 +111,9 @@ CMAKE_EXE_LINKER_FLAGS_RELEASE:STRING=
 //Flags used by the linker during RELWITHDEBINFO builds.
 CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO:STRING=
 
+//No help, variable specified on the command line.
+CMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE
+
 //Value Computed by CMake.
 CMAKE_FIND_PACKAGE_REDIRECTS_DIR:STATIC=D:/ACE/general_framework/build/Debug/CMakeFiles/pkgRedirects
 
@@ -215,7 +218,7 @@ CMAKE_STRIP:FILEPATH=C:/ST/STM32CubeCLT_1.20.0/GNU-tools-for-STM32/bin/arm-none-
 CMAKE_TAPI:FILEPATH=CMAKE_TAPI-NOTFOUND
 
 //No help, variable specified on the command line.
-CMAKE_TOOLCHAIN_FILE:FILEPATH=D:/ACE/general_framework/cmake/gcc-arm-none-eabi.cmake
+CMAKE_TOOLCHAIN_FILE:UNINITIALIZED=D:/ACE/general_framework/cmake/gcc-arm-none-eabi.cmake
 
 //If this value is on, makefiles will be generated without the
 // .SILENT directive, and all commands will be echoed to the console

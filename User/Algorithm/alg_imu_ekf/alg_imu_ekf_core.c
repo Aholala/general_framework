@@ -187,8 +187,12 @@ AlgImuEkfStatus_t AlgImuEkfConfig_Init(AlgImuEkfConfig_t *config)
         .gyro_noise_std_rad_s = 0.015F,
         .gyro_bias_random_walk_std_rad_s2 = 0.0005F,
         .accelerometer_direction_noise_std = 0.03F,
+        .accelerometer_lpf_cutoff_hz = 30.0F,
         .accelerometer_rejection_threshold_g = 0.20F,
-        .accelerometer_noise_multiplier = 20.0F,
+        .chi_square_adaptation_threshold = 3.0F,
+        .chi_square_rejection_threshold = 11.345F,
+        .maximum_measurement_noise_scale = 20.0F,
+        .gyro_bias_fading_factor = 1.0001F,
         .initial_attitude_variance = 0.10F,
         .initial_gyro_bias_variance = 0.01F};
     return ALG_IMU_EKF_STATUS_OK;
@@ -208,10 +212,19 @@ static AlgImuEkfStatus_t AlgImuEkf_ValidateConfig(
         (config->gyro_bias_random_walk_std_rad_s2 < 0.0F) ||
         !isfinite(config->accelerometer_direction_noise_std) ||
         (config->accelerometer_direction_noise_std <= 0.0F) ||
+        !isfinite(config->accelerometer_lpf_cutoff_hz) ||
+        (config->accelerometer_lpf_cutoff_hz <= 0.0F) ||
         !isfinite(config->accelerometer_rejection_threshold_g) ||
         (config->accelerometer_rejection_threshold_g <= 0.0F) ||
-        !isfinite(config->accelerometer_noise_multiplier) ||
-        (config->accelerometer_noise_multiplier < 0.0F) ||
+        !isfinite(config->chi_square_adaptation_threshold) ||
+        (config->chi_square_adaptation_threshold < 0.0F) ||
+        !isfinite(config->chi_square_rejection_threshold) ||
+        (config->chi_square_rejection_threshold <=
+         config->chi_square_adaptation_threshold) ||
+        !isfinite(config->maximum_measurement_noise_scale) ||
+        (config->maximum_measurement_noise_scale < 1.0F) ||
+        !isfinite(config->gyro_bias_fading_factor) ||
+        (config->gyro_bias_fading_factor < 1.0F) ||
         !isfinite(config->initial_attitude_variance) ||
         (config->initial_attitude_variance < 0.0F) ||
         !isfinite(config->initial_gyro_bias_variance) ||
@@ -230,6 +243,7 @@ AlgImuEkfStatus_t AlgImuEkf_Init(AlgImuEkf_t *self,
     AlgImuEkfStatus_t status;
     size_t index;
     float accelerometer_variance;
+    AlgFilterStatus_t filter_status;
 
     if (self == NULL)
     {
@@ -260,6 +274,18 @@ AlgImuEkfStatus_t AlgImuEkf_Init(AlgImuEkf_t *self,
             (index * ALG_IMU_EKF_MEASUREMENT_DIMENSION) + index] =
             accelerometer_variance;
     }
+    for (index = 0U; index < 3U; ++index)
+    {
+        filter_status = AlgFilterLowPass_Init(
+            &self->accelerometer_filter[index],
+            config->accelerometer_lpf_cutoff_hz);
+        if (filter_status != ALG_FILTER_STATUS_OK)
+        {
+            return ALG_IMU_EKF_STATUS_OUT_OF_RANGE;
+        }
+        self->filtered_accelerometer_m_s2[index] = 0.0F;
+        self->innovation[index] = 0.0F;
+    }
 
     kalman_config = (AlgKalmanExtendedConfig_t){
         .state_dimension = ALG_IMU_EKF_STATE_DIMENSION,
@@ -285,6 +311,8 @@ AlgImuEkfStatus_t AlgImuEkf_Init(AlgImuEkf_t *self,
 
     self->last_accelerometer_norm_m_s2 = config->gravity_m_s2;
     self->last_accelerometer_deviation_g = 0.0F;
+    self->last_normalized_innovation_squared = 0.0F;
+    self->last_measurement_noise_scale = 1.0F;
     self->was_accelerometer_used = false;
     self->is_initialized = true;
     return AlgImuEkfInternal_NormalizeAndProject(self);
@@ -293,8 +321,10 @@ AlgImuEkfStatus_t AlgImuEkf_Init(AlgImuEkf_t *self,
 AlgImuEkfStatus_t AlgImuEkf_Reset(
     AlgImuEkf_t *self,
     const AlgImuEkfQuaternion_t *quaternion,
-    const float gyro_bias_rad_s[3])
+    const float gyro_bias_rad_s[2])
 {
+    size_t index;
+
     if ((self == NULL) || (quaternion == NULL) || (gyro_bias_rad_s == NULL))
     {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
@@ -305,7 +335,7 @@ AlgImuEkfStatus_t AlgImuEkf_Reset(
     }
     if (!isfinite(quaternion->w) || !isfinite(quaternion->x) ||
         !isfinite(quaternion->y) || !isfinite(quaternion->z) ||
-        !AlgImuEkfInternal_IsFiniteArray(gyro_bias_rad_s, 3U))
+        !AlgImuEkfInternal_IsFiniteArray(gyro_bias_rad_s, 2U))
     {
         return ALG_IMU_EKF_STATUS_OUT_OF_RANGE;
     }
@@ -316,8 +346,18 @@ AlgImuEkfStatus_t AlgImuEkf_Reset(
     self->state[3] = quaternion->z;
     self->state[4] = gyro_bias_rad_s[0];
     self->state[5] = gyro_bias_rad_s[1];
-    self->state[6] = gyro_bias_rad_s[2];
     AlgImuEkf_ResetCovariance(self);
+    for (index = 0U; index < 3U; ++index)
+    {
+        (void)AlgFilterLowPass_Init(&self->accelerometer_filter[index],
+                                    self->config.accelerometer_lpf_cutoff_hz);
+        self->filtered_accelerometer_m_s2[index] = 0.0F;
+        self->innovation[index] = 0.0F;
+    }
+    self->last_accelerometer_norm_m_s2 = self->config.gravity_m_s2;
+    self->last_accelerometer_deviation_g = 0.0F;
+    self->last_normalized_innovation_squared = 0.0F;
+    self->last_measurement_noise_scale = 1.0F;
     self->was_accelerometer_used = false;
     return AlgImuEkfInternal_NormalizeAndProject(self);
 }
@@ -332,7 +372,8 @@ AlgImuEkfStatus_t AlgImuEkf_ResetFromAccelerometer(
     float half_roll;
     float half_pitch;
     AlgImuEkfQuaternion_t quaternion;
-    const float zero_bias[3] = {0.0F, 0.0F, 0.0F};
+    const float zero_bias[2] = {0.0F, 0.0F};
+    AlgImuEkfStatus_t status;
 
     if ((self == NULL) || (accelerometer_m_s2 == NULL))
     {
@@ -365,5 +406,19 @@ AlgImuEkfStatus_t AlgImuEkf_ResetFromAccelerometer(
     quaternion.x = sinf(half_roll) * cosf(half_pitch);
     quaternion.y = cosf(half_roll) * sinf(half_pitch);
     quaternion.z = -sinf(half_roll) * sinf(half_pitch);
-    return AlgImuEkf_Reset(self, &quaternion, zero_bias);
+    status = AlgImuEkf_Reset(self, &quaternion, zero_bias);
+    if (status != ALG_IMU_EKF_STATUS_OK)
+    {
+        return status;
+    }
+    (void)AlgFilterLowPass_Reset(&self->accelerometer_filter[0],
+                                 accelerometer_m_s2[0]);
+    (void)AlgFilterLowPass_Reset(&self->accelerometer_filter[1],
+                                 accelerometer_m_s2[1]);
+    (void)AlgFilterLowPass_Reset(&self->accelerometer_filter[2],
+                                 accelerometer_m_s2[2]);
+    self->filtered_accelerometer_m_s2[0] = accelerometer_m_s2[0];
+    self->filtered_accelerometer_m_s2[1] = accelerometer_m_s2[1];
+    self->filtered_accelerometer_m_s2[2] = accelerometer_m_s2[2];
+    return ALG_IMU_EKF_STATUS_OK;
 }

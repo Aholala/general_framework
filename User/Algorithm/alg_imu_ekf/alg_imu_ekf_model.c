@@ -28,7 +28,7 @@ AlgKalmanStatus_t AlgImuEkfInternal_StateFunction(
 
     angular_rate_x = control_input[0] - state[4];
     angular_rate_y = control_input[1] - state[5];
-    angular_rate_z = control_input[2] - state[6];
+    angular_rate_z = control_input[2];
 
     predicted_state[0] = state[0] -
                          (0.5F * delta_time_s *
@@ -52,7 +52,6 @@ AlgKalmanStatus_t AlgImuEkfInternal_StateFunction(
                            (state[2] * angular_rate_x)));
     predicted_state[4] = state[4];
     predicted_state[5] = state[5];
-    predicted_state[6] = state[6];
 
     quaternion_norm = sqrtf((predicted_state[0] * predicted_state[0]) +
                             (predicted_state[1] * predicted_state[1]) +
@@ -95,7 +94,7 @@ AlgKalmanStatus_t AlgImuEkfInternal_StateJacobian(
 
     angular_rate_x = control_input[0] - state[4];
     angular_rate_y = control_input[1] - state[5];
-    angular_rate_z = control_input[2] - state[6];
+    angular_rate_z = control_input[2];
     half_delta_time = 0.5F * delta_time_s;
     for (index = 0U; index <
                          (ALG_IMU_EKF_STATE_DIMENSION *
@@ -125,19 +124,14 @@ AlgKalmanStatus_t AlgImuEkfInternal_StateJacobian(
 
     F(0U, 4U) = half_delta_time * state[1];
     F(0U, 5U) = half_delta_time * state[2];
-    F(0U, 6U) = half_delta_time * state[3];
     F(1U, 4U) = -half_delta_time * state[0];
     F(1U, 5U) = half_delta_time * state[3];
-    F(1U, 6U) = -half_delta_time * state[2];
     F(2U, 4U) = -half_delta_time * state[3];
     F(2U, 5U) = -half_delta_time * state[0];
-    F(2U, 6U) = half_delta_time * state[1];
     F(3U, 4U) = half_delta_time * state[2];
     F(3U, 5U) = -half_delta_time * state[1];
-    F(3U, 6U) = -half_delta_time * state[0];
     F(4U, 4U) = 1.0F;
     F(5U, 5U) = 1.0F;
-    F(6U, 6U) = 1.0F;
 #undef F
 
     return ALG_KALMAN_STATUS_OK;

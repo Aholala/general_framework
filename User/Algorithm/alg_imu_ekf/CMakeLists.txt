@@ -24,4 +24,4 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     )
 endif()
 
-target_link_libraries(alg_imu_ekf PUBLIC alg_kalman m)
+target_link_libraries(alg_imu_ekf PUBLIC alg_filter alg_kalman m)
