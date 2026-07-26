@@ -5,9 +5,8 @@
 
 #define ALG_KALMAN_SINGULAR_THRESHOLD (1.0e-12F)
 
-static AlgKalmanStatus_t AlgKalmanInternal_Invert(float *matrix,
-                                                  float *inverse,
-                                                  size_t dimension)
+static alg_kalman_status_t alg_kalman_internal_invert(float *matrix, float *inverse,
+                                                      size_t dimension)
 {
     size_t row;
     size_t column;
@@ -41,8 +40,7 @@ static AlgKalmanStatus_t AlgKalmanInternal_Invert(float *matrix,
             }
         }
 
-        if (!isfinite(pivot_magnitude) ||
-            (pivot_magnitude <= ALG_KALMAN_SINGULAR_THRESHOLD))
+        if (!isfinite(pivot_magnitude) || (pivot_magnitude <= ALG_KALMAN_SINGULAR_THRESHOLD))
         {
             return ALG_KALMAN_STATUS_SINGULAR_MATRIX;
         }
@@ -52,8 +50,7 @@ static AlgKalmanStatus_t AlgKalmanInternal_Invert(float *matrix,
             for (element = 0U; element < dimension; ++element)
             {
                 temporary = matrix[(column * dimension) + element];
-                matrix[(column * dimension) + element] =
-                    matrix[(pivot_row * dimension) + element];
+                matrix[(column * dimension) + element] = matrix[(pivot_row * dimension) + element];
                 matrix[(pivot_row * dimension) + element] = temporary;
 
                 temporary = inverse[(column * dimension) + element];
@@ -88,12 +85,12 @@ static AlgKalmanStatus_t AlgKalmanInternal_Invert(float *matrix,
         }
     }
 
-    return AlgKalmanInternal_IsFiniteArray(inverse, dimension * dimension)
+    return alg_kalman_internal_is_finite_array(inverse, dimension * dimension)
                ? ALG_KALMAN_STATUS_OK
                : ALG_KALMAN_STATUS_NUMERICAL_ERROR;
 }
 
-bool AlgKalmanInternal_IsFiniteArray(const float *values, size_t value_count)
+bool alg_kalman_internal_is_finite_array(const float *values, size_t value_count)
 {
     size_t index;
 
@@ -112,8 +109,7 @@ bool AlgKalmanInternal_IsFiniteArray(const float *values, size_t value_count)
     return true;
 }
 
-bool AlgKalmanInternal_HasNonnegativeDiagonal(const float *matrix,
-                                              size_t dimension)
+bool alg_kalman_internal_has_nonnegative_diagonal(const float *matrix, size_t dimension)
 {
     size_t index;
 
@@ -132,9 +128,7 @@ bool AlgKalmanInternal_HasNonnegativeDiagonal(const float *matrix,
     return true;
 }
 
-void AlgKalmanInternal_Copy(float *destination,
-                            const float *source,
-                            size_t value_count)
+void alg_kalman_internal_copy(float *destination, const float *source, size_t value_count)
 {
     size_t index;
 
@@ -144,12 +138,8 @@ void AlgKalmanInternal_Copy(float *destination,
     }
 }
 
-void AlgKalmanInternal_Multiply(const float *left,
-                                size_t left_rows,
-                                size_t shared_dimension,
-                                const float *right,
-                                size_t right_columns,
-                                float *output)
+void alg_kalman_internal_multiply(const float *left, size_t left_rows, size_t shared_dimension,
+                                  const float *right, size_t right_columns, float *output)
 {
     size_t row;
     size_t column;
@@ -171,12 +161,9 @@ void AlgKalmanInternal_Multiply(const float *left,
     }
 }
 
-void AlgKalmanInternal_MultiplyRightTranspose(const float *left,
-                                              size_t left_rows,
-                                              size_t shared_dimension,
-                                              const float *right,
-                                              size_t right_rows,
-                                              float *output)
+void alg_kalman_internal_multiply_right_transpose(const float *left, size_t left_rows,
+                                                  size_t shared_dimension, const float *right,
+                                                  size_t right_rows, float *output)
 {
     size_t left_row;
     size_t right_row;
@@ -198,7 +185,7 @@ void AlgKalmanInternal_MultiplyRightTranspose(const float *left,
     }
 }
 
-void AlgKalmanInternal_Symmetrize(float *matrix, size_t dimension)
+void alg_kalman_internal_symmetrize(float *matrix, size_t dimension)
 {
     size_t row;
     size_t column;
@@ -208,31 +195,25 @@ void AlgKalmanInternal_Symmetrize(float *matrix, size_t dimension)
     {
         for (column = row + 1U; column < dimension; ++column)
         {
-            average = 0.5F * (matrix[(row * dimension) + column] +
-                              matrix[(column * dimension) + row]);
+            average =
+                0.5F * (matrix[(row * dimension) + column] + matrix[(column * dimension) + row]);
             matrix[(row * dimension) + column] = average;
             matrix[(column * dimension) + row] = average;
         }
     }
 }
 
-AlgKalmanStatus_t AlgKalmanInternal_Correct(float *state,
-                                            float *covariance,
-                                            size_t state_dimension,
-                                            const float *measurement_matrix,
-                                            const float *measurement_noise,
-                                            const float *measurement,
-                                            const float *predicted_measurement,
-                                            size_t measurement_dimension,
-                                            float *workspace,
-                                            size_t workspace_size)
+alg_kalman_status_t
+alg_kalman_internal_correct(float *state, float *covariance, size_t state_dimension,
+                            const float *measurement_matrix, const float *measurement_noise,
+                            const float *measurement, const float *predicted_measurement,
+                            size_t measurement_dimension, float *workspace, size_t workspace_size)
 {
     const size_t state_square = state_dimension * state_dimension;
     const size_t measurement_square = measurement_dimension * measurement_dimension;
     const size_t cross_size = state_dimension * measurement_dimension;
-    const size_t required_size = state_dimension + (3U * state_square) +
-                                 (3U * cross_size) + measurement_dimension +
-                                 (2U * measurement_square);
+    const size_t required_size = state_dimension + (3U * state_square) + (3U * cross_size) +
+                                 measurement_dimension + (2U * measurement_square);
     float *new_state;
     float *innovation;
     float *measurement_covariance_product;
@@ -246,7 +227,7 @@ AlgKalmanStatus_t AlgKalmanInternal_Correct(float *state,
     size_t state_index;
     size_t measurement_index;
     size_t index;
-    AlgKalmanStatus_t status;
+    alg_kalman_status_t status;
 
     if (workspace_size < required_size)
     {
@@ -264,62 +245,47 @@ AlgKalmanStatus_t AlgKalmanInternal_Correct(float *state,
     temporary_state_square = identity_minus_gain_measurement + state_square;
     new_covariance = temporary_state_square + state_square;
 
-    for (measurement_index = 0U; measurement_index < measurement_dimension;
-         ++measurement_index)
+    for (measurement_index = 0U; measurement_index < measurement_dimension; ++measurement_index)
     {
         innovation[measurement_index] =
             measurement[measurement_index] - predicted_measurement[measurement_index];
     }
 
-    AlgKalmanInternal_Multiply(measurement_matrix,
-                               measurement_dimension,
-                               state_dimension,
-                               covariance,
-                               state_dimension,
-                               measurement_covariance_product);
-    AlgKalmanInternal_MultiplyRightTranspose(measurement_covariance_product,
-                                             measurement_dimension,
-                                             state_dimension,
-                                             measurement_matrix,
-                                             measurement_dimension,
-                                             innovation_covariance);
+    alg_kalman_internal_multiply(measurement_matrix, measurement_dimension, state_dimension,
+                                 covariance, state_dimension, measurement_covariance_product);
+    alg_kalman_internal_multiply_right_transpose(
+        measurement_covariance_product, measurement_dimension, state_dimension, measurement_matrix,
+        measurement_dimension, innovation_covariance);
     for (index = 0U; index < measurement_square; ++index)
     {
         innovation_covariance[index] += measurement_noise[index];
     }
 
-    AlgKalmanInternal_Copy(new_state, state, state_dimension);
+    alg_kalman_internal_copy(new_state, state, state_dimension);
     for (state_index = 0U; state_index < state_dimension; ++state_index)
     {
-        for (measurement_index = 0U; measurement_index < measurement_dimension;
-             ++measurement_index)
+        for (measurement_index = 0U; measurement_index < measurement_dimension; ++measurement_index)
         {
-            covariance_measurement_transpose[
-                (state_index * measurement_dimension) + measurement_index] =
-                measurement_covariance_product[
-                    (measurement_index * state_dimension) + state_index];
+            covariance_measurement_transpose[(state_index * measurement_dimension) +
+                                             measurement_index] =
+                measurement_covariance_product[(measurement_index * state_dimension) + state_index];
         }
     }
 
-    status = AlgKalmanInternal_Invert(innovation_covariance,
-                                      innovation_covariance_inverse,
-                                      measurement_dimension);
+    status = alg_kalman_internal_invert(innovation_covariance, innovation_covariance_inverse,
+                                        measurement_dimension);
     if (status != ALG_KALMAN_STATUS_OK)
     {
         return status;
     }
 
-    AlgKalmanInternal_Multiply(covariance_measurement_transpose,
-                               state_dimension,
-                               measurement_dimension,
-                               innovation_covariance_inverse,
-                               measurement_dimension,
-                               gain);
+    alg_kalman_internal_multiply(covariance_measurement_transpose, state_dimension,
+                                 measurement_dimension, innovation_covariance_inverse,
+                                 measurement_dimension, gain);
 
     for (state_index = 0U; state_index < state_dimension; ++state_index)
     {
-        for (measurement_index = 0U; measurement_index < measurement_dimension;
-             ++measurement_index)
+        for (measurement_index = 0U; measurement_index < measurement_dimension; ++measurement_index)
         {
             new_state[state_index] +=
                 gain[(state_index * measurement_dimension) + measurement_index] *
@@ -327,61 +293,41 @@ AlgKalmanStatus_t AlgKalmanInternal_Correct(float *state,
         }
     }
 
-    AlgKalmanInternal_Multiply(gain,
-                               state_dimension,
-                               measurement_dimension,
-                               measurement_matrix,
-                               state_dimension,
-                               identity_minus_gain_measurement);
+    alg_kalman_internal_multiply(gain, state_dimension, measurement_dimension, measurement_matrix,
+                                 state_dimension, identity_minus_gain_measurement);
     for (index = 0U; index < state_square; ++index)
     {
-        identity_minus_gain_measurement[index] =
-            -identity_minus_gain_measurement[index];
+        identity_minus_gain_measurement[index] = -identity_minus_gain_measurement[index];
     }
     for (state_index = 0U; state_index < state_dimension; ++state_index)
     {
-        identity_minus_gain_measurement[(state_index * state_dimension) + state_index] +=
-            1.0F;
+        identity_minus_gain_measurement[(state_index * state_dimension) + state_index] += 1.0F;
     }
 
-    AlgKalmanInternal_Multiply(identity_minus_gain_measurement,
-                               state_dimension,
-                               state_dimension,
-                               covariance,
-                               state_dimension,
-                               temporary_state_square);
-    AlgKalmanInternal_MultiplyRightTranspose(temporary_state_square,
-                                             state_dimension,
-                                             state_dimension,
-                                             identity_minus_gain_measurement,
-                                             state_dimension,
-                                             new_covariance);
+    alg_kalman_internal_multiply(identity_minus_gain_measurement, state_dimension, state_dimension,
+                                 covariance, state_dimension, temporary_state_square);
+    alg_kalman_internal_multiply_right_transpose(temporary_state_square, state_dimension,
+                                                 state_dimension, identity_minus_gain_measurement,
+                                                 state_dimension, new_covariance);
 
-    AlgKalmanInternal_Multiply(gain,
-                               state_dimension,
-                               measurement_dimension,
-                               measurement_noise,
-                               measurement_dimension,
-                               covariance_measurement_transpose);
-    AlgKalmanInternal_MultiplyRightTranspose(covariance_measurement_transpose,
-                                             state_dimension,
-                                             measurement_dimension,
-                                             gain,
-                                             state_dimension,
-                                             temporary_state_square);
+    alg_kalman_internal_multiply(gain, state_dimension, measurement_dimension, measurement_noise,
+                                 measurement_dimension, covariance_measurement_transpose);
+    alg_kalman_internal_multiply_right_transpose(covariance_measurement_transpose, state_dimension,
+                                                 measurement_dimension, gain, state_dimension,
+                                                 temporary_state_square);
     for (index = 0U; index < state_square; ++index)
     {
         new_covariance[index] += temporary_state_square[index];
     }
 
-    AlgKalmanInternal_Symmetrize(new_covariance, state_dimension);
-    if (!AlgKalmanInternal_IsFiniteArray(new_state, state_dimension) ||
-        !AlgKalmanInternal_IsFiniteArray(new_covariance, state_square))
+    alg_kalman_internal_symmetrize(new_covariance, state_dimension);
+    if (!alg_kalman_internal_is_finite_array(new_state, state_dimension) ||
+        !alg_kalman_internal_is_finite_array(new_covariance, state_square))
     {
         return ALG_KALMAN_STATUS_NUMERICAL_ERROR;
     }
 
-    AlgKalmanInternal_Copy(state, new_state, state_dimension);
-    AlgKalmanInternal_Copy(covariance, new_covariance, state_square);
+    alg_kalman_internal_copy(state, new_state, state_dimension);
+    alg_kalman_internal_copy(covariance, new_covariance, state_square);
     return ALG_KALMAN_STATUS_OK;
 }

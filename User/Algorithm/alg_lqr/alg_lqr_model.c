@@ -3,16 +3,12 @@
 #include <math.h>
 #include <stddef.h>
 
-AlgLqrStatus_t AlgLqrDiscretize_Tustin(
-    const float *continuous_state_matrix,
-    const float *continuous_control_matrix,
-    size_t state_dimension,
-    size_t control_dimension,
-    float delta_time_s,
-    float *discrete_state_matrix,
-    float *discrete_control_matrix,
-    float *workspace,
-    size_t workspace_size)
+alg_lqr_status_t alg_lqr_discretize_tustin(const float *continuous_state_matrix,
+                                           const float *continuous_control_matrix,
+                                           size_t state_dimension, size_t control_dimension,
+                                           float delta_time_s, float *discrete_state_matrix,
+                                           float *discrete_control_matrix, float *workspace,
+                                           size_t workspace_size)
 {
     size_t state_square;
     size_t cross_size;
@@ -22,30 +18,27 @@ AlgLqrStatus_t AlgLqrDiscretize_Tustin(
     float *left_inverse;
     float *right_matrix;
     float *scaled_control;
-    AlgLqrStatus_t status;
+    alg_lqr_status_t status;
 
-    if ((continuous_state_matrix == NULL) ||
-        (continuous_control_matrix == NULL) ||
-        (discrete_state_matrix == NULL) ||
-        (discrete_control_matrix == NULL) || (workspace == NULL))
+    if ((continuous_state_matrix == NULL) || (continuous_control_matrix == NULL) ||
+        (discrete_state_matrix == NULL) || (discrete_control_matrix == NULL) || (workspace == NULL))
     {
         return ALG_LQR_STATUS_INVALID_ARGUMENT;
     }
-    if ((state_dimension == 0U) || (control_dimension == 0U) ||
-        !isfinite(delta_time_s) || (delta_time_s <= 0.0F))
+    if ((state_dimension == 0U) || (control_dimension == 0U) || !isfinite(delta_time_s) ||
+        (delta_time_s <= 0.0F))
     {
         return ALG_LQR_STATUS_OUT_OF_RANGE;
     }
-    if (workspace_size <
-        ALG_LQR_DISCRETIZE_WORKSPACE_SIZE(state_dimension, control_dimension))
+    if (workspace_size < ALG_LQR_DISCRETIZE_WORKSPACE_SIZE(state_dimension, control_dimension))
     {
         return ALG_LQR_STATUS_INSUFFICIENT_WORKSPACE;
     }
 
     state_square = state_dimension * state_dimension;
     cross_size = state_dimension * control_dimension;
-    if (!AlgLqrInternal_IsFiniteArray(continuous_state_matrix, state_square) ||
-        !AlgLqrInternal_IsFiniteArray(continuous_control_matrix, cross_size))
+    if (!alg_lqr_internal_is_finite_array(continuous_state_matrix, state_square) ||
+        !alg_lqr_internal_is_finite_array(continuous_control_matrix, cross_size))
     {
         return ALG_LQR_STATUS_OUT_OF_RANGE;
     }
@@ -61,8 +54,7 @@ AlgLqrStatus_t AlgLqrDiscretize_Tustin(
         {
             const size_t index = (row * state_dimension) + column;
             const float identity = (row == column) ? 1.0F : 0.0F;
-            const float scaled_state =
-                0.5F * delta_time_s * continuous_state_matrix[index];
+            const float scaled_state = 0.5F * delta_time_s * continuous_state_matrix[index];
             left_matrix[index] = identity - scaled_state;
             right_matrix[index] = identity + scaled_state;
         }
@@ -72,65 +64,44 @@ AlgLqrStatus_t AlgLqrDiscretize_Tustin(
         scaled_control[row] = delta_time_s * continuous_control_matrix[row];
     }
 
-    status = AlgLqrInternal_Invert(left_matrix,
-                                   left_inverse,
-                                   state_dimension);
+    status = alg_lqr_internal_invert(left_matrix, left_inverse, state_dimension);
     if (status != ALG_LQR_STATUS_OK)
     {
         return status;
     }
-    AlgLqrInternal_Multiply(left_inverse,
-                            state_dimension,
-                            state_dimension,
-                            right_matrix,
-                            state_dimension,
-                            discrete_state_matrix);
-    AlgLqrInternal_Multiply(left_inverse,
-                            state_dimension,
-                            state_dimension,
-                            scaled_control,
-                            control_dimension,
-                            discrete_control_matrix);
+    alg_lqr_internal_multiply(left_inverse, state_dimension, state_dimension, right_matrix,
+                              state_dimension, discrete_state_matrix);
+    alg_lqr_internal_multiply(left_inverse, state_dimension, state_dimension, scaled_control,
+                              control_dimension, discrete_control_matrix);
 
-    return (AlgLqrInternal_IsFiniteArray(discrete_state_matrix, state_square) &&
-            AlgLqrInternal_IsFiniteArray(discrete_control_matrix, cross_size))
+    return (alg_lqr_internal_is_finite_array(discrete_state_matrix, state_square) &&
+            alg_lqr_internal_is_finite_array(discrete_control_matrix, cross_size))
                ? ALG_LQR_STATUS_OK
                : ALG_LQR_STATUS_NUMERICAL_ERROR;
 }
 
-AlgLqrStatus_t AlgLqrLqi_BuildAugmentedModel(
-    const float *state_matrix,
-    const float *control_matrix,
-    const float *output_matrix,
-    size_t state_dimension,
-    size_t control_dimension,
-    size_t integral_dimension,
-    float delta_time_s,
-    float *augmented_state_matrix,
-    float *augmented_control_matrix)
+alg_lqr_status_t alg_lqr_lqi_build_augmented_model(
+    const float *state_matrix, const float *control_matrix, const float *output_matrix,
+    size_t state_dimension, size_t control_dimension, size_t integral_dimension, float delta_time_s,
+    float *augmented_state_matrix, float *augmented_control_matrix)
 {
     size_t augmented_dimension;
     size_t row;
     size_t column;
 
-    if ((state_matrix == NULL) || (control_matrix == NULL) ||
-        (output_matrix == NULL) || (augmented_state_matrix == NULL) ||
-        (augmented_control_matrix == NULL))
+    if ((state_matrix == NULL) || (control_matrix == NULL) || (output_matrix == NULL) ||
+        (augmented_state_matrix == NULL) || (augmented_control_matrix == NULL))
     {
         return ALG_LQR_STATUS_INVALID_ARGUMENT;
     }
-    if ((state_dimension == 0U) || (control_dimension == 0U) ||
-        (integral_dimension == 0U) || !isfinite(delta_time_s) ||
-        (delta_time_s <= 0.0F))
+    if ((state_dimension == 0U) || (control_dimension == 0U) || (integral_dimension == 0U) ||
+        !isfinite(delta_time_s) || (delta_time_s <= 0.0F))
     {
         return ALG_LQR_STATUS_OUT_OF_RANGE;
     }
-    if (!AlgLqrInternal_IsFiniteArray(state_matrix,
-                                      state_dimension * state_dimension) ||
-        !AlgLqrInternal_IsFiniteArray(control_matrix,
-                                      state_dimension * control_dimension) ||
-        !AlgLqrInternal_IsFiniteArray(output_matrix,
-                                      integral_dimension * state_dimension))
+    if (!alg_lqr_internal_is_finite_array(state_matrix, state_dimension * state_dimension) ||
+        !alg_lqr_internal_is_finite_array(control_matrix, state_dimension * control_dimension) ||
+        !alg_lqr_internal_is_finite_array(output_matrix, integral_dimension * state_dimension))
     {
         return ALG_LQR_STATUS_OUT_OF_RANGE;
     }
@@ -166,14 +137,11 @@ AlgLqrStatus_t AlgLqrLqi_BuildAugmentedModel(
     {
         for (column = 0U; column < state_dimension; ++column)
         {
-            augmented_state_matrix[
-                ((state_dimension + row) * augmented_dimension) + column] =
-                -delta_time_s *
-                output_matrix[(row * state_dimension) + column];
+            augmented_state_matrix[((state_dimension + row) * augmented_dimension) + column] =
+                -delta_time_s * output_matrix[(row * state_dimension) + column];
         }
-        augmented_state_matrix[
-            ((state_dimension + row) * augmented_dimension) +
-            state_dimension + row] = 1.0F;
+        augmented_state_matrix[((state_dimension + row) * augmented_dimension) + state_dimension +
+                               row] = 1.0F;
     }
     return ALG_LQR_STATUS_OK;
 }

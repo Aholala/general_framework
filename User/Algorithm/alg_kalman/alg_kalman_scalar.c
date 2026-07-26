@@ -3,95 +3,88 @@
 #include <math.h>
 #include <stddef.h>
 
-static bool AlgKalmanScalar_IsNonnegativeFinite(float value)
+static bool alg_kalman_scalar_is_nonnegative_finite(float value)
 {
     return isfinite(value) && (value >= 0.0F);
 }
 
-AlgKalmanStatus_t AlgKalmanScalar_Init(AlgKalmanScalar_t *self,
-                                       float process_noise,
-                                       float measurement_noise,
-                                       float initial_estimate,
-                                       float initial_covariance)
+alg_kalman_status_t alg_kalman_scalar_init(alg_kalman_scalar_t *me, float process_noise,
+                                           float measurement_noise, float initial_estimate,
+                                           float initial_covariance)
 {
-    if (self == NULL)
+    if (me == NULL)
     {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
     }
 
-    self->is_initialized = false;
-    if (!AlgKalmanScalar_IsNonnegativeFinite(process_noise) ||
-        !isfinite(measurement_noise) || (measurement_noise <= 0.0F) ||
-        !isfinite(initial_estimate) ||
-        !AlgKalmanScalar_IsNonnegativeFinite(initial_covariance))
+    me->is_initialized = false;
+    if (!alg_kalman_scalar_is_nonnegative_finite(process_noise) || !isfinite(measurement_noise) ||
+        (measurement_noise <= 0.0F) || !isfinite(initial_estimate) ||
+        !alg_kalman_scalar_is_nonnegative_finite(initial_covariance))
     {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
     }
 
-    self->process_noise = process_noise;
-    self->measurement_noise = measurement_noise;
-    self->estimate = initial_estimate;
-    self->covariance = initial_covariance;
-    self->gain = 0.0F;
-    self->is_initialized = true;
+    me->process_noise = process_noise;
+    me->measurement_noise = measurement_noise;
+    me->estimate = initial_estimate;
+    me->covariance = initial_covariance;
+    me->gain = 0.0F;
+    me->is_initialized = true;
     return ALG_KALMAN_STATUS_OK;
 }
 
-AlgKalmanStatus_t AlgKalmanScalar_SetNoise(AlgKalmanScalar_t *self,
-                                           float process_noise,
-                                           float measurement_noise)
+alg_kalman_status_t alg_kalman_scalar_set_noise(alg_kalman_scalar_t *me, float process_noise,
+                                                float measurement_noise)
 {
-    if (self == NULL)
+    if (me == NULL)
     {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
     }
-    if (!self->is_initialized)
+    if (!me->is_initialized)
     {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
     }
-    if (!AlgKalmanScalar_IsNonnegativeFinite(process_noise) ||
-        !isfinite(measurement_noise) || (measurement_noise <= 0.0F))
+    if (!alg_kalman_scalar_is_nonnegative_finite(process_noise) || !isfinite(measurement_noise) ||
+        (measurement_noise <= 0.0F))
     {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
     }
 
-    self->process_noise = process_noise;
-    self->measurement_noise = measurement_noise;
+    me->process_noise = process_noise;
+    me->measurement_noise = measurement_noise;
     return ALG_KALMAN_STATUS_OK;
 }
 
-AlgKalmanStatus_t AlgKalmanScalar_Reset(AlgKalmanScalar_t *self,
-                                        float initial_estimate,
-                                        float initial_covariance)
+alg_kalman_status_t alg_kalman_scalar_reset(alg_kalman_scalar_t *me, float initial_estimate,
+                                            float initial_covariance)
 {
-    if (self == NULL)
+    if (me == NULL)
     {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
     }
-    if (!self->is_initialized)
+    if (!me->is_initialized)
     {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
     }
-    if (!isfinite(initial_estimate) ||
-        !AlgKalmanScalar_IsNonnegativeFinite(initial_covariance))
+    if (!isfinite(initial_estimate) || !alg_kalman_scalar_is_nonnegative_finite(initial_covariance))
     {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
     }
 
-    self->estimate = initial_estimate;
-    self->covariance = initial_covariance;
-    self->gain = 0.0F;
+    me->estimate = initial_estimate;
+    me->covariance = initial_covariance;
+    me->gain = 0.0F;
     return ALG_KALMAN_STATUS_OK;
 }
 
-AlgKalmanStatus_t AlgKalmanScalar_Predict(AlgKalmanScalar_t *self,
-                                          float state_delta)
+alg_kalman_status_t alg_kalman_scalar_predict(alg_kalman_scalar_t *me, float state_delta)
 {
-    if (self == NULL)
+    if (me == NULL)
     {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
     }
-    if (!self->is_initialized)
+    if (!me->is_initialized)
     {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
     }
@@ -100,27 +93,25 @@ AlgKalmanStatus_t AlgKalmanScalar_Predict(AlgKalmanScalar_t *self,
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
     }
 
-    self->estimate += state_delta;
-    self->covariance += self->process_noise;
-    if (!isfinite(self->estimate) ||
-        !AlgKalmanScalar_IsNonnegativeFinite(self->covariance))
+    me->estimate += state_delta;
+    me->covariance += me->process_noise;
+    if (!isfinite(me->estimate) || !alg_kalman_scalar_is_nonnegative_finite(me->covariance))
     {
         return ALG_KALMAN_STATUS_NUMERICAL_ERROR;
     }
     return ALG_KALMAN_STATUS_OK;
 }
 
-AlgKalmanStatus_t AlgKalmanScalar_Correct(AlgKalmanScalar_t *self,
-                                          float measurement,
-                                          float *output)
+alg_kalman_status_t alg_kalman_scalar_correct(alg_kalman_scalar_t *me, float measurement,
+                                              float *output)
 {
     float innovation_covariance;
 
-    if ((self == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL))
     {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
     }
-    if (!self->is_initialized)
+    if (!me->is_initialized)
     {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
     }
@@ -129,36 +120,34 @@ AlgKalmanStatus_t AlgKalmanScalar_Correct(AlgKalmanScalar_t *self,
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
     }
 
-    innovation_covariance = self->covariance + self->measurement_noise;
+    innovation_covariance = me->covariance + me->measurement_noise;
     if (!isfinite(innovation_covariance) || (innovation_covariance <= 0.0F))
     {
         return ALG_KALMAN_STATUS_NUMERICAL_ERROR;
     }
 
-    self->gain = self->covariance / innovation_covariance;
-    self->estimate += self->gain * (measurement - self->estimate);
-    self->covariance = (1.0F - self->gain) * self->covariance;
-    if (!isfinite(self->estimate) ||
-        !AlgKalmanScalar_IsNonnegativeFinite(self->covariance))
+    me->gain = me->covariance / innovation_covariance;
+    me->estimate += me->gain * (measurement - me->estimate);
+    me->covariance = (1.0F - me->gain) * me->covariance;
+    if (!isfinite(me->estimate) || !alg_kalman_scalar_is_nonnegative_finite(me->covariance))
     {
         return ALG_KALMAN_STATUS_NUMERICAL_ERROR;
     }
 
-    *output = self->estimate;
+    *output = me->estimate;
     return ALG_KALMAN_STATUS_OK;
 }
 
-AlgKalmanStatus_t AlgKalmanScalar_Update(AlgKalmanScalar_t *self,
-                                         float measurement,
-                                         float *output)
+alg_kalman_status_t alg_kalman_scalar_update(alg_kalman_scalar_t *me, float measurement,
+                                             float *output)
 {
-    AlgKalmanStatus_t status;
+    alg_kalman_status_t status;
 
-    if ((self == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL))
     {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
     }
-    if (!self->is_initialized)
+    if (!me->is_initialized)
     {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
     }
@@ -167,11 +156,11 @@ AlgKalmanStatus_t AlgKalmanScalar_Update(AlgKalmanScalar_t *self,
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
     }
 
-    status = AlgKalmanScalar_Predict(self, 0.0F);
+    status = alg_kalman_scalar_predict(me, 0.0F);
 
     if (status != ALG_KALMAN_STATUS_OK)
     {
         return status;
     }
-    return AlgKalmanScalar_Correct(self, measurement, output);
+    return alg_kalman_scalar_correct(me, measurement, output);
 }

@@ -1,0 +1,348 @@
+{
+	"archive" : {},
+	"artifacts" : 
+	[
+		{
+			"path" : "libbsp.a"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"target_compile_options",
+			"framework_configure_library",
+			"target_include_directories",
+			"target_compile_features"
+		],
+		"files" : 
+		[
+			"CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 226,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 247,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 22,
+				"parent" : 2
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 246,
+				"parent" : 0
+			},
+			{
+				"command" : 4,
+				"file" : 0,
+				"line" : 20,
+				"parent" : 2
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : " -mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard  -Wall -fdata-sections -ffunction-sections -O0 -g3 -std=gnu11"
+				},
+				{
+					"backtrace" : 3,
+					"fragment" : "-Wall"
+				},
+				{
+					"backtrace" : 3,
+					"fragment" : "-Wextra"
+				},
+				{
+					"backtrace" : 3,
+					"fragment" : "-Wshadow"
+				},
+				{
+					"backtrace" : 3,
+					"fragment" : "-Wconversion"
+				},
+				{
+					"backtrace" : 3,
+					"fragment" : "-Wdouble-promotion"
+				},
+				{
+					"backtrace" : 3,
+					"fragment" : "-Wundef"
+				},
+				{
+					"backtrace" : 3,
+					"fragment" : "-Werror=return-type"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_common"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_gpio"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_exti"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_usart"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_spi"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_i2c"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_can"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_fdcan"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_timer"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_pwm"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_encoder"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_adc"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_dac"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_usb_vcp"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_watchdog"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_timebase"
+				}
+			],
+			"language" : "C",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					5
+				],
+				"standard" : "11"
+			},
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17
+			]
+		}
+	],
+	"id" : "bsp::@6890427a1f51a3e7e1df",
+	"name" : "bsp",
+	"nameOnDisk" : "libbsp.a",
+	"paths" : 
+	{
+		"build" : ".",
+		"source" : "."
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_common/bsp_common.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_gpio/bsp_gpio.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_exti/bsp_exti.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_usart/bsp_usart.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_spi/bsp_spi.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_i2c/bsp_i2c.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_can/bsp_can.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_can/bsp_can_dispatcher.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_fdcan/bsp_fdcan.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_fdcan/bsp_fdcan_classic_adapter.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_timer/bsp_timer.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_pwm/bsp_pwm.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_encoder/bsp_encoder.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_adc/bsp_adc.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_dac/bsp_dac.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_usb_vcp/bsp_usb_vcp.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_watchdog/bsp_watchdog.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Bsp/bsp_timebase/bsp_timebase.c",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}

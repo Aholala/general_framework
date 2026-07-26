@@ -1,0 +1,514 @@
+{
+	"archive" : {},
+	"artifacts" : 
+	[
+		{
+			"path" : "libmodule.a"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"target_link_libraries",
+			"target_compile_options",
+			"framework_configure_library",
+			"target_include_directories",
+			"target_compile_features"
+		],
+		"files" : 
+		[
+			"CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 278,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 304,
+				"parent" : 0
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 305,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 22,
+				"parent" : 3
+			},
+			{
+				"command" : 4,
+				"file" : 0,
+				"line" : 303,
+				"parent" : 0
+			},
+			{
+				"command" : 5,
+				"file" : 0,
+				"line" : 20,
+				"parent" : 3
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : " -mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard  -Wall -fdata-sections -ffunction-sections -O0 -g3 -std=gnu11"
+				},
+				{
+					"backtrace" : 4,
+					"fragment" : "-Wall"
+				},
+				{
+					"backtrace" : 4,
+					"fragment" : "-Wextra"
+				},
+				{
+					"backtrace" : 4,
+					"fragment" : "-Wshadow"
+				},
+				{
+					"backtrace" : 4,
+					"fragment" : "-Wconversion"
+				},
+				{
+					"backtrace" : 4,
+					"fragment" : "-Wdouble-promotion"
+				},
+				{
+					"backtrace" : 4,
+					"fragment" : "-Wundef"
+				},
+				{
+					"backtrace" : 4,
+					"fragment" : "-Werror=return-type"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_device"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_motor"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_motor_health"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_dji_motor"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_m2006"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_m3508"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_gm6020"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_dm_motor"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_dm4310"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_bmi088"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_dr16"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_swerve"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_robot_link"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_vision"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_shooter"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_buzzer"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_bluetooth"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_oled"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_ws2812"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_nrf24l01"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_referee"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "D:/ACE/general_framework/User/Module/module_servo"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_common"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_gpio"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_exti"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_usart"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_spi"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_i2c"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_can"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_fdcan"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_timer"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_pwm"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_encoder"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_adc"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_dac"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_usb_vcp"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_watchdog"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Bsp/bsp_timebase"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Algorithm/alg_pid"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Algorithm/alg_swerve"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "D:/ACE/general_framework/User/Algorithm/alg_chassis"
+				}
+			],
+			"language" : "C",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					6
+				],
+				"standard" : "11"
+			},
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 2,
+			"id" : "alg_pid::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "alg_chassis::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "alg_swerve::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "bsp::@6890427a1f51a3e7e1df"
+		}
+	],
+	"id" : "module::@6890427a1f51a3e7e1df",
+	"name" : "module",
+	"nameOnDisk" : "libmodule.a",
+	"paths" : 
+	{
+		"build" : ".",
+		"source" : "."
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_device/module_device.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_motor/module_motor.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_motor_health/module_motor_health.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_dji_motor/module_dji_motor.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_m2006/module_m2006.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_m3508/module_m3508.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_gm6020/module_gm6020.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_dm_motor/module_dm_motor.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_dm4310/module_dm4310.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_bmi088/module_bmi088.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_dr16/module_dr16.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_swerve/module_swerve.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_robot_link/module_robot_link.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_vision/module_vision.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_shooter/module_shooter.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_buzzer/module_buzzer.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_bluetooth/module_bluetooth.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_oled/module_oled.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_ws2812/module_ws2812.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_nrf24l01/module_nrf24l01.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_referee/module_referee.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_referee/module_referee_crc.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "User/Module/module_servo/module_servo.c",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}

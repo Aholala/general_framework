@@ -1,0 +1,231 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"jsonFile" : "directory-.-Debug-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.22"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18,
+						19
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "general_framework",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18,
+						19
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_ackermann::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_ackermann-Debug-074e8c2adf0dfb852903.json",
+					"name" : "alg_ackermann",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_axis_controller::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_axis_controller-Debug-53c2de01b94e803b1815.json",
+					"name" : "alg_axis_controller",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_chassis::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_chassis-Debug-d36bcfc3b060c4bdd1d2.json",
+					"name" : "alg_chassis",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_chassis_fault::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_chassis_fault-Debug-43175c9eb415107457c7.json",
+					"name" : "alg_chassis_fault",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_differential::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_differential-Debug-41a187135d37911b81be.json",
+					"name" : "alg_differential",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_filter::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_filter-Debug-cb936c03c956db8b789d.json",
+					"name" : "alg_filter",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_imu_ekf::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_imu_ekf-Debug-b3d5f1f557936f11e42c.json",
+					"name" : "alg_imu_ekf",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_kalman::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_kalman-Debug-3c18a002aa5d987cd2cf.json",
+					"name" : "alg_kalman",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_lqr::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_lqr-Debug-5c5bad838ddc9ad29bfd.json",
+					"name" : "alg_lqr",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_math::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_math-Debug-fb1abdeebe1658a44db3.json",
+					"name" : "alg_math",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_mecanum::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_mecanum-Debug-857463ffd53b99688660.json",
+					"name" : "alg_mecanum",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_motion::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_motion-Debug-a23261df115aea64d84f.json",
+					"name" : "alg_motion",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_omni::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_omni-Debug-38d3fbe4e16ef3d9c985.json",
+					"name" : "alg_omni",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_pid::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_pid-Debug-9b0b7079c8425006fc7f.json",
+					"name" : "alg_pid",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_swerve::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_swerve-Debug-3a84caec2116b4830b5a.json",
+					"name" : "alg_swerve",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "alg_trajectory::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alg_trajectory-Debug-6d822600a7b12f92a0a2.json",
+					"name" : "alg_trajectory",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bsp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bsp-Debug-6140f9833c8150aa9482.json",
+					"name" : "bsp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "general_framework::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-general_framework-Debug-0be9ceeeb6209f502a1b.json",
+					"name" : "general_framework",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "module::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-module-Debug-ec75805de48917bdee0f.json",
+					"name" : "module",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "stm32_drivers::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-stm32_drivers-Debug-a0cec8e65eee2a989767.json",
+					"name" : "stm32_drivers",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "D:/ACE/general_framework/build/Debug",
+		"source" : "D:/ACE/general_framework"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 6
+	}
+}

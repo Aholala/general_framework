@@ -3,9 +3,9 @@
 #include <math.h>
 #include <stddef.h>
 
-static AlgPidStatus_t AlgPidGainSchedule_ValidatePoints(
-    const AlgPidGainPoint_t *gain_points,
-    size_t gain_point_count)
+static alg_pid_status_t
+alg_pid_gain_schedule_validate_points(const alg_pid_gain_point_t *gain_points,
+                                      size_t gain_point_count)
 {
     size_t point_index;
 
@@ -27,9 +27,8 @@ static AlgPidStatus_t AlgPidGainSchedule_ValidatePoints(
         {
             return ALG_PID_STATUS_OUT_OF_RANGE;
         }
-        if ((point_index > 0U) &&
-            (gain_points[point_index].operating_point <=
-             gain_points[point_index - 1U].operating_point))
+        if ((point_index > 0U) && (gain_points[point_index].operating_point <=
+                                   gain_points[point_index - 1U].operating_point))
         {
             return ALG_PID_STATUS_OUT_OF_RANGE;
         }
@@ -37,39 +36,35 @@ static AlgPidStatus_t AlgPidGainSchedule_ValidatePoints(
     return ALG_PID_STATUS_OK;
 }
 
-static void AlgPidGainSchedule_Interpolate(const AlgPidGainSchedule_t *self,
-                                           float operating_point,
-                                           float *proportional_gain,
-                                           float *integral_gain,
-                                           float *derivative_gain)
+static void alg_pid_gain_schedule_interpolate(const alg_pid_gain_schedule_t *me,
+                                              float operating_point, float *proportional_gain,
+                                              float *integral_gain, float *derivative_gain)
 {
-    const AlgPidGainPoint_t *lower;
-    const AlgPidGainPoint_t *upper;
+    const alg_pid_gain_point_t *lower;
+    const alg_pid_gain_point_t *upper;
     size_t point_index;
     float interpolation_factor;
 
-    if ((self->gain_point_count == 1U) ||
-        (operating_point <= self->gain_points[0].operating_point))
+    if ((me->gain_point_count == 1U) || (operating_point <= me->gain_points[0].operating_point))
     {
-        lower = &self->gain_points[0];
+        lower = &me->gain_points[0];
         upper = lower;
     }
-    else if (operating_point >=
-             self->gain_points[self->gain_point_count - 1U].operating_point)
+    else if (operating_point >= me->gain_points[me->gain_point_count - 1U].operating_point)
     {
-        lower = &self->gain_points[self->gain_point_count - 1U];
+        lower = &me->gain_points[me->gain_point_count - 1U];
         upper = lower;
     }
     else
     {
-        lower = &self->gain_points[0];
-        upper = &self->gain_points[1];
-        for (point_index = 1U; point_index < self->gain_point_count; ++point_index)
+        lower = &me->gain_points[0];
+        upper = &me->gain_points[1];
+        for (point_index = 1U; point_index < me->gain_point_count; ++point_index)
         {
-            if (operating_point <= self->gain_points[point_index].operating_point)
+            if (operating_point <= me->gain_points[point_index].operating_point)
             {
-                lower = &self->gain_points[point_index - 1U];
-                upper = &self->gain_points[point_index];
+                lower = &me->gain_points[point_index - 1U];
+                upper = &me->gain_points[point_index];
                 break;
             }
         }
@@ -78,61 +73,56 @@ static void AlgPidGainSchedule_Interpolate(const AlgPidGainSchedule_t *self,
     interpolation_factor = 0.0F;
     if (upper != lower)
     {
-        interpolation_factor =
-            (operating_point - lower->operating_point) /
-            (upper->operating_point - lower->operating_point);
+        interpolation_factor = (operating_point - lower->operating_point) /
+                               (upper->operating_point - lower->operating_point);
     }
-    *proportional_gain = lower->proportional_gain +
-                         interpolation_factor *
-                             (upper->proportional_gain - lower->proportional_gain);
-    *integral_gain = lower->integral_gain +
-                     interpolation_factor *
-                         (upper->integral_gain - lower->integral_gain);
+    *proportional_gain =
+        lower->proportional_gain +
+        interpolation_factor * (upper->proportional_gain - lower->proportional_gain);
+    *integral_gain =
+        lower->integral_gain + interpolation_factor * (upper->integral_gain - lower->integral_gain);
     *derivative_gain = lower->derivative_gain +
-                       interpolation_factor *
-                           (upper->derivative_gain - lower->derivative_gain);
+                       interpolation_factor * (upper->derivative_gain - lower->derivative_gain);
 }
 
-AlgPidStatus_t AlgPidGainSchedule_Init(AlgPidGainSchedule_t *self,
-                                       const AlgPidConfig_t *base_config,
-                                       const AlgPidGainPoint_t *gain_points,
-                                       size_t gain_point_count)
+alg_pid_status_t alg_pid_gain_schedule_init(alg_pid_gain_schedule_t *me,
+                                            const alg_pid_config_t *base_config,
+                                            const alg_pid_gain_point_t *gain_points,
+                                            size_t gain_point_count)
 {
-    AlgPidStatus_t status;
+    alg_pid_status_t status;
 
-    if (self == NULL)
+    if (me == NULL)
     {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
     }
 
-    self->is_initialized = false;
-    status = AlgPidGainSchedule_ValidatePoints(gain_points, gain_point_count);
+    me->is_initialized = false;
+    status = alg_pid_gain_schedule_validate_points(gain_points, gain_point_count);
     if (status != ALG_PID_STATUS_OK)
     {
         return status;
     }
-    status = AlgPid_Init(&self->controller, base_config);
+    status = alg_pid_init(&me->controller, base_config);
     if (status != ALG_PID_STATUS_OK)
     {
         return status;
     }
 
-    self->gain_points = gain_points;
-    self->gain_point_count = gain_point_count;
-    self->is_initialized = true;
+    me->gain_points = gain_points;
+    me->gain_point_count = gain_point_count;
+    me->is_initialized = true;
     return ALG_PID_STATUS_OK;
 }
 
-AlgPidStatus_t AlgPidGainSchedule_Update(AlgPidGainSchedule_t *self,
-                                         float operating_point,
-                                         const AlgPidInput_t *input,
-                                         float *output)
+alg_pid_status_t alg_pid_gain_schedule_update(alg_pid_gain_schedule_t *me, float operating_point,
+                                              const alg_pid_input_t *input, float *output)
 {
-    if ((self == NULL) || (input == NULL) || (output == NULL))
+    if ((me == NULL) || (input == NULL) || (output == NULL))
     {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
     }
-    if (!self->is_initialized)
+    if (!me->is_initialized)
     {
         return ALG_PID_STATUS_NOT_INITIALIZED;
     }
@@ -141,25 +131,22 @@ AlgPidStatus_t AlgPidGainSchedule_Update(AlgPidGainSchedule_t *self,
         return ALG_PID_STATUS_OUT_OF_RANGE;
     }
 
-    AlgPidGainSchedule_Interpolate(self,
-                                   operating_point,
-                                   &self->controller.config.proportional_gain,
-                                   &self->controller.config.integral_gain,
-                                   &self->controller.config.derivative_gain);
-    return AlgPid_UpdateAdvanced(&self->controller, input, output);
+    alg_pid_gain_schedule_interpolate(me, operating_point, &me->controller.config.proportional_gain,
+                                      &me->controller.config.integral_gain,
+                                      &me->controller.config.derivative_gain);
+    return alg_pid_update_advanced(&me->controller, input, output);
 }
 
-AlgPidStatus_t AlgPidGainSchedule_Reset(AlgPidGainSchedule_t *self,
-                                        float measurement,
-                                        float initial_output)
+alg_pid_status_t alg_pid_gain_schedule_reset(alg_pid_gain_schedule_t *me, float measurement,
+                                             float initial_output)
 {
-    if (self == NULL)
+    if (me == NULL)
     {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
     }
-    if (!self->is_initialized)
+    if (!me->is_initialized)
     {
         return ALG_PID_STATUS_NOT_INITIALIZED;
     }
-    return AlgPid_Reset(&self->controller, measurement, initial_output);
+    return alg_pid_reset(&me->controller, measurement, initial_output);
 }

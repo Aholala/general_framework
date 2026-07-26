@@ -6,26 +6,22 @@
 
 #define ALG_PID_TWO_PI_F (6.28318530717958647692F)
 
-static AlgPidStatus_t AlgPidIncremental_ValidateConfig(
-    const AlgPidIncrementalConfig_t *config)
+static alg_pid_status_t
+alg_pid_incremental_validate_config(const alg_pid_incremental_config_t *config)
 {
     if (config == NULL)
     {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
     }
-    if (!isfinite(config->proportional_gain) ||
-        !isfinite(config->integral_gain) ||
-        !isfinite(config->derivative_gain) ||
-        !isfinite(config->derivative_filter_cutoff_hz) ||
-        !isfinite(config->error_deadband) ||
-        !isfinite(config->delta_output_min) ||
-        !isfinite(config->delta_output_max) ||
-        !isfinite(config->output_min) || !isfinite(config->output_max))
+    if (!isfinite(config->proportional_gain) || !isfinite(config->integral_gain) ||
+        !isfinite(config->derivative_gain) || !isfinite(config->derivative_filter_cutoff_hz) ||
+        !isfinite(config->error_deadband) || !isfinite(config->delta_output_min) ||
+        !isfinite(config->delta_output_max) || !isfinite(config->output_min) ||
+        !isfinite(config->output_max))
     {
         return ALG_PID_STATUS_OUT_OF_RANGE;
     }
-    if ((config->derivative_filter_cutoff_hz < 0.0F) ||
-        (config->error_deadband < 0.0F) ||
+    if ((config->derivative_filter_cutoff_hz < 0.0F) || (config->error_deadband < 0.0F) ||
         (config->delta_output_min > config->delta_output_max) ||
         (config->output_min >= config->output_max))
     {
@@ -34,90 +30,84 @@ static AlgPidStatus_t AlgPidIncremental_ValidateConfig(
     return ALG_PID_STATUS_OK;
 }
 
-AlgPidStatus_t AlgPidIncrementalConfig_Init(
-    AlgPidIncrementalConfig_t *config)
+alg_pid_status_t alg_pid_incremental_config_init(alg_pid_incremental_config_t *config)
 {
     if (config == NULL)
     {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
     }
 
-    *config = (AlgPidIncrementalConfig_t){
-        .proportional_gain = 0.0F,
-        .integral_gain = 0.0F,
-        .derivative_gain = 0.0F,
-        .derivative_filter_cutoff_hz = 0.0F,
-        .error_deadband = 0.0F,
-        .delta_output_min = -FLT_MAX,
-        .delta_output_max = FLT_MAX,
-        .output_min = -FLT_MAX,
-        .output_max = FLT_MAX};
+    *config = (alg_pid_incremental_config_t){.proportional_gain = 0.0F,
+                                             .integral_gain = 0.0F,
+                                             .derivative_gain = 0.0F,
+                                             .derivative_filter_cutoff_hz = 0.0F,
+                                             .error_deadband = 0.0F,
+                                             .delta_output_min = -FLT_MAX,
+                                             .delta_output_max = FLT_MAX,
+                                             .output_min = -FLT_MAX,
+                                             .output_max = FLT_MAX};
     return ALG_PID_STATUS_OK;
 }
 
-AlgPidStatus_t AlgPidIncremental_Init(
-    AlgPidIncremental_t *self,
-    const AlgPidIncrementalConfig_t *config)
+alg_pid_status_t alg_pid_incremental_init(alg_pid_incremental_t *me,
+                                          const alg_pid_incremental_config_t *config)
 {
-    AlgPidStatus_t status;
+    alg_pid_status_t status;
 
-    if (self == NULL)
+    if (me == NULL)
     {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
     }
 
-    self->is_initialized = false;
-    status = AlgPidIncremental_ValidateConfig(config);
+    me->is_initialized = false;
+    status = alg_pid_incremental_validate_config(config);
     if (status != ALG_PID_STATUS_OK)
     {
         return status;
     }
 
-    self->config = *config;
-    self->terms = (AlgPidTerms_t){0};
-    self->previous_error = 0.0F;
-    self->second_previous_error = 0.0F;
-    self->filtered_derivative_delta = 0.0F;
-    self->has_previous_sample = false;
-    self->is_initialized = true;
+    me->config = *config;
+    me->terms = (alg_pid_terms_t){0};
+    me->previous_error = 0.0F;
+    me->second_previous_error = 0.0F;
+    me->filtered_derivative_delta = 0.0F;
+    me->has_previous_sample = false;
+    me->is_initialized = true;
     return ALG_PID_STATUS_OK;
 }
 
-AlgPidStatus_t AlgPidIncremental_SetConfig(
-    AlgPidIncremental_t *self,
-    const AlgPidIncrementalConfig_t *config)
+alg_pid_status_t alg_pid_incremental_set_config(alg_pid_incremental_t *me,
+                                                const alg_pid_incremental_config_t *config)
 {
-    AlgPidStatus_t status;
+    alg_pid_status_t status;
 
-    if (self == NULL)
+    if (me == NULL)
     {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
     }
-    if (!self->is_initialized)
+    if (!me->is_initialized)
     {
         return ALG_PID_STATUS_NOT_INITIALIZED;
     }
-    status = AlgPidIncremental_ValidateConfig(config);
+    status = alg_pid_incremental_validate_config(config);
     if (status != ALG_PID_STATUS_OK)
     {
         return status;
     }
 
-    self->config = *config;
-    self->terms.output = AlgPidInternal_Clamp(self->terms.output,
-                                              config->output_min,
-                                              config->output_max);
+    me->config = *config;
+    me->terms.output =
+        alg_pid_internal_clamp(me->terms.output, config->output_min, config->output_max);
     return ALG_PID_STATUS_OK;
 }
 
-AlgPidStatus_t AlgPidIncremental_Reset(AlgPidIncremental_t *self,
-                                       float initial_output)
+alg_pid_status_t alg_pid_incremental_reset(alg_pid_incremental_t *me, float initial_output)
 {
-    if (self == NULL)
+    if (me == NULL)
     {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
     }
-    if (!self->is_initialized)
+    if (!me->is_initialized)
     {
         return ALG_PID_STATUS_NOT_INITIALIZED;
     }
@@ -126,24 +116,20 @@ AlgPidStatus_t AlgPidIncremental_Reset(AlgPidIncremental_t *self,
         return ALG_PID_STATUS_OUT_OF_RANGE;
     }
 
-    self->terms = (AlgPidTerms_t){0};
-    self->terms.output = AlgPidInternal_Clamp(initial_output,
-                                              self->config.output_min,
-                                              self->config.output_max);
-    self->terms.unsaturated_output = self->terms.output;
-    self->previous_error = 0.0F;
-    self->second_previous_error = 0.0F;
-    self->filtered_derivative_delta = 0.0F;
-    self->has_previous_sample = false;
+    me->terms = (alg_pid_terms_t){0};
+    me->terms.output =
+        alg_pid_internal_clamp(initial_output, me->config.output_min, me->config.output_max);
+    me->terms.unsaturated_output = me->terms.output;
+    me->previous_error = 0.0F;
+    me->second_previous_error = 0.0F;
+    me->filtered_derivative_delta = 0.0F;
+    me->has_previous_sample = false;
     return ALG_PID_STATUS_OK;
 }
 
-AlgPidStatus_t AlgPidIncremental_Update(AlgPidIncremental_t *self,
-                                        float setpoint,
-                                        float measurement,
-                                        float feedforward_delta,
-                                        float delta_time_s,
-                                        float *output)
+alg_pid_status_t alg_pid_incremental_update(alg_pid_incremental_t *me, float setpoint,
+                                            float measurement, float feedforward_delta,
+                                            float delta_time_s, float *output)
 {
     float error;
     float proportional_delta;
@@ -156,82 +142,69 @@ AlgPidStatus_t AlgPidIncremental_Update(AlgPidIncremental_t *self,
     float time_constant_s;
     float smoothing_factor;
 
-    if ((self == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL))
     {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
     }
-    if (!self->is_initialized)
+    if (!me->is_initialized)
     {
         return ALG_PID_STATUS_NOT_INITIALIZED;
     }
-    if (!isfinite(setpoint) || !isfinite(measurement) ||
-        !isfinite(feedforward_delta) || !isfinite(delta_time_s) ||
-        (delta_time_s <= 0.0F))
+    if (!isfinite(setpoint) || !isfinite(measurement) || !isfinite(feedforward_delta) ||
+        !isfinite(delta_time_s) || (delta_time_s <= 0.0F))
     {
         return ALG_PID_STATUS_OUT_OF_RANGE;
     }
 
-    error = AlgPidInternal_ApplyDeadband(setpoint - measurement,
-                                         self->config.error_deadband);
-    proportional_delta = self->config.proportional_gain *
-                         (error - self->previous_error);
-    integral_delta = self->config.integral_gain * error * delta_time_s;
+    error = alg_pid_internal_apply_deadband(setpoint - measurement, me->config.error_deadband);
+    proportional_delta = me->config.proportional_gain * (error - me->previous_error);
+    integral_delta = me->config.integral_gain * error * delta_time_s;
     derivative_delta = 0.0F;
-    if (self->has_previous_sample)
+    if (me->has_previous_sample)
     {
-        derivative_delta = self->config.derivative_gain *
-                           (error - (2.0F * self->previous_error) +
-                            self->second_previous_error) /
+        derivative_delta = me->config.derivative_gain *
+                           (error - (2.0F * me->previous_error) + me->second_previous_error) /
                            delta_time_s;
     }
 
     filtered_derivative_delta = derivative_delta;
-    if (self->has_previous_sample &&
-        (self->config.derivative_filter_cutoff_hz > 0.0F))
+    if (me->has_previous_sample && (me->config.derivative_filter_cutoff_hz > 0.0F))
     {
-        time_constant_s = 1.0F /
-                          (ALG_PID_TWO_PI_F *
-                           self->config.derivative_filter_cutoff_hz);
+        time_constant_s = 1.0F / (ALG_PID_TWO_PI_F * me->config.derivative_filter_cutoff_hz);
         smoothing_factor = delta_time_s / (time_constant_s + delta_time_s);
-        filtered_derivative_delta = self->filtered_derivative_delta +
-                                    smoothing_factor *
-                                        (derivative_delta -
-                                         self->filtered_derivative_delta);
+        filtered_derivative_delta =
+            me->filtered_derivative_delta +
+            smoothing_factor * (derivative_delta - me->filtered_derivative_delta);
     }
 
-    total_delta = proportional_delta + integral_delta +
-                  filtered_derivative_delta + feedforward_delta;
-    total_delta = AlgPidInternal_Clamp(total_delta,
-                                       self->config.delta_output_min,
-                                       self->config.delta_output_max);
-    unsaturated_output = self->terms.output + total_delta;
-    saturated_output = AlgPidInternal_Clamp(unsaturated_output,
-                                            self->config.output_min,
-                                            self->config.output_max);
+    total_delta =
+        proportional_delta + integral_delta + filtered_derivative_delta + feedforward_delta;
+    total_delta = alg_pid_internal_clamp(total_delta, me->config.delta_output_min,
+                                         me->config.delta_output_max);
+    unsaturated_output = me->terms.output + total_delta;
+    saturated_output =
+        alg_pid_internal_clamp(unsaturated_output, me->config.output_min, me->config.output_max);
 
     if (!isfinite(total_delta) || !isfinite(saturated_output))
     {
         return ALG_PID_STATUS_NUMERICAL_ERROR;
     }
 
-    self->terms.proportional = proportional_delta;
-    self->terms.integral = integral_delta;
-    self->terms.derivative = filtered_derivative_delta;
-    self->terms.feedforward = feedforward_delta;
-    self->terms.unsaturated_output = unsaturated_output;
-    self->terms.output = saturated_output;
-    self->second_previous_error = self->has_previous_sample
-                                      ? self->previous_error
-                                      : error;
-    self->previous_error = error;
-    self->filtered_derivative_delta = filtered_derivative_delta;
-    self->has_previous_sample = true;
+    me->terms.proportional = proportional_delta;
+    me->terms.integral = integral_delta;
+    me->terms.derivative = filtered_derivative_delta;
+    me->terms.feedforward = feedforward_delta;
+    me->terms.unsaturated_output = unsaturated_output;
+    me->terms.output = saturated_output;
+    me->second_previous_error = me->has_previous_sample ? me->previous_error : error;
+    me->previous_error = error;
+    me->filtered_derivative_delta = filtered_derivative_delta;
+    me->has_previous_sample = true;
     *output = saturated_output;
     return ALG_PID_STATUS_OK;
 }
 
-const AlgPidTerms_t *AlgPidIncremental_GetTerms(
-    const AlgPidIncremental_t *self)
+const alg_pid_terms_t *alg_pid_incremental_get_terms(const alg_pid_incremental_t *me)
 {
-    return ((self != NULL) && self->is_initialized) ? &self->terms : NULL;
+    return ((me != NULL) && me->is_initialized) ? &me->terms : NULL;
 }

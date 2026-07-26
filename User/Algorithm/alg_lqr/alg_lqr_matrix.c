@@ -5,7 +5,7 @@
 
 #define ALG_LQR_SINGULAR_THRESHOLD (1.0e-12F)
 
-bool AlgLqrInternal_IsFiniteArray(const float *values, size_t value_count)
+bool alg_lqr_internal_is_finite_array(const float *values, size_t value_count)
 {
     size_t index;
 
@@ -23,8 +23,7 @@ bool AlgLqrInternal_IsFiniteArray(const float *values, size_t value_count)
     return true;
 }
 
-bool AlgLqrInternal_HasNonnegativeDiagonal(const float *matrix,
-                                           size_t dimension)
+bool alg_lqr_internal_has_nonnegative_diagonal(const float *matrix, size_t dimension)
 {
     size_t index;
 
@@ -43,9 +42,7 @@ bool AlgLqrInternal_HasNonnegativeDiagonal(const float *matrix,
     return true;
 }
 
-void AlgLqrInternal_Copy(float *destination,
-                         const float *source,
-                         size_t value_count)
+void alg_lqr_internal_copy(float *destination, const float *source, size_t value_count)
 {
     size_t index;
 
@@ -55,12 +52,8 @@ void AlgLqrInternal_Copy(float *destination,
     }
 }
 
-void AlgLqrInternal_Multiply(const float *left,
-                             size_t left_rows,
-                             size_t shared_dimension,
-                             const float *right,
-                             size_t right_columns,
-                             float *output)
+void alg_lqr_internal_multiply(const float *left, size_t left_rows, size_t shared_dimension,
+                               const float *right, size_t right_columns, float *output)
 {
     size_t row;
     size_t column;
@@ -82,12 +75,9 @@ void AlgLqrInternal_Multiply(const float *left,
     }
 }
 
-void AlgLqrInternal_MultiplyLeftTranspose(const float *left,
-                                          size_t left_rows,
-                                          size_t left_columns,
-                                          const float *right,
-                                          size_t right_columns,
-                                          float *output)
+void alg_lqr_internal_multiply_left_transpose(const float *left, size_t left_rows,
+                                              size_t left_columns, const float *right,
+                                              size_t right_columns, float *output)
 {
     size_t output_row;
     size_t output_column;
@@ -109,7 +99,7 @@ void AlgLqrInternal_MultiplyLeftTranspose(const float *left,
     }
 }
 
-void AlgLqrInternal_Symmetrize(float *matrix, size_t dimension)
+void alg_lqr_internal_symmetrize(float *matrix, size_t dimension)
 {
     size_t row;
     size_t column;
@@ -119,17 +109,15 @@ void AlgLqrInternal_Symmetrize(float *matrix, size_t dimension)
     {
         for (column = row + 1U; column < dimension; ++column)
         {
-            average = 0.5F * (matrix[(row * dimension) + column] +
-                              matrix[(column * dimension) + row]);
+            average =
+                0.5F * (matrix[(row * dimension) + column] + matrix[(column * dimension) + row]);
             matrix[(row * dimension) + column] = average;
             matrix[(column * dimension) + row] = average;
         }
     }
 }
 
-AlgLqrStatus_t AlgLqrInternal_Invert(float *matrix,
-                                     float *inverse,
-                                     size_t dimension)
+alg_lqr_status_t alg_lqr_internal_invert(float *matrix, float *inverse, size_t dimension)
 {
     size_t row;
     size_t column;
@@ -162,8 +150,7 @@ AlgLqrStatus_t AlgLqrInternal_Invert(float *matrix,
                 pivot_row = row;
             }
         }
-        if (!isfinite(pivot_magnitude) ||
-            (pivot_magnitude <= ALG_LQR_SINGULAR_THRESHOLD))
+        if (!isfinite(pivot_magnitude) || (pivot_magnitude <= ALG_LQR_SINGULAR_THRESHOLD))
         {
             return ALG_LQR_STATUS_SINGULAR_MATRIX;
         }
@@ -173,8 +160,7 @@ AlgLqrStatus_t AlgLqrInternal_Invert(float *matrix,
             for (element = 0U; element < dimension; ++element)
             {
                 temporary = matrix[(column * dimension) + element];
-                matrix[(column * dimension) + element] =
-                    matrix[(pivot_row * dimension) + element];
+                matrix[(column * dimension) + element] = matrix[(pivot_row * dimension) + element];
                 matrix[(pivot_row * dimension) + element] = temporary;
                 temporary = inverse[(column * dimension) + element];
                 inverse[(column * dimension) + element] =
@@ -207,7 +193,7 @@ AlgLqrStatus_t AlgLqrInternal_Invert(float *matrix,
         }
     }
 
-    return AlgLqrInternal_IsFiniteArray(inverse, dimension * dimension)
+    return alg_lqr_internal_is_finite_array(inverse, dimension * dimension)
                ? ALG_LQR_STATUS_OK
                : ALG_LQR_STATUS_NUMERICAL_ERROR;
 }

@@ -21,7 +21,7 @@ x = [qw, qx, qy, qz, bias_x, bias_y]
 
 ## 数据处理流程
 
-一次 `AlgImuEkf_Update()` 执行以下流程：
+一次 `alg_imu_ekf_update()` 执行以下流程：
 
 1. 对 X/Y 零偏协方差应用渐消因子，保留慢漂移跟踪能力。
 2. 用去除 X/Y 零偏后的角速度传播四元数和协方差。
@@ -56,13 +56,13 @@ S   = H * P * H^T + R
 ## 初始化与更新
 
 ```c
-static AlgImuEkf_t s_imu_ekf;
+static alg_imu_ekf_t s_imu_ekf;
 
-void AppImuEstimator_Init(const float accelerometer_m_s2[3])
+void app_imu_estimator_init(const float accelerometer_m_per_s2[3])
 {
-    AlgImuEkfConfig_t config;
+    alg_imu_ekf_config_t config;
 
-    (void)AlgImuEkfConfig_Init(&config);
+    (void)alg_imu_ekf_config_init(&config);
     config.accelerometer_lpf_cutoff_hz = 30.0F;
     config.accelerometer_rejection_threshold_g = 0.20F;
     config.chi_square_adaptation_threshold = 3.0F;
@@ -70,39 +70,39 @@ void AppImuEstimator_Init(const float accelerometer_m_s2[3])
     config.maximum_measurement_noise_scale = 20.0F;
     config.gyro_bias_fading_factor = 1.0001F;
 
-    (void)AlgImuEkf_Init(&s_imu_ekf, &config);
-    (void)AlgImuEkf_ResetFromAccelerometer(&s_imu_ekf,
-                                           accelerometer_m_s2);
+    (void)alg_imu_ekf_init(&s_imu_ekf, &config);
+    (void)alg_imu_ekf_reset_from_accelerometer(&s_imu_ekf,
+                                                accelerometer_m_per_s2);
 }
 
-void AppImuEstimator_Update(const float gyroscope_rad_s[3],
-                            const float accelerometer_m_s2[3],
-                            float delta_time_s)
+void app_imu_estimator_update(const float gyroscope_rad_per_s[3],
+                              const float accelerometer_m_per_s2[3],
+                              float delta_time_s)
 {
-    bool accelerometer_used;
+    bool accelerometer_was_used;
 
-    (void)AlgImuEkf_Update(&s_imu_ekf,
-                           gyroscope_rad_s,
-                           accelerometer_m_s2,
-                           delta_time_s,
-                           &accelerometer_used);
+    (void)alg_imu_ekf_update(&s_imu_ekf,
+                             gyroscope_rad_per_s,
+                             accelerometer_m_per_s2,
+                             delta_time_s,
+                             &accelerometer_was_used);
 }
 ```
 
-`ResetFromAccelerometer` 应在设备静止时调用，它初始化 Roll/Pitch、将 Yaw 设为 0，
-并用当前加速度预置低通滤波器。也可使用 `AlgImuEkf_Reset()` 传入四元数和两轴零偏。
+`alg_imu_ekf_reset_from_accelerometer` 应在设备静止时调用，它初始化 Roll/Pitch、将 Yaw 设为 0，
+并用当前加速度预置低通滤波器。也可使用 `alg_imu_ekf_reset()` 传入四元数和两轴零偏。
 
 预测和校正可以分开调用：
 
 ```c
-AlgImuEkf_Predict(&s_imu_ekf, gyroscope_rad_s, delta_time_s);
-AlgImuEkf_CorrectAccelerometer(&s_imu_ekf,
-                               accelerometer_m_s2,
-                               delta_time_s);
+alg_imu_ekf_predict(&s_imu_ekf, gyroscope_rad_per_s, delta_time_s);
+alg_imu_ekf_correct_accelerometer(&s_imu_ekf,
+                                  accelerometer_m_per_s2,
+                                  delta_time_s);
 ```
 
 单独校正时，观测被拒绝会返回 `ALG_IMU_EKF_STATUS_ACCELEROMETER_REJECTED`；组合更新时
-仍返回 `ALG_IMU_EKF_STATUS_OK`，并通过 `accelerometer_used` 返回本次是否使用了观测。
+仍返回 `ALG_IMU_EKF_STATUS_OK`，并通过 `accelerometer_was_used` 返回本次是否使用了观测。
 
 ## 参数说明
 
@@ -127,7 +127,7 @@ AlgImuEkf_CorrectAccelerometer(&s_imu_ekf,
 ## 输出与诊断
 
 模块提供四元数、欧拉角、X/Y 零偏、校正角速度、机体系重力以及机体/世界系线加速度。
-`AlgImuEkf_GetDiagnostics()` 可一次读取：
+`alg_imu_ekf_get_diagnostics()` 可一次读取：
 
 - 低通后的三轴加速度；
 - 三维创新残差；
@@ -141,14 +141,15 @@ AlgImuEkf_CorrectAccelerometer(&s_imu_ekf,
 
 ## 生命周期与并发
 
-`AlgImuEkf_t` 内部的通用 EKF 保存了指向对象自身数组的指针。初始化后不能按值复制、
-按值返回或移动对象；新实例必须重新调用 `AlgImuEkf_Init()`。
+`alg_imu_ekf_t` 内部的通用 EKF 保存了指向对象自身数组的指针。初始化后不能按值复制、
+按值返回或移动对象；新实例必须重新调用 `alg_imu_ekf_init()`。
 
 同一个实例只应由一个执行上下文更新。不要同时在中断和任务中调用同一实例。算法模块
 不分配内存、不访问硬件，也不调用操作系统接口。
 
-## 测试覆盖
+## 验证建议
 
-主机测试覆盖静止姿态、加速度初始化、Yaw 积分、倾斜收敛、X 轴零偏收敛、模长拒绝、
+集成时至少验证静止姿态、加速度初始化、Yaw 积分、倾斜收敛、X 轴零偏收敛、模长拒绝、
 等模长错误方向的卡方拒绝、自适应噪声倍率、低通滤波、渐消因子、Z 轴零偏约束、
-重力/线加速度输出和非法参数。
+重力/线加速度输出和非法参数。还应使用实机静止、缓慢转动、快速运动和撞击数据检查
+`accelerometer_was_used` 与诊断计数是否符合预期。

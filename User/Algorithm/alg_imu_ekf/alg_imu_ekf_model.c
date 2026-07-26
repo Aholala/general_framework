@@ -3,14 +3,11 @@
 #include <math.h>
 #include <stddef.h>
 
-AlgKalmanStatus_t AlgImuEkfInternal_StateFunction(
-    const float *state,
-    size_t state_dimension,
-    const float *control_input,
-    size_t control_dimension,
-    float delta_time_s,
-    float *predicted_state,
-    void *user_context)
+alg_kalman_status_t alg_imu_ekf_internal_state_function(const float *state, size_t state_dimension,
+                                                        const float *control_input,
+                                                        size_t control_dimension,
+                                                        float delta_time_s, float *predicted_state,
+                                                        void *user_context)
 {
     float angular_rate_x;
     float angular_rate_y;
@@ -20,8 +17,8 @@ AlgKalmanStatus_t AlgImuEkfInternal_StateFunction(
     (void)user_context;
     if ((state == NULL) || (control_input == NULL) || (predicted_state == NULL) ||
         (state_dimension != ALG_IMU_EKF_STATE_DIMENSION) ||
-        (control_dimension != ALG_IMU_EKF_CONTROL_DIMENSION) ||
-        !isfinite(delta_time_s) || (delta_time_s <= 0.0F))
+        (control_dimension != ALG_IMU_EKF_CONTROL_DIMENSION) || !isfinite(delta_time_s) ||
+        (delta_time_s <= 0.0F))
     {
         return ALG_KALMAN_STATUS_MODEL_ERROR;
     }
@@ -30,33 +27,28 @@ AlgKalmanStatus_t AlgImuEkfInternal_StateFunction(
     angular_rate_y = control_input[1] - state[5];
     angular_rate_z = control_input[2];
 
-    predicted_state[0] = state[0] -
-                         (0.5F * delta_time_s *
-                          ((state[1] * angular_rate_x) +
-                           (state[2] * angular_rate_y) +
-                           (state[3] * angular_rate_z)));
-    predicted_state[1] = state[1] +
-                         (0.5F * delta_time_s *
-                          ((state[0] * angular_rate_x) +
-                           (state[2] * angular_rate_z) -
-                           (state[3] * angular_rate_y)));
-    predicted_state[2] = state[2] +
-                         (0.5F * delta_time_s *
-                          ((state[0] * angular_rate_y) -
-                           (state[1] * angular_rate_z) +
-                           (state[3] * angular_rate_x)));
-    predicted_state[3] = state[3] +
-                         (0.5F * delta_time_s *
-                          ((state[0] * angular_rate_z) +
-                           (state[1] * angular_rate_y) -
-                           (state[2] * angular_rate_x)));
+    predicted_state[0] =
+        state[0] -
+        (0.5F * delta_time_s *
+         ((state[1] * angular_rate_x) + (state[2] * angular_rate_y) + (state[3] * angular_rate_z)));
+    predicted_state[1] =
+        state[1] +
+        (0.5F * delta_time_s *
+         ((state[0] * angular_rate_x) + (state[2] * angular_rate_z) - (state[3] * angular_rate_y)));
+    predicted_state[2] =
+        state[2] +
+        (0.5F * delta_time_s *
+         ((state[0] * angular_rate_y) - (state[1] * angular_rate_z) + (state[3] * angular_rate_x)));
+    predicted_state[3] =
+        state[3] +
+        (0.5F * delta_time_s *
+         ((state[0] * angular_rate_z) + (state[1] * angular_rate_y) - (state[2] * angular_rate_x)));
     predicted_state[4] = state[4];
     predicted_state[5] = state[5];
 
-    quaternion_norm = sqrtf((predicted_state[0] * predicted_state[0]) +
-                            (predicted_state[1] * predicted_state[1]) +
-                            (predicted_state[2] * predicted_state[2]) +
-                            (predicted_state[3] * predicted_state[3]));
+    quaternion_norm = sqrtf(
+        (predicted_state[0] * predicted_state[0]) + (predicted_state[1] * predicted_state[1]) +
+        (predicted_state[2] * predicted_state[2]) + (predicted_state[3] * predicted_state[3]));
     if (!isfinite(quaternion_norm) || (quaternion_norm <= 1.0e-6F))
     {
         return ALG_KALMAN_STATUS_MODEL_ERROR;
@@ -68,14 +60,11 @@ AlgKalmanStatus_t AlgImuEkfInternal_StateFunction(
     return ALG_KALMAN_STATUS_OK;
 }
 
-AlgKalmanStatus_t AlgImuEkfInternal_StateJacobian(
-    const float *state,
-    size_t state_dimension,
-    const float *control_input,
-    size_t control_dimension,
-    float delta_time_s,
-    float *state_jacobian,
-    void *user_context)
+alg_kalman_status_t alg_imu_ekf_internal_state_jacobian(const float *state, size_t state_dimension,
+                                                        const float *control_input,
+                                                        size_t control_dimension,
+                                                        float delta_time_s, float *state_jacobian,
+                                                        void *user_context)
 {
     float angular_rate_x;
     float angular_rate_y;
@@ -86,8 +75,8 @@ AlgKalmanStatus_t AlgImuEkfInternal_StateJacobian(
     (void)user_context;
     if ((state == NULL) || (control_input == NULL) || (state_jacobian == NULL) ||
         (state_dimension != ALG_IMU_EKF_STATE_DIMENSION) ||
-        (control_dimension != ALG_IMU_EKF_CONTROL_DIMENSION) ||
-        !isfinite(delta_time_s) || (delta_time_s <= 0.0F))
+        (control_dimension != ALG_IMU_EKF_CONTROL_DIMENSION) || !isfinite(delta_time_s) ||
+        (delta_time_s <= 0.0F))
     {
         return ALG_KALMAN_STATUS_MODEL_ERROR;
     }
@@ -96,10 +85,7 @@ AlgKalmanStatus_t AlgImuEkfInternal_StateJacobian(
     angular_rate_y = control_input[1] - state[5];
     angular_rate_z = control_input[2];
     half_delta_time = 0.5F * delta_time_s;
-    for (index = 0U; index <
-                         (ALG_IMU_EKF_STATE_DIMENSION *
-                          ALG_IMU_EKF_STATE_DIMENSION);
-         ++index)
+    for (index = 0U; index < (ALG_IMU_EKF_STATE_DIMENSION * ALG_IMU_EKF_STATE_DIMENSION); ++index)
     {
         state_jacobian[index] = 0.0F;
     }
@@ -137,12 +123,11 @@ AlgKalmanStatus_t AlgImuEkfInternal_StateJacobian(
     return ALG_KALMAN_STATUS_OK;
 }
 
-AlgKalmanStatus_t AlgImuEkfInternal_MeasurementFunction(
-    const float *state,
-    size_t state_dimension,
-    size_t measurement_dimension,
-    float *predicted_measurement,
-    void *user_context)
+alg_kalman_status_t alg_imu_ekf_internal_measurement_function(const float *state,
+                                                              size_t state_dimension,
+                                                              size_t measurement_dimension,
+                                                              float *predicted_measurement,
+                                                              void *user_context)
 {
     (void)user_context;
     if ((state == NULL) || (predicted_measurement == NULL) ||
@@ -152,23 +137,18 @@ AlgKalmanStatus_t AlgImuEkfInternal_MeasurementFunction(
         return ALG_KALMAN_STATUS_MODEL_ERROR;
     }
 
-    predicted_measurement[0] =
-        2.0F * ((state[1] * state[3]) - (state[0] * state[2]));
-    predicted_measurement[1] =
-        2.0F * ((state[0] * state[1]) + (state[2] * state[3]));
-    predicted_measurement[2] = (state[0] * state[0]) -
-                               (state[1] * state[1]) -
-                               (state[2] * state[2]) +
-                               (state[3] * state[3]);
+    predicted_measurement[0] = 2.0F * ((state[1] * state[3]) - (state[0] * state[2]));
+    predicted_measurement[1] = 2.0F * ((state[0] * state[1]) + (state[2] * state[3]));
+    predicted_measurement[2] = (state[0] * state[0]) - (state[1] * state[1]) -
+                               (state[2] * state[2]) + (state[3] * state[3]);
     return ALG_KALMAN_STATUS_OK;
 }
 
-AlgKalmanStatus_t AlgImuEkfInternal_MeasurementJacobian(
-    const float *state,
-    size_t state_dimension,
-    size_t measurement_dimension,
-    float *measurement_jacobian,
-    void *user_context)
+alg_kalman_status_t alg_imu_ekf_internal_measurement_jacobian(const float *state,
+                                                              size_t state_dimension,
+                                                              size_t measurement_dimension,
+                                                              float *measurement_jacobian,
+                                                              void *user_context)
 {
     size_t index;
 
@@ -179,9 +159,7 @@ AlgKalmanStatus_t AlgImuEkfInternal_MeasurementJacobian(
     {
         return ALG_KALMAN_STATUS_MODEL_ERROR;
     }
-    for (index = 0U; index <
-                         (ALG_IMU_EKF_MEASUREMENT_DIMENSION *
-                          ALG_IMU_EKF_STATE_DIMENSION);
+    for (index = 0U; index < (ALG_IMU_EKF_MEASUREMENT_DIMENSION * ALG_IMU_EKF_STATE_DIMENSION);
          ++index)
     {
         measurement_jacobian[index] = 0.0F;

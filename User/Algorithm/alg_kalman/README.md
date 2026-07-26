@@ -6,9 +6,9 @@
 
 | 算法 | 对象 | 适用场景 |
 |---|---|---|
-| 标量卡尔曼 | `AlgKalmanScalar_t` | 单个传感器量的低成本递推估计 |
-| 任意维线性卡尔曼 | `AlgKalmanLinear_t` | 状态模型和观测模型均为线性系统 |
-| 扩展卡尔曼 EKF | `AlgKalmanExtended_t` | 非线性状态模型或非线性观测模型 |
+| 标量卡尔曼 | `alg_kalman_scalar_t` | 单个传感器量的低成本递推估计 |
+| 任意维线性卡尔曼 | `alg_kalman_linear_t` | 状态模型和观测模型均为线性系统 |
+| 扩展卡尔曼 EKF | `alg_kalman_extended_t` | 非线性状态模型或非线性观测模型 |
 
 线性 KF 与 EKF 都没有固定维度上限。状态维数、测量维数和控制维数由初始化配置决定。
 
@@ -80,21 +80,21 @@ static float s_workspace[
 ## 标量卡尔曼
 
 ```c
-static AlgKalmanScalar_t s_temperature_filter;
+static alg_kalman_scalar_t s_temperature_filter;
 
-void TemperatureFilter_Init(void)
+void app_temperature_filter_init(void)
 {
-    (void)AlgKalmanScalar_Init(&s_temperature_filter,
+    (void)alg_kalman_scalar_init(&s_temperature_filter,
                                0.01F,
                                0.50F,
                                25.0F,
                                1.0F);
 }
 
-AlgKalmanStatus_t TemperatureFilter_Update(float measurement,
-                                           float *filtered_temperature)
+alg_kalman_status_t app_temperature_filter_update(float measurement,
+                                                  float *filtered_temperature)
 {
-    return AlgKalmanScalar_Update(&s_temperature_filter,
+    return alg_kalman_scalar_update(&s_temperature_filter,
                                   measurement,
                                   filtered_temperature);
 }
@@ -103,20 +103,20 @@ AlgKalmanStatus_t TemperatureFilter_Update(float measurement,
 如果系统存在已知状态增量，可分开调用：
 
 ```c
-AlgKalmanScalar_Predict(&filter, known_state_delta);
-AlgKalmanScalar_Correct(&filter, measurement, &output);
+alg_kalman_scalar_predict(&filter, known_state_delta);
+alg_kalman_scalar_correct(&filter, measurement, &output);
 ```
 
 ## 线性卡尔曼
 
-`AlgKalmanLinearConfig_t` 保存矩阵地址，不复制矩阵。所有数组必须在滤波器整个生命周期内持续有效。
+`alg_kalman_linear_config_t` 保存矩阵地址，不复制矩阵。所有数组必须在滤波器整个生命周期内持续有效。
 
 时间变化的模型可以在每次预测前更新调用者持有的 `F`、`B`、`Q`、`H` 或 `R` 数组，无需重新初始化对象。
 
 当 `control_dimension` 为零时：
 
 - `control_matrix` 可以为 `NULL`。
-- `AlgKalmanLinear_Predict()` 的控制输入可以为 `NULL`。
+- `alg_kalman_linear_predict()` 的控制输入可以为 `NULL`。
 
 当 `control_dimension` 大于零时，控制矩阵和控制输入都不能为空。
 
@@ -160,9 +160,9 @@ P = (I-KH)P(I-KH)^T + KRK^T
 
 同一个对象不能同时在任务和中断中无保护调用。推荐一个滤波对象只由一个执行上下文持有；跨上下文数据通过消息队列或双缓冲传递。
 
-## 测试覆盖
+## 验证建议
 
-`Test/alg_kalman_test.c` 覆盖：
+集成到具体模型时至少验证：
 
 - 标量卡尔曼收敛、复位及独立预测/校正。
 - 二维恒加速度线性模型。

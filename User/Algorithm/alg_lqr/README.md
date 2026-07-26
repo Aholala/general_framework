@@ -1,21 +1,22 @@
 # alg_lqr
 
-`alg_lqr` 是 Algorithm 层的线性二次型调节器算法库。源码和头文件直接放在模块目录中，文件、类型、函数和枚举分别使用 `alg_lqr`、`AlgLqr` 和 `ALG_LQR` 前缀。
+`alg_lqr` 是 Algorithm 层的线性二次型调节器算法库。源码和头文件直接放在模块目录中，
+文件、类型和函数使用 `alg_lqr_` 前缀，宏和枚举常量使用 `ALG_LQR_` 前缀。
 
 ## 功能范围
 
 | 功能 | 接口 |
 |---|---|
-| 多状态、多输入 LQR 控制器 | `AlgLqrController_t` |
-| 无限时域离散 LQR | `AlgLqrDare_Solve()` |
-| 有限时域离散 LQR | `AlgLqrFinite_Solve()` |
+| 多状态、多输入 LQR 控制器 | `alg_lqr_controller_t` |
+| 无限时域离散 LQR | `alg_lqr_dare_solve()` |
+| 有限时域离散 LQR | `alg_lqr_finite_solve()` |
 | 状态—控制交叉权重 N | `cross_weight` |
 | 状态参考跟踪 | `reference_state` |
 | 平衡控制输入 | `equilibrium_control` |
 | 外部前馈 | `feedforward_control` |
 | 每个控制通道独立限幅 | `control_min/control_max` |
-| 连续模型 Tustin 离散化 | `AlgLqrDiscretize_Tustin()` |
-| LQI 积分状态增广 | `AlgLqrLqi_BuildAugmentedModel()` |
+| 连续模型 Tustin 离散化 | `alg_lqr_discretize_tustin()` |
+| LQI 积分状态增广 | `alg_lqr_lqi_build_augmented_model()` |
 | 奇异矩阵检测 | `ALG_LQR_STATUS_SINGULAR_MATRIX` |
 | DARE 收敛检测 | `ALG_LQR_STATUS_NOT_CONVERGED` |
 
@@ -68,7 +69,7 @@ matrix(row, column) = matrix[row * column_count + column]
 
 ## 无限时域 LQR
 
-`AlgLqrDare_Solve()` 迭代求解离散代数 Riccati 方程：
+`alg_lqr_dare_solve()` 迭代求解离散代数 Riccati 方程：
 
 ```text
 K = (R + BᵀPB)⁻¹(BᵀPA + Nᵀ)
@@ -90,7 +91,7 @@ static float s_workspace[
 static float s_riccati[STATE_DIMENSION * STATE_DIMENSION];
 static float s_gain[CONTROL_DIMENSION * STATE_DIMENSION];
 
-AlgLqrDareConfig_t config = {
+alg_lqr_dare_config_t config = {
     .state_dimension = STATE_DIMENSION,
     .control_dimension = CONTROL_DIMENSION,
     .state_matrix = state_matrix,
@@ -104,7 +105,7 @@ AlgLqrDareConfig_t config = {
     .workspace_size = sizeof(s_workspace) / sizeof(s_workspace[0])
 };
 
-AlgLqrStatus_t status = AlgLqrDare_Solve(&config,
+alg_lqr_status_t status = alg_lqr_dare_solve(&config,
                                          s_riccati,
                                          s_gain,
                                          NULL);
@@ -116,7 +117,7 @@ AlgLqrStatus_t status = AlgLqrDare_Solve(&config,
 
 ## 有限时域 LQR
 
-`AlgLqrFinite_Solve()` 从终端权重反向递推，返回完整增益序列：
+`alg_lqr_finite_solve()` 从终端权重反向递推，返回完整增益序列：
 
 ```text
 gain_sequence[0]            第 0 个控制周期
@@ -145,7 +146,7 @@ u = u_equilibrium + u_feedforward - K(x - x_reference)
 示例：
 
 ```c
-AlgLqrControllerConfig_t controller_config = {
+alg_lqr_controller_config_t controller_config = {
     .state_dimension = STATE_DIMENSION,
     .control_dimension = CONTROL_DIMENSION,
     .gain_matrix = s_gain,
@@ -153,10 +154,10 @@ AlgLqrControllerConfig_t controller_config = {
     .control_max = control_max
 };
 
-AlgLqrController_t controller;
-AlgLqrController_Init(&controller, &controller_config);
+alg_lqr_controller_t controller;
+alg_lqr_controller_init(&controller, &controller_config);
 
-AlgLqrController_Update(&controller,
+alg_lqr_controller_update(&controller,
                         state,
                         reference_state,
                         equilibrium_control,
@@ -170,7 +171,7 @@ AlgLqrController_Update(&controller,
 
 ## 连续模型离散化
 
-`AlgLqrDiscretize_Tustin()` 使用双线性变换：
+`alg_lqr_discretize_tustin()` 使用双线性变换：
 
 ```text
 Ad = (I - Ac·dt/2)⁻¹(I + Ac·dt/2)
@@ -183,7 +184,7 @@ Bd = (I - Ac·dt/2)⁻¹(Bc·dt)
 
 ## LQI 积分增广
 
-`AlgLqrLqi_BuildAugmentedModel()` 构建：
+`alg_lqr_lqi_build_augmented_model()` 构建：
 
 ```text
 x_aug = [x; integral_error]
@@ -234,9 +235,9 @@ integral_error += dt × (reference_output - measured_output)
 - 少量模型切换：预存多组 K。
 - 必须在线求解：在低优先级任务或初始化阶段完成。
 
-## 测试覆盖
+## 验证建议
 
-`Test/alg_lqr_test.c` 覆盖：
+集成到具体模型时至少验证：
 
 - 具有解析解的标量 DARE。
 - 二维双积分系统闭环收敛。

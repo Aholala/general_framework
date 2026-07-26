@@ -1,19 +1,20 @@
 # alg_filter
 
-`alg_filter` 是 Algorithm 层的纯 C11 滤波库。文件统一使用 `alg_` 前缀，公共函数、类型和宏分别统一使用 `AlgFilter`、`AlgFilter` 和 `ALG_FILTER` 命名空间。
+`alg_filter` 是 Algorithm 层的纯 C11 滤波库。文件、公共函数和类型统一使用
+`alg_filter_` 前缀，宏和枚举常量使用 `ALG_FILTER_` 前缀。
 
 ## 功能范围
 
 | 滤波器 | 对象类型 | 主要用途 |
 |---|---|---|
-| 一阶低通 | `AlgFilterLowPass_t` | 抑制高频噪声 |
-| 一阶高通 | `AlgFilterHighPass_t` | 去除直流分量和缓慢漂移 |
-| 指数平均 | `AlgFilterExponential_t` | 低成本平滑 |
-| 滑动平均 | `AlgFilterMovingAverage_t` | 固定窗口均值 |
-| 中值滤波 | `AlgFilterMedian_t` | 抑制脉冲噪声和离群点 |
-| 通用 FIR | `AlgFilterFir_t` | 使用调用者提供的任意 FIR 系数 |
-| Biquad | `AlgFilterBiquad_t` | 二阶低通、高通、带通和陷波 |
-| 互补滤波 | `AlgFilterComplementary_t` | 融合测量值和变化率 |
+| 一阶低通 | `alg_filter_low_pass_t` | 抑制高频噪声 |
+| 一阶高通 | `alg_filter_high_pass_t` | 去除直流分量和缓慢漂移 |
+| 指数平均 | `alg_filter_exponential_t` | 低成本平滑 |
+| 滑动平均 | `alg_filter_moving_average_t` | 固定窗口均值 |
+| 中值滤波 | `alg_filter_median_t` | 抑制脉冲噪声和离群点 |
+| 通用 FIR | `alg_filter_fir_t` | 使用调用者提供的任意 FIR 系数 |
+| Biquad | `alg_filter_biquad_t` | 二阶低通、高通、带通和陷波 |
+| 互补滤波 | `alg_filter_complementary_t` | 融合测量值和变化率 |
 
 卡尔曼滤波不属于本模块。它将在独立的 `alg_kalman` 算法模块中实现，避免滤波基础库承担矩阵、状态模型和观测模型等额外职责。
 
@@ -33,18 +34,18 @@
 ```c
 #include "alg_filter.h"
 
-static AlgFilterLowPass_t s_velocity_filter;
+static alg_filter_low_pass_t s_velocity_filter;
 
-void VelocityFilter_Init(void)
+void app_velocity_filter_init(void)
 {
-    (void)AlgFilterLowPass_Init(&s_velocity_filter, 30.0F);
+    (void)alg_filter_low_pass_init(&s_velocity_filter, 30.0F);
 }
 
-AlgFilterStatus_t VelocityFilter_Update(float raw_velocity,
-                                        float delta_time_s,
-                                        float *filtered_velocity)
+alg_filter_status_t app_velocity_filter_update(float raw_velocity,
+                                               float delta_time_s,
+                                               float *filtered_velocity)
 {
-    return AlgFilterLowPass_Update(&s_velocity_filter,
+    return alg_filter_low_pass_update(&s_velocity_filter,
                                    raw_velocity,
                                    delta_time_s,
                                    filtered_velocity);
@@ -57,11 +58,11 @@ AlgFilterStatus_t VelocityFilter_Update(float raw_velocity,
 #define VELOCITY_WINDOW_SIZE (8U)
 
 static float s_velocity_samples[VELOCITY_WINDOW_SIZE];
-static AlgFilterMovingAverage_t s_velocity_filter;
+static alg_filter_moving_average_t s_velocity_filter;
 
-void VelocityAverage_Init(void)
+void app_velocity_average_init(void)
 {
-    (void)AlgFilterMovingAverage_Init(&s_velocity_filter,
+    (void)alg_filter_moving_average_init(&s_velocity_filter,
                                       s_velocity_samples,
                                       VELOCITY_WINDOW_SIZE);
 }
@@ -86,15 +87,15 @@ quality_factor > 0
 
 二阶 Butterworth 低通和高通常用 `quality_factor = 0.70710678F`。
 
-`AlgFilterBiquad_SetCoefficients()` 接收已经归一化的系数，分母首项固定为 `a0 = 1`。该接口允许在不提供三角函数或使用离线设计工具的平台上直接加载预计算系数。
+`alg_filter_biquad_set_coefficients()` 接收已经归一化的系数，分母首项固定为 `a0 = 1`。该接口允许在不提供三角函数或使用离线设计工具的平台上直接加载预计算系数。
 
 ## 并发约束
 
 滤波对象不是线程安全对象。同一实例如果会同时在中断和任务中访问，调用层必须使用临界区、消息队列或单一所有者策略进行同步。不同实例之间完全独立。
 
-## 测试
+## 验证建议
 
-`Test/alg_filter_test.c` 覆盖：
+集成到目标工程时至少验证：
 
 - 所有公开滤波器的初始化和更新。
 - 低通和高通的直流响应。

@@ -1,18 +1,19 @@
 # alg_pid
 
-`alg_pid` 是 Algorithm 层的通用 PID 控制算法库。源码与头文件直接位于模块目录，统一使用 `alg_` 文件前缀、`AlgPid` 类型和函数前缀以及 `ALG_PID` 枚举前缀。
+`alg_pid` 是 Algorithm 层的通用 PID 控制算法库。源码与头文件直接位于模块目录，
+文件、类型和函数统一使用 `alg_pid_` 前缀，宏和枚举常量使用 `ALG_PID_` 前缀。
 
 ## 已实现功能
 
 | 功能 | 对象或配置 |
 |---|---|
-| 高级位置式 PID | `AlgPid_t` |
-| 位置环语义类型 | `AlgPidPosition_t` |
-| 速度环语义类型 | `AlgPidVelocity_t` |
-| 增量式 PID | `AlgPidIncremental_t` |
-| 位置—速度串级 PID | `AlgPidCascade_t` |
-| 一维增益调度 PID | `AlgPidGainSchedule_t` |
-| 二维模糊自适应 PID | `AlgPidFuzzy_t` |
+| 高级位置式 PID | `alg_pid_t` |
+| 位置环语义类型 | `alg_pid_position_t` |
+| 速度环语义类型 | `alg_pid_velocity_t` |
+| 增量式 PID | `alg_pid_incremental_t` |
+| 位置—速度串级 PID | `alg_pid_cascade_t` |
+| 一维增益调度 PID | `alg_pid_gain_schedule_t` |
+| 二维模糊自适应 PID | `alg_pid_fuzzy_t` |
 | 二自由度比例项 | `setpoint_weight` |
 | 二自由度微分项 | `derivative_setpoint_weight` |
 | 对误差微分 | `ALG_PID_DERIVATIVE_ON_ERROR` |
@@ -27,9 +28,9 @@
 | 速度前馈 | `velocity_feedforward_gain` |
 | 加速度前馈 | `acceleration_feedforward_gain` |
 | 任意外部前馈 | `additional_feedforward` |
-| 无扰切换/输出跟踪 | `AlgPid_TrackOutput()` |
-| 运行时参数更新 | `AlgPid_SetConfig()` |
-| P/I/D/FF 分项观测 | `AlgPidTerms_t` |
+| 无扰切换/输出跟踪 | `alg_pid_track_output()` |
+| 运行时参数更新 | `alg_pid_set_config()` |
+| P/I/D/FF 分项观测 | `alg_pid_terms_t` |
 
 ## 可移植性
 
@@ -46,13 +47,13 @@
 建议先获得默认配置，再修改需要的参数：
 
 ```c
-static AlgPidVelocity_t s_velocity_controller;
+static alg_pid_velocity_t s_velocity_controller;
 
-void VelocityController_Init(void)
+void app_velocity_controller_init(void)
 {
-    AlgPidConfig_t config;
+    alg_pid_config_t config;
 
-    (void)AlgPidConfig_Init(&config);
+    (void)alg_pid_config_init(&config);
     config.proportional_gain = 2.0F;
     config.integral_gain = 10.0F;
     config.derivative_gain = 0.01F;
@@ -62,7 +63,7 @@ void VelocityController_Init(void)
     config.integral_max = 5.0F;
     config.derivative_filter_cutoff_hz = 50.0F;
 
-    (void)AlgPidVelocity_Init(&s_velocity_controller, &config);
+    (void)alg_pid_velocity_init(&s_velocity_controller, &config);
 }
 ```
 
@@ -79,7 +80,7 @@ void VelocityController_Init(void)
 ```c
 float actuator_command;
 
-AlgPidStatus_t status = AlgPid_Update(&controller,
+alg_pid_status_t status = alg_pid_update(&controller,
                                       target,
                                       feedback,
                                       delta_time_s,
@@ -91,7 +92,7 @@ AlgPidStatus_t status = AlgPid_Update(&controller,
 ## 高级输入和前馈
 
 ```c
-AlgPidInput_t input = {
+alg_pid_input_t input = {
     .setpoint = target_position,
     .measurement = measured_position,
     .setpoint_rate_per_s = target_velocity,
@@ -100,7 +101,7 @@ AlgPidInput_t input = {
     .delta_time_s = control_period_s
 };
 
-AlgPid_UpdateAdvanced(&controller, &input, &output);
+alg_pid_update_advanced(&controller, &input, &output);
 ```
 
 最终前馈为：
@@ -169,15 +170,15 @@ config.error_deadband = 0.01F;
 - 微分增量低通。
 - 外部前馈增量。
 
-增量式控制器适合输出本身需要连续累加的执行器，但发生状态切换时必须调用 `AlgPidIncremental_Reset()` 设置当前输出。
+增量式控制器适合输出本身需要连续累加的执行器，但发生状态切换时必须调用 `alg_pid_incremental_reset()` 设置当前输出。
 
 ## 位置环与速度环
 
 位置环和速度环采用相同数学内核，分别使用语义类型：
 
 ```c
-AlgPidPosition_t position_controller;
-AlgPidVelocity_t velocity_controller;
+alg_pid_position_t position_controller;
+alg_pid_velocity_t velocity_controller;
 ```
 
 推荐配置倾向：
@@ -190,7 +191,7 @@ AlgPidVelocity_t velocity_controller;
 
 ## 位置—速度串级
 
-`AlgPidCascade_t` 内含两个独立 PID 对象：
+`alg_pid_cascade_t` 内含两个独立 PID 对象：
 
 ```text
 位置误差 -> 位置 PID -> 速度目标 -> 速度 PID -> 执行器输出
@@ -207,7 +208,7 @@ AlgPidVelocity_t velocity_controller;
 增益调度根据工作点在线线性插值 Kp、Ki、Kd：
 
 ```c
-static const AlgPidGainPoint_t gain_points[] = {
+static const alg_pid_gain_point_t gain_points[] = {
     {0.0F,   1.0F, 0.5F, 0.01F},
     {100.0F, 2.0F, 0.8F, 0.02F},
     {300.0F, 3.0F, 1.0F, 0.03F}
@@ -218,7 +219,7 @@ static const AlgPidGainPoint_t gain_points[] = {
 
 ## 模糊自适应 PID
 
-`AlgPidFuzzy_t` 根据归一化误差和误差变化率，在二维规则面上对 Kp、Ki、Kd 调整量进行双线性插值：
+`alg_pid_fuzzy_t` 根据归一化误差和误差变化率，在二维规则面上对 Kp、Ki、Kd 调整量进行双线性插值：
 
 ```text
 Kp = base_Kp + fuzzy_delta_Kp(error, error_rate)
@@ -237,7 +238,7 @@ Kd = base_Kd + fuzzy_delta_Kd(error, error_rate)
 从手动输出切换到闭环前调用：
 
 ```c
-AlgPid_TrackOutput(&controller,
+alg_pid_track_output(&controller,
                    current_setpoint,
                    current_measurement,
                    current_feedforward,
@@ -249,7 +250,7 @@ AlgPid_TrackOutput(&controller,
 ## 调试信息
 
 ```c
-const AlgPidTerms_t *terms = AlgPid_GetTerms(&controller);
+const alg_pid_terms_t *terms = alg_pid_get_terms(&controller);
 ```
 
 可以分别观察：
@@ -263,9 +264,9 @@ const AlgPidTerms_t *terms = AlgPid_GetTerms(&controller);
 
 这些数据适合通过日志或上位机绘图，但算法库本身不负责通信。
 
-## 测试覆盖
+## 验证建议
 
-`Test/alg_pid_test.c` 覆盖：
+集成到具体控制对象时至少验证：
 
 - 位置环和速度环。
 - 积分累积与积分限幅。

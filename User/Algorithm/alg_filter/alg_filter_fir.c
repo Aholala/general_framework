@@ -3,14 +3,12 @@
 #include <math.h>
 #include <stddef.h>
 
-AlgFilterStatus_t AlgFilterFir_Init(AlgFilterFir_t *self,
-                                    const float *coefficients,
-                                    float *state_buffer,
-                                    size_t tap_count)
+alg_filter_status_t alg_filter_fir_init(alg_filter_fir_t *me, const float *coefficients,
+                                        float *state_buffer, size_t tap_count)
 {
     size_t tap_index;
 
-    if ((self == NULL) || (coefficients == NULL) || (state_buffer == NULL))
+    if ((me == NULL) || (coefficients == NULL) || (state_buffer == NULL))
     {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
     }
@@ -19,7 +17,7 @@ AlgFilterStatus_t AlgFilterFir_Init(AlgFilterFir_t *self,
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
     }
 
-    self->is_initialized = false;
+    me->is_initialized = false;
     for (tap_index = 0U; tap_index < tap_count; ++tap_index)
     {
         if (!isfinite(coefficients[tap_index]))
@@ -28,47 +26,47 @@ AlgFilterStatus_t AlgFilterFir_Init(AlgFilterFir_t *self,
         }
     }
 
-    self->coefficients = coefficients;
-    self->state_buffer = state_buffer;
-    self->tap_count = tap_count;
-    self->is_initialized = true;
-    return AlgFilterFir_Reset(self);
+    me->coefficients = coefficients;
+    me->state_buffer = state_buffer;
+    me->tap_count = tap_count;
+    me->is_initialized = true;
+    return alg_filter_fir_reset(me);
 }
 
-AlgFilterStatus_t AlgFilterFir_Reset(AlgFilterFir_t *self)
+alg_filter_status_t alg_filter_fir_reset(alg_filter_fir_t *me)
 {
     size_t tap_index;
 
-    if (self == NULL)
+    if (me == NULL)
     {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
     }
-    if (!self->is_initialized)
+    if (!me->is_initialized || (me->tap_count == 0U) || (me->coefficients == NULL) ||
+        (me->state_buffer == NULL))
     {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
     }
 
-    for (tap_index = 0U; tap_index < self->tap_count; ++tap_index)
+    for (tap_index = 0U; tap_index < me->tap_count; ++tap_index)
     {
-        self->state_buffer[tap_index] = 0.0F;
+        me->state_buffer[tap_index] = 0.0F;
     }
-    self->write_index = 0U;
+    me->write_index = 0U;
     return ALG_FILTER_STATUS_OK;
 }
 
-AlgFilterStatus_t AlgFilterFir_Update(AlgFilterFir_t *self,
-                                      float input,
-                                      float *output)
+alg_filter_status_t alg_filter_fir_update(alg_filter_fir_t *me, float input, float *output)
 {
     size_t coefficient_index;
     size_t state_index;
     float accumulator = 0.0F;
 
-    if ((self == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL))
     {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
     }
-    if (!self->is_initialized)
+    if (!me->is_initialized || (me->tap_count == 0U) || (me->coefficients == NULL) ||
+        (me->state_buffer == NULL) || (me->write_index >= me->tap_count))
     {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
     }
@@ -77,17 +75,15 @@ AlgFilterStatus_t AlgFilterFir_Update(AlgFilterFir_t *self,
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
     }
 
-    self->state_buffer[self->write_index] = input;
-    state_index = self->write_index;
-    for (coefficient_index = 0U; coefficient_index < self->tap_count;
-         ++coefficient_index)
+    me->state_buffer[me->write_index] = input;
+    state_index = me->write_index;
+    for (coefficient_index = 0U; coefficient_index < me->tap_count; ++coefficient_index)
     {
-        accumulator += self->coefficients[coefficient_index] *
-                       self->state_buffer[state_index];
-        state_index = (state_index == 0U) ? (self->tap_count - 1U) : (state_index - 1U);
+        accumulator += me->coefficients[coefficient_index] * me->state_buffer[state_index];
+        state_index = (state_index == 0U) ? (me->tap_count - 1U) : (state_index - 1U);
     }
 
-    self->write_index = (self->write_index + 1U) % self->tap_count;
+    me->write_index = (me->write_index + 1U) % me->tap_count;
     if (!isfinite(accumulator))
     {
         return ALG_FILTER_STATUS_NUMERICAL_ERROR;
