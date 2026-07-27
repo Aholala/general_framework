@@ -1,3 +1,14 @@
+/**
+ * @file bsp_watchdog.c
+ * @author Ahola邱泽钦 (aholace0328@gmail.com)
+ * @brief 
+ * @version 1.0
+ * @date 2026-07-27
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
+
 #include "bsp_watchdog.h"
 
 #include <stddef.h>

@@ -1,171 +1,292 @@
-# bsp_fdcan
+# BSP FDCAN 通用抽象层与 Classic 适配器 (bsp_fdcan)
 
-`bsp_fdcan` 提供与芯片厂商无关的 CAN FD 接口，并在同一目录提供 Classic CAN
-适配器：
+## 1. 模块概述
 
-- `bsp_fdcan.h/.c`：CAN FD 基类和驱动注入；
-- `bsp_fdcan_classic_adapter.h/.c`：把 FDCAN 的 Classic 帧能力适配为
-  `bsp_can_t`。
+`bsp_fdcan` 提供了与芯片厂商无关的 **CAN FD（CAN with Flexible Data-Rate）** 通用抽象，同时在同一目录下提供了 **Classic CAN 适配器**，使得基于 FDCAN 硬件的设备能够无缝兼容现有的 Classic CAN 上层模块（如 `bsp_can_dispatcher`、电机控制模块等）。
 
-适配器是 FDCAN 的一种使用方式，不再作为独立外设目录。
+目录结构：
 
-## 功能范围
+- `bsp_fdcan.h/.c`：CAN FD 基类、驱动注入、多态接口、帧校验、协议状态查询和事件通知。
+- `bsp_fdcan_classic_adapter.h/.c`：将 FDCAN 的 Classic 帧能力适配为 `bsp_can_t *` 接口，使上层模块无需感知底层是 FDCAN 还是 Classic CAN 硬件。
 
-- Classic CAN、CAN FD 无 BRS、CAN FD 带 BRS 三种格式；
-- 标准/扩展标识符和数据/远程帧；
-- 0～64 字节有效载荷；
-- FIFO0、FIFO1 接收；
-- 过滤器配置、启动、停止、发送和接收；
-- 发送队列余量查询；
-- Bus-Off、Error Passive、Warning 和错误计数查询；
-- 将 FDCAN Classic 帧桥接到 `bsp_can_t` 多态接口。
+**核心能力**：
 
-位时序、消息 RAM、GPIO、收发器 STBY 引脚和厂商 HAL 均属于平台端。
+- 支持 Classic CAN、CAN FD 无 BRS、CAN FD 带 BRS 三种帧格式。
+- 支持 0~64 字节可变数据长度（有效长度：0~8、12、16、20、24、32、48、64）。
+- 标准/扩展标识符、数据/远程帧。
+- FIFO0/FIFO1 接收选择。
+- 硬件过滤器配置（掩码+ID）。
+- 协议状态查询（Bus-Off、Error Passive、Warning、错误计数）。
+- 发送邮箱余量查询。
+- Classic 适配器将 FDCAN Classic 帧桥接到 `bsp_can_t` 多态接口。
 
-## 对象模型
+## 2. 设计边界
+
+| **模块负责**                                   | **模块不负责**                                    |
+| :--------------------------------------------- | :------------------------------------------------ |
+| CAN FD 帧结构、格式、数据长度的抽象与校验      | CAN FD 位时序、采样点、数据段波特率配置           |
+| 标准/扩展 ID 过滤器的统一配置接口              | 消息 RAM 分配和管理                               |
+| 发送/接收（阻塞）、协议状态、邮箱余量查询      | GPIO 引脚复用、收发器 STBY 引脚控制               |
+| FDCAN → Classic CAN 的帧格式转换与适配         | 厂商 HAL 库头文件包含（如 stm32h7xx_hal_fdcan.h） |
+| 事件通知（发送完成、接收完成、错误）的中断转发 | 中断向量表配置和 NVIC 优先级设置                  |
+| 多实例管理（多个 FDCAN 控制器）                | 具体电机协议、裁判系统协议或应用层数据解析        |
+
+## 3. 对象模型与继承关系
 
 ```text
 bsp_device_t
-└── bsp_fdcan_t
-    └── bsp_fdcan_device_t
+└── bsp_fdcan_t                         (FDCAN 基类：增加 callback、user_context)
+    └── bsp_fdcan_device_t              (FDCAN 具体设备：持有 driver_ops)
 
 bsp_can_t
-└── bsp_can_device_t
-    └── bsp_fdcan_classic_adapter_t
+└── bsp_can_device_t                    (Classic CAN 基类)
+    └── bsp_fdcan_classic_adapter_t     (适配器：组合一个 bsp_fdcan_t *)
 ```
 
-`bsp_fdcan_device_t` 持有平台 `device_handle` 和
-`bsp_fdcan_driver_ops_t`。Classic 适配器本身是一个 `bsp_can_device_t` 派生对象，
-内部组合一个 `bsp_fdcan_t *`，因此无需复制 FDCAN 对象。
+- **`bsp_fdcan_t`**：应用层使用的 FDCAN 基类指针，包含事件回调和用户上下文。
+- **`bsp_fdcan_device_t`**：实际分配的对象，保存底层驱动操作表。
+- **`bsp_fdcan_classic_adapter_t`**：适配器对象，本身是一个 `bsp_can_device_t` 派生类，内部组合一个 `bsp_fdcan_t *`，不拥有该指针（生命周期由调用者管理）。
 
-## 帧格式
+## 4. 核心类型
 
-`bsp_fdcan_frame_t` 的 `format` 可取：
-
-- `BSP_FDCAN_FORMAT_CLASSIC`：Classic CAN，最大 8 字节；
-- `BSP_FDCAN_FORMAT_FD_NO_BRS`：CAN FD，仲裁段与数据段相同速率；
-- `BSP_FDCAN_FORMAT_FD_BRS`：CAN FD，数据段切换到更高比特率。
-
-平台端必须校验实际控制器支持的 DLC。公共层使用字节长度，平台驱动负责字节长度与硬件
-DLC 编码之间的转换。
-
-## 初始化与使用
+### 4.1 FDCAN 帧结构 (`bsp_fdcan_frame_t`)
 
 ```c
-static bsp_fdcan_device_t board_fdcan_device;
+typedef struct {
+    uint32_t identifier;               // 11 或 29 位 ID
+    bsp_can_id_type_t id_type;         // BSP_CAN_ID_STANDARD / EXTENDED
+    bsp_can_frame_type_t frame_type;   // BSP_CAN_FRAME_DATA / REMOTE
+    bsp_fdcan_format_t format;         // 帧格式
+    uint8_t data_length;               // 有效字节数
+    uint8_t data[64];                  // 数据负载
+} bsp_fdcan_frame_t;
+```
 
-static const bsp_fdcan_config_t fdcan_config = {
-    .device_handle = &platform_fdcan_handle,
-    .driver_ops = &platform_fdcan_driver_ops,
-    .callback = fdcan_event_callback,
-    .user_context = NULL,
+- **`format`**：
+  - `BSP_FDCAN_FORMAT_CLASSIC`：Classic CAN 帧，最大 8 字节。
+  - `BSP_FDCAN_FORMAT_FD_NO_BRS`：CAN FD 帧，数据段速率与仲裁段相同。
+  - `BSP_FDCAN_FORMAT_FD_BRS`：CAN FD 帧，数据段切换到更高波特率（BRS 使能）。
+- **`data_length`**：有效长度，必须为 0~8、12、16、20、24、32、48、64 之一。
+
+### 4.2 协议状态结构 (`bsp_fdcan_protocol_status_t`)
+
+```c
+typedef struct {
+    bool is_bus_off;                   // Bus-Off 状态
+    bool is_error_passive;             // Error Passive 状态
+    bool has_warning;                  // 是否达到错误警告阈值
+    uint8_t transmit_error_count;      // 发送错误计数
+    uint8_t receive_error_count;       // 接收错误计数
+    uint32_t last_error_code;          // 平台相关错误码
+} bsp_fdcan_protocol_status_t;
+```
+
+### 4.3 底层驱动操作表 (`bsp_fdcan_driver_ops_t`)
+
+```c
+typedef struct {
+    bsp_status_t (*init)(void *handle);
+    bsp_status_t (*deinit)(void *handle);
+    bsp_status_t (*start)(void *handle);
+    bsp_status_t (*stop)(void *handle);
+    bsp_status_t (*configure_filter)(void *handle, const bsp_can_filter_t *);
+    bsp_status_t (*transmit)(void *handle, const bsp_fdcan_frame_t *, uint32_t);
+    bsp_status_t (*receive)(void *handle, bsp_can_receive_fifo_t, bsp_fdcan_frame_t *);
+    bsp_status_t (*get_protocol_status)(const void *handle, bsp_fdcan_protocol_status_t *);
+    bsp_status_t (*get_transmit_free_level)(const void *handle, uint32_t *);
+} bsp_fdcan_driver_ops_t;
+```
+
+**必须实现的函数**：`start`、`stop`、`configure_filter`、`transmit`、`receive`。`init`/`deinit` 可选，`get_protocol_status` 和 `get_transmit_free_level` 若硬件不支持可返回 `BSP_STATUS_UNSUPPORTED`。
+
+## 5. 初始化与使用流程
+
+### 5.1 FDCAN 设备初始化
+
+```c
+static bsp_fdcan_device_t s_fdcan_dev;
+static bsp_fdcan_t *s_fdcan_ptr = NULL;
+
+static const bsp_fdcan_config_t s_fdcan_cfg = {
+    .device_handle = &hfdcan1,                 // 平台句柄（如 FDCAN_HandleTypeDef*）
+    .driver_ops    = &platform_fdcan_driver_ops,
+    .callback      = fdcan_event_callback,
+    .user_context  = NULL,
 };
 
-bsp_status_t status = bsp_fdcan_init(&board_fdcan_device, &fdcan_config);
-if (status == BSP_STATUS_OK)
-{
-    status = bsp_fdcan_start(bsp_fdcan_as_base(&board_fdcan_device));
+void board_fdcan_init(void) {
+    bsp_fdcan_init(&s_fdcan_dev, &s_fdcan_cfg);
+    s_fdcan_ptr = bsp_fdcan_as_base(&s_fdcan_dev);
+    bsp_fdcan_start(s_fdcan_ptr);
 }
 ```
 
-发送 FD 帧：
+### 5.2 发送 CAN FD 帧
 
 ```c
-bsp_fdcan_frame_t frame = {
-    .identifier = 0x120U,
-    .id_type = BSP_CAN_ID_STANDARD,
-    .frame_type = BSP_CAN_FRAME_DATA,
-    .format = BSP_FDCAN_FORMAT_FD_BRS,
-    .data_length = 16U,
+bsp_fdcan_frame_t tx_frame = {
+    .identifier   = 0x120,
+    .id_type      = BSP_CAN_ID_STANDARD,
+    .frame_type   = BSP_CAN_FRAME_DATA,
+    .format       = BSP_FDCAN_FORMAT_FD_BRS,
+    .data_length  = 16,
+    .data         = { ... },
 };
-
-bsp_fdcan_transmit(bsp_fdcan_as_base(&board_fdcan_device), &frame, 2U);
+if (bsp_fdcan_transmit(s_fdcan_ptr, &tx_frame, 100) == BSP_STATUS_OK) {
+    // 发送成功
+}
 ```
 
-## Classic CAN 适配器
-
-大疆电机等设备只需要 8 字节 Classic CAN。若硬件外设是 FDCAN，按下列顺序装配：
+### 5.3 接收 FDCAN 帧
 
 ```c
-static bsp_fdcan_classic_adapter_t classic_adapter;
+bsp_fdcan_frame_t rx_frame;
+if (bsp_fdcan_receive(s_fdcan_ptr, BSP_CAN_RX_FIFO_0, &rx_frame) == BSP_STATUS_OK) {
+    // 处理 rx_frame
+}
+```
 
-static const bsp_fdcan_classic_adapter_config_t adapter_config = {
-    .fdcan = &board_fdcan_device.super,
-    .callback = NULL,
+### 5.4 配置硬件过滤器
+
+```c
+bsp_can_filter_t filter = {
+    .identifier   = 0x200,
+    .mask         = 0x7FF,
+    .id_type      = BSP_CAN_ID_STANDARD,
+    .receive_fifo = BSP_CAN_RX_FIFO_0,
+    .filter_index = 0,                     // 平台端解释
+};
+bsp_fdcan_configure_filter(s_fdcan_ptr, &filter);
+```
+
+### 5.5 查询协议状态
+
+```c
+bsp_fdcan_protocol_status_t status;
+if (bsp_fdcan_get_protocol_status(s_fdcan_ptr, &status) == BSP_STATUS_OK) {
+    if (status.is_bus_off) {
+        // 执行 Bus-Off 恢复流程
+    }
+}
+```
+
+## 6. Classic CAN 适配器
+
+适配器用于将 FDCAN 硬件降级为 8 字节 Classic CAN，使上层模块（如电机控制、裁判系统、`bsp_can_dispatcher`）无需感知底层是 FDCAN 还是 Classic CAN。
+
+### 6.1 适配器初始化
+
+```c
+static bsp_fdcan_classic_adapter_t s_classic_adapter;
+
+static const bsp_fdcan_classic_adapter_config_t adapter_cfg = {
+    .fdcan        = s_fdcan_ptr,           // 已初始化的 FDCAN 对象
+    .callback     = NULL,                  // 可选用户回调
     .user_context = NULL,
 };
 
-bsp_fdcan_classic_adapter_init(&classic_adapter, &adapter_config);
-bsp_can_t *motor_can = bsp_fdcan_classic_adapter_as_can(&classic_adapter);
+void board_classic_adapter_init(void) {
+    bsp_fdcan_classic_adapter_init(&s_classic_adapter, &adapter_cfg);
+    bsp_can_t *can_ptr = bsp_fdcan_classic_adapter_as_can(&s_classic_adapter);
+    // 现在 can_ptr 可传入 bsp_can_dispatcher 或电机模块
+}
 ```
 
-之后 `module_dji_motor`、`module_robot_link` 和 `bsp_can_dispatcher` 只看到
-`bsp_can_t *`，不感知底层是 bxCAN 还是 FDCAN。
+### 6.2 适配器行为约束
 
-适配器只接受：
+- 只接受 `BSP_FDCAN_FORMAT_CLASSIC` 格式的帧。
+- `data_length` 必须 ≤ 8。
+- 发送时自动将 `bsp_can_frame_t` 转换为 `bsp_fdcan_frame_t`，格式固定为 Classic。
+- 接收时若收到 FD 帧（非 Classic）或长度 > 8，返回 `BSP_STATUS_UNSUPPORTED`。
+- 过滤器和 FIFO 配置直接转发到 FDCAN 底层。
 
-- `BSP_FDCAN_FORMAT_CLASSIC`；
-- `data_length <= 8U`；
-- `bsp_can_frame_t` 能表达的过滤和 FIFO 配置。
+## 7. 中断与事件通知
 
-它不会把 CAN FD 长帧截断成 Classic 帧。
-
-## 协议状态与赛场恢复
-
-`bsp_fdcan_get_protocol_status` 返回：
-
-- `is_bus_off`；
-- `is_error_passive`；
-- `has_warning`；
-- 发送和接收错误计数；
-- 平台最后错误码。
-
-通用层只报告状态，不擅自重置硬件。比赛项目应由上层健康管理器决定：
-
-1. 立即禁止相关执行器输出；
-2. 记录故障和时间戳；
-3. 停止并重新初始化总线；
-4. 重新配置过滤器；
-5. 确认关键设备反馈恢复；
-6. 显式解除故障锁存并重新使能。
-
-## 中断入口
-
-平台端在发送完成、收到帧或发生错误时调用：
+平台端在 CAN 中断中调用：
 
 ```c
-bsp_fdcan_notify(fdcan, event, status, transferred_size);
+bsp_fdcan_notify(fdcan_ptr, BSP_EVENT_RECEIVE_COMPLETE, BSP_STATUS_OK, 1U);
 ```
 
-通知函数只转发事件。协议解析应通过 Classic CAN 分发器或 Module 的任务上下文完成。
-中断函数不得等待发送邮箱、打印日志或运行控制算法。
+- 事件类型包括：`TRANSMIT_COMPLETE`、`RECEIVE_COMPLETE`、`TRANSFER_COMPLETE`、`RECEIVE_PENDING`、`ERROR`。
+- 回调在 ISR 上下文中执行，必须快速返回，不可阻塞。
 
-## 内存和所有权
+## 8. 协议状态与故障恢复
 
-- FDCAN 对象与 Classic 适配器由调用者静态分配；
-- 适配器不拥有 `fdcan`，不得先销毁被引用的 FDCAN；
-- 发送帧在同步驱动返回前必须有效；
-- 若平台发送是异步的，平台端必须明确复制策略或保持调用者缓冲区生命周期；
-- 所有操作表使用 `static const`，运行状态只存放在实例内。
+`bsp_fdcan_get_protocol_status` 提供 Bus-Off、Error Passive、Warning 及错误计数信息。通用层只报告状态，**不擅自重置硬件**。上层健康管理器应执行：
 
-## 移植检查
+1. 立即禁止相关执行器输出（设置安全状态）。
+2. 记录故障和时间戳。
+3. 停止总线（`bsp_fdcan_stop`）。
+4. 重新初始化硬件（调用 `driver_ops->init` 或设备复位）。
+5. 重新配置过滤器。
+6. 恢复关键设备反馈。
+7. 解除故障锁存并重新使能（`bsp_fdcan_start`）。
 
-- 把字节长度正确转换为硬件 DLC；
-- 根据帧格式设置 FDF 和 BRS；
-- 正确区分标准与扩展过滤器；
-- 正确路由 FIFO0、FIFO1 中断；
-- 提供协议状态和 Bus-Off 错误；
-- 若使用 D-Cache，处理消息缓冲区一致性；
-- 不在通用 BSP 中包含厂商头文件；
-- 由 `board_config.h` 选择逻辑总线、路由容量和恢复策略。
+## 9. API 参考
 
-## 建议验证
+| 函数                                | 说明                        | 返回值                           |
+| :---------------------------------- | :-------------------------- | :------------------------------- |
+| `bsp_fdcan_init`                    | 初始化 FDCAN 设备           | `OK` / `INVALID_ARGUMENT`        |
+| `bsp_fdcan_as_base`                 | 向上转型，获取基类指针      | 基类指针或 `NULL`                |
+| `bsp_fdcan_set_callback`            | 设置事件回调                | `OK` / `NOT_INITIALIZED`         |
+| `bsp_fdcan_start`                   | 启动 CAN FD 总线            | 状态码                           |
+| `bsp_fdcan_stop`                    | 停止 CAN FD 总线            | 状态码                           |
+| `bsp_fdcan_configure_filter`        | 配置硬件过滤器（ID+掩码）   | `OK` / `INVALID_ARGUMENT`        |
+| `bsp_fdcan_transmit`                | 发送 FDCAN 帧（阻塞）       | `OK` / `OUT_OF_RANGE` / 平台错误 |
+| `bsp_fdcan_receive`                 | 从 FIFO 接收一帧            | `OK` / `IO_ERROR`                |
+| `bsp_fdcan_get_protocol_status`     | 获取协议状态                | `OK` / `UNSUPPORTED`             |
+| `bsp_fdcan_get_transmit_free_level` | 获取发送邮箱空闲数          | `OK` / `UNSUPPORTED`             |
+| `bsp_fdcan_notify`                  | 事件通知（由平台 ISR 调用） | 无返回值                         |
+| `bsp_fdcan_classic_adapter_init`    | 初始化 Classic 适配器       | `OK` / `INVALID_ARGUMENT`        |
+| `bsp_fdcan_classic_adapter_as_can`  | 获取 `bsp_can_t *` 指针     | `bsp_can_t *` 或 `NULL`          |
 
-- Classic 0～8 字节和 FD 12、16、20、24、32、48、64 字节；
-- BRS 开关、标准/扩展帧和远程帧限制；
-- 非法长度、未实现操作和未初始化对象；
-- FIFO0、FIFO1 接收及过滤器配置；
-- 发送队列满、超时、Error Passive 和 Bus-Off；
-- Classic 适配器双向转换与长帧拒绝；
-- 两个 FDCAN 实例和两个 Classic 适配器互不影响；
-- 停止、反初始化和故障恢复顺序。
+## 10. 生命周期与并发约束
+
+- **初始化顺序**：`bsp_fdcan_init` → `bsp_fdcan_start`。
+- **适配器依赖**：适配器依赖的 `bsp_fdcan_t` 必须在整个适配器生命周期内保持有效，不可先销毁 FDCAN 对象。
+- **状态冲突**：发送、接收和状态查询可并发执行，但需注意硬件资源共享（由平台驱动处理）。
+- **缓冲区生命周期**：`bsp_fdcan_transmit` 的帧指针在函数返回前必须有效。若平台驱动异步发送，平台端必须复制数据或使用 DMA 安全机制。
+- **回调约束**：用户回调在 ISR 上下文中执行，必须非阻塞（仅释放信号量或发送消息）。
+
+## 11. 移植要求
+
+平台移植者需实现 `bsp_fdcan_driver_ops_t`：
+
+- **`init`**（可选）：配置消息 RAM、FIFO 大小、过滤器数量、位时序等。
+- **`start`**：使能 CAN FD 通信（进入 Normal 模式）。
+- **`stop`**：禁用通信。
+- **`configure_filter`**：将 `bsp_can_filter_t` 转换为硬件过滤器配置。
+- **`transmit`**：将帧写入发送邮箱，支持超时机制。
+- **`receive`**：从指定 FIFO 读取一帧，若 FIFO 空返回 `BSP_STATUS_NO_DATA`。
+- **`get_protocol_status`**：读取协议状态寄存器（Bus-Off、错误计数等）。
+- **`get_transmit_free_level`**：返回可用发送邮箱数。
+
+**关键注意事项**：
+
+- 数据长度与硬件 DLC 编码的转换必须在驱动层完成。
+- FDF 和 BRS 标志需根据 `format` 正确设置。
+- 标准帧与扩展帧的过滤器配置需分别处理。
+- 若使用 D-Cache，需确保消息缓冲区的一致性维护。
+- 适配器的 `device_handle` 指向适配器自身，而非 FDCAN 句柄。
+
+## 12. 建议验证测试项
+
+- [ ] Classic 帧（0~8 字节）收发正常。
+- [ ] FD 帧（12、16、20、24、32、48、64 字节）收发正常。
+- [ ] BRS 使能/禁用的 FD 帧收发正常。
+- [ ] 标准/扩展 ID、数据/远程帧的发送接收。
+- [ ] 非法数据长度（如 9、10）被拒绝。
+- [ ] FIFO0/FIFO1 独立接收。
+- [ ] 过滤器精确匹配与掩码匹配。
+- [ ] 发送邮箱满时超时返回 `TIMEOUT`。
+- [ ] Bus-Off、Error Passive、Warning 状态正确上报。
+- [ ] Classic 适配器正确转换双向帧。
+- [ ] 适配器收到 FD 长帧返回 `UNSUPPORTED`。
+- [ ] 两个 FDCAN 实例/两个适配器互不干扰。
+- [ ] 停止、反初始化后接口拒绝访问。
+- [ ] 故障恢复流程（Bus-Off → 恢复）正确执行。
+
+---
+
+**总结**：`bsp_fdcan` 为 CAN FD 提供了完整的抽象接口，同时通过 Classic 适配器实现了与现有 Classic CAN 系统的无缝兼容。该模块特别适合需要高带宽、长数据帧的通信场景（如多传感器数据传输、固件升级等），同时保持了与 `bsp_can` 体系的一致性，降低了代码迁移成本。
