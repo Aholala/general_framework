@@ -41,20 +41,16 @@ extern "C"
         bool is_initialized;
     } alg_chassis_fault_t;
 
-    alg_chassis_status_t alg_chassis_fault_init(
-        alg_chassis_fault_t *me,
-        const alg_chassis_fault_config_t *config);
-    alg_chassis_status_t alg_chassis_fault_update(
-        alg_chassis_fault_t *me,
-        const float *wheel_residuals_m_per_s,
-        const bool *sensor_is_available,
-        bool *wheel_is_available, size_t output_capacity);
-    alg_chassis_status_t alg_chassis_fault_reset_wheel(
-        alg_chassis_fault_t *me, size_t wheel_index,
-        bool assume_available);
+    alg_chassis_status_t alg_chassis_fault_init(alg_chassis_fault_t *me,
+                                                const alg_chassis_fault_config_t *config);
+    alg_chassis_status_t alg_chassis_fault_update(alg_chassis_fault_t *me,
+                                                  const float *wheel_residuals_m_per_s,
+                                                  const bool *sensor_is_available,
+                                                  bool *wheel_is_available, size_t output_capacity);
+    alg_chassis_status_t alg_chassis_fault_reset_wheel(alg_chassis_fault_t *me, size_t wheel_index,
+                                                       bool assume_available);
     const alg_chassis_fault_wheel_state_t *
-    alg_chassis_fault_get_wheel_state(
-        const alg_chassis_fault_t *me, size_t wheel_index);
+    alg_chassis_fault_get_wheel_state(const alg_chassis_fault_t *me, size_t wheel_index);
 
 #ifdef __cplusplus
 }

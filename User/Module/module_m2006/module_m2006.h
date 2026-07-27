@@ -40,9 +40,8 @@ extern "C"
                                             const module_m2006_config_t *const config);
     module_motor_status_t module_m2006_register(module_m2006_t *const me,
                                                 module_motor_registry_t *const registry);
-    module_motor_status_t module_m2006_unregister(
-        module_m2006_t *const me,
-        module_motor_registry_t *const registry);
+    module_motor_status_t module_m2006_unregister(module_m2006_t *const me,
+                                                  module_motor_registry_t *const registry);
     module_motor_t *module_m2006_as_motor(module_m2006_t *const me);
     module_dji_motor_t *module_m2006_as_dji_motor(module_m2006_t *const me);
     module_motor_status_t module_m2006_enable(module_m2006_t *const me);

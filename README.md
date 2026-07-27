@@ -71,6 +71,16 @@ cmake --preset Release
 cmake --build --preset Release
 ```
 
+构建系统将目标文件、依赖文件和 CMake 缓存放入被忽略的 `.build/` 目录。
+Algorithm、BSP、Module、FreeRTOS 和 USB 使用对象目标参与最终链接，不会在工程
+根目录生成独立的 `.a` 静态库。每次构建对外只输出：
+
+```text
+firmware/general_framework.elf
+```
+
+Debug 与 Release 使用同一个交付路径，后执行的构建覆盖前一个固件。ELF 同时包含
+可烧录映像和调试符号信息，STM32CubeProgrammer、OpenOCD 和调试器均可直接使用。
 修改目录或增加源文件时，只更新根构建文件对应区域。
 
 ## 移植步骤
@@ -91,6 +101,7 @@ cmake --build --preset Release
 - [Algorithm 层](User/Algorithm/README.md)
 - [App 层](User/App/README.md)
 - [BSP 层](User/Bsp/README.md)
+- [STM32H723VET6 板级引脚](User/Bsp/BOARD_PINOUT.md)
 - [Module 层](User/Module/README.md)
 
 每个具体组件 README 都包含职责边界、数据模型、初始化、运行流程、内存/并发约束、移植

@@ -42,13 +42,11 @@ module_motor_status_t module_dm4310_register(module_dm4310_t *const me,
                         : MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
 }
 
-module_motor_status_t module_dm4310_unregister(
-    module_dm4310_t *const me,
-    module_motor_registry_t *const registry)
+module_motor_status_t module_dm4310_unregister(module_dm4310_t *const me,
+                                               module_motor_registry_t *const registry)
 {
-    return (me != NULL)
-               ? module_dm_motor_unregister(&me->super, registry)
-               : MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    return (me != NULL) ? module_dm_motor_unregister(&me->super, registry)
+                        : MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
 }
 
 module_motor_t *module_dm4310_as_motor(module_dm4310_t *const me)

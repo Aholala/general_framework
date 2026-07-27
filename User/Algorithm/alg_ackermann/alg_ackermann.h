@@ -47,24 +47,19 @@ extern "C"
         bool is_initialized;
     } alg_ackermann_t;
 
-    alg_chassis_status_t alg_ackermann_init(
-        alg_ackermann_t *me, const alg_ackermann_config_t *config);
-    alg_chassis_status_t alg_ackermann_inverse(
-        const alg_ackermann_t *me,
-        const alg_chassis_velocity_t *chassis_velocity,
-        const bool wheel_is_available[ALG_ACKERMANN_WHEEL_COUNT],
-        alg_ackermann_wheel_state_t
-            wheel_states[ALG_ACKERMANN_WHEEL_COUNT],
-        float *applied_scale);
+    alg_chassis_status_t alg_ackermann_init(alg_ackermann_t *me,
+                                            const alg_ackermann_config_t *config);
+    alg_chassis_status_t
+    alg_ackermann_inverse(const alg_ackermann_t *me, const alg_chassis_velocity_t *chassis_velocity,
+                          const bool wheel_is_available[ALG_ACKERMANN_WHEEL_COUNT],
+                          alg_ackermann_wheel_state_t wheel_states[ALG_ACKERMANN_WHEEL_COUNT],
+                          float *applied_scale);
     alg_chassis_status_t alg_ackermann_forward(
         const alg_ackermann_t *me,
-        const alg_ackermann_wheel_state_t
-            wheel_states[ALG_ACKERMANN_WHEEL_COUNT],
-        const bool wheel_is_available[ALG_ACKERMANN_WHEEL_COUNT],
-        uint8_t known_component_mask,
+        const alg_ackermann_wheel_state_t wheel_states[ALG_ACKERMANN_WHEEL_COUNT],
+        const bool wheel_is_available[ALG_ACKERMANN_WHEEL_COUNT], uint8_t known_component_mask,
         const alg_chassis_velocity_t *known_velocity,
-        alg_chassis_constraint_t
-            constraint_workspace[ALG_ACKERMANN_CONSTRAINT_COUNT],
+        alg_chassis_constraint_t constraint_workspace[ALG_ACKERMANN_CONSTRAINT_COUNT],
         alg_chassis_solution_t *solution);
 
 #ifdef __cplusplus

@@ -53,7 +53,7 @@
 #include <math.h>
 
 #if !defined  (HSE_VALUE)
-#define HSE_VALUE    ((uint32_t)25000000) /*!< Value of the External oscillator in Hz */
+#define HSE_VALUE    ((uint32_t)24000000) /*!< Value of the fitted external crystal in Hz */
 #endif /* HSE_VALUE */
 
 #if !defined  (CSI_VALUE)
@@ -342,7 +342,7 @@ void SystemInit (void)
   *             in voltage and temperature.
   *
   *         (***)HSE_VALUE is a constant defined in stm32h7xx_hal.h file (default value
-  *              25 MHz), user has to ensure that HSE_VALUE is same as the real
+  *              board oscillator), user has to ensure that HSE_VALUE is same as the real
   *              frequency of the crystal used. Otherwise, this function may
   *              have wrong result.
   *

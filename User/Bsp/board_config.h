@@ -2,11 +2,42 @@
 #define BOARD_CONFIG_H
 
 /*
- * This is the only board-level configuration header used by BSP adapters.
- * Keep logical device names, GPIO pin mappings, IRQ selections and adapter
- * capacities here. Generic bsp_*.h headers must never include this file.
+ * STM32H723VET6 board-level resource map.
+ *
+ * This file describes logical devices, peripheral instances, pins and
+ * alternate functions without including a vendor HAL header. The STM32
+ * platform port is responsible for translating these constants to GPIO_TypeDef
+ * pointers, HAL handles, IRQ numbers and DMA channels.
+ *
+ * A pin is encoded as (port_index << 4) | pin_number. Use the access macros
+ * below instead of relying on the encoding outside the board assembly code.
  */
 
+#define BOARD_CONFIG_GPIO_PORT_A (0U)
+#define BOARD_CONFIG_GPIO_PORT_B (1U)
+#define BOARD_CONFIG_GPIO_PORT_C (2U)
+#define BOARD_CONFIG_GPIO_PORT_D (3U)
+#define BOARD_CONFIG_GPIO_PORT_E (4U)
+#define BOARD_CONFIG_GPIO_PORT_H (7U)
+
+#define BOARD_CONFIG_GPIO_PIN(port_index, pin_number)                                              \
+    ((((port_index) & 0x0FU) << 4U) | ((pin_number) & 0x0FU))
+#define BOARD_CONFIG_GPIO_PIN_PORT(encoded_pin) (((encoded_pin) >> 4U) & 0x0FU)
+#define BOARD_CONFIG_GPIO_PIN_NUMBER(encoded_pin) ((encoded_pin) & 0x0FU)
+
+#define BOARD_CONFIG_ALTERNATE_FUNCTION_NONE (0xFFU)
+#define BOARD_CONFIG_GPIO_ACTIVE_LOW (0U)
+#define BOARD_CONFIG_GPIO_ACTIVE_HIGH (1U)
+
+/* Board clocks generated from the fitted 24 MHz HSE crystal. */
+#define BOARD_CONFIG_HSE_FREQUENCY_HZ (24000000UL)
+#define BOARD_CONFIG_CPU_FREQUENCY_HZ (550000000UL)
+#define BOARD_CONFIG_AHB_FREQUENCY_HZ (275000000UL)
+#define BOARD_CONFIG_APB_FREQUENCY_HZ (137500000UL)
+#define BOARD_CONFIG_FDCAN_KERNEL_FREQUENCY_HZ (24000000UL)
+#define BOARD_CONFIG_USB_KERNEL_FREQUENCY_HZ (48000000UL)
+
+/* Common BSP limits. */
 #define BOARD_CONFIG_BSP_DEFAULT_TIMEOUT_MS (100U)
 #define BOARD_CONFIG_BSP_EXTI_MAX_INSTANCES (16U)
 #define BOARD_CONFIG_BSP_USART_MAX_INSTANCES (8U)
@@ -20,34 +51,205 @@
 #define BOARD_CONFIG_BSP_DAC_MAX_INSTANCES (4U)
 #define BOARD_CONFIG_BSP_USB_VCP_MAX_INSTANCES (2U)
 
-/* No application pin is currently enabled in general_framework.ioc. */
-#define BOARD_CONFIG_EXTI_INSTANCE_COUNT (0U)
-#define BOARD_CONFIG_USART_INSTANCE_COUNT (0U)
-#define BOARD_CONFIG_SPI_INSTANCE_COUNT (0U)
+/* Physical resources enabled by this board map. */
+#define BOARD_CONFIG_EXTI_INSTANCE_COUNT (2U)
+#define BOARD_CONFIG_USART_INSTANCE_COUNT (5U)
+#define BOARD_CONFIG_SPI_INSTANCE_COUNT (1U)
 #define BOARD_CONFIG_I2C_INSTANCE_COUNT (0U)
-#define BOARD_CONFIG_FDCAN_INSTANCE_COUNT (0U)
-#define BOARD_CONFIG_TIMER_INSTANCE_COUNT (0U)
-#define BOARD_CONFIG_PWM_INSTANCE_COUNT (0U)
+#define BOARD_CONFIG_FDCAN_INSTANCE_COUNT (3U)
+#define BOARD_CONFIG_TIMER_INSTANCE_COUNT (2U)
+#define BOARD_CONFIG_PWM_INSTANCE_COUNT (5U)
 #define BOARD_CONFIG_ENCODER_INSTANCE_COUNT (0U)
 #define BOARD_CONFIG_ADC_INSTANCE_COUNT (0U)
 #define BOARD_CONFIG_DAC_INSTANCE_COUNT (0U)
-#define BOARD_CONFIG_USB_VCP_INSTANCE_COUNT (0U)
+#define BOARD_CONFIG_USB_VCP_INSTANCE_COUNT (1U)
+
+/* ------------------------------------------------------------------------- */
+/* USART and UART                                                            */
+/* ------------------------------------------------------------------------- */
+
+#define BOARD_CONFIG_USART2_LOGICAL_NAME "usart2"
+#define BOARD_CONFIG_USART2_INSTANCE (2U)
+#define BOARD_CONFIG_USART2_TX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_A, 2U)
+#define BOARD_CONFIG_USART2_RX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_A, 3U)
+#define BOARD_CONFIG_USART2_ALTERNATE_FUNCTION (7U)
+
+#define BOARD_CONFIG_USART6_LOGICAL_NAME "usart6"
+#define BOARD_CONFIG_USART6_INSTANCE (6U)
+#define BOARD_CONFIG_USART6_TX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_C, 6U)
+#define BOARD_CONFIG_USART6_RX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_C, 7U)
+#define BOARD_CONFIG_USART6_ALTERNATE_FUNCTION (7U)
+
+/* The STM32 peripheral names are UART7 and UART8, not USART7 and USART8. */
+#define BOARD_CONFIG_UART7_LOGICAL_NAME "uart7"
+#define BOARD_CONFIG_UART7_INSTANCE (7U)
+#define BOARD_CONFIG_UART7_TX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 4U)
+#define BOARD_CONFIG_UART7_RX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 3U)
+#define BOARD_CONFIG_UART7_ALTERNATE_FUNCTION (11U)
+
+#define BOARD_CONFIG_UART8_LOGICAL_NAME "uart8"
+#define BOARD_CONFIG_UART8_INSTANCE (8U)
+#define BOARD_CONFIG_UART8_TX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_E, 1U)
+#define BOARD_CONFIG_UART8_RX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_E, 0U)
+#define BOARD_CONFIG_UART8_ALTERNATE_FUNCTION (8U)
+
+#define BOARD_CONFIG_DR16_UART_LOGICAL_NAME "dr16_dbus"
+#define BOARD_CONFIG_DR16_UART_INSTANCE (5U)
+#define BOARD_CONFIG_DR16_UART_RX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_D, 2U)
+#define BOARD_CONFIG_DR16_UART_ALTERNATE_FUNCTION (8U)
+#define BOARD_CONFIG_DR16_UART_RECEIVE_ONLY (1U)
+#define BOARD_CONFIG_DR16_UART_BAUD_RATE (100000UL)
+#define BOARD_CONFIG_DR16_UART_WORD_LENGTH_BITS (9U)
+#define BOARD_CONFIG_DR16_UART_EVEN_PARITY_ENABLED (1U)
+#define BOARD_CONFIG_DR16_UART_STOP_BITS (1U)
+
+/* ------------------------------------------------------------------------- */
+/* FDCAN                                                                     */
+/* ------------------------------------------------------------------------- */
 
 /*
- * Add project mappings only in this section after enabling them in CubeMX.
- * Example naming convention (do not create unused mappings):
- *
- * #define BOARD_CONFIG_IMU_INT_GPIO_PORT          GPIOC
- * #define BOARD_CONFIG_IMU_INT_GPIO_PIN           GPIO_PIN_4
- * #define BOARD_CONFIG_IMU_INT_IRQ_NUMBER         EXTI4_IRQn
- * #define BOARD_CONFIG_IMU_SPI_DEVICE_HANDLE      (&platform_spi_1)
- * #define BOARD_CONFIG_DEBUG_USART_DEVICE_HANDLE  (&platform_usart_3)
- * #define BOARD_CONFIG_CONTROL_FDCAN_DEVICE_HANDLE (&platform_fdcan_1)
- * #define BOARD_CONFIG_LEFT_MOTOR_PWM_CHANNEL     (1U)
- * #define BOARD_CONFIG_BATTERY_ADC_CHANNEL        (5U)
- *
- * Vendor types and symbols belong to the platform port or board assembly
- * source file. This header intentionally stays independent of every HAL.
+ * CAN1, CAN2 and CAN3 are logical network names. On STM32H723 they are
+ * provided by the FDCAN1, FDCAN2 and FDCAN3 peripheral instances.
  */
+#define BOARD_CONFIG_CAN1_LOGICAL_NAME "can1"
+#define BOARD_CONFIG_CAN1_FDCAN_INSTANCE (1U)
+#define BOARD_CONFIG_CAN1_RX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_D, 0U)
+#define BOARD_CONFIG_CAN1_TX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_D, 1U)
+#define BOARD_CONFIG_CAN1_ALTERNATE_FUNCTION (9U)
+
+#define BOARD_CONFIG_CAN2_LOGICAL_NAME "can2"
+#define BOARD_CONFIG_CAN2_FDCAN_INSTANCE (2U)
+#define BOARD_CONFIG_CAN2_RX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 5U)
+#define BOARD_CONFIG_CAN2_TX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 6U)
+#define BOARD_CONFIG_CAN2_ALTERNATE_FUNCTION (9U)
+
+#define BOARD_CONFIG_CAN3_LOGICAL_NAME "can3"
+#define BOARD_CONFIG_CAN3_FDCAN_INSTANCE (3U)
+#define BOARD_CONFIG_CAN3_RX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_D, 12U)
+#define BOARD_CONFIG_CAN3_TX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_D, 13U)
+#define BOARD_CONFIG_CAN3_ALTERNATE_FUNCTION (5U)
+
+/*
+ * All three networks use Classic CAN at 1 Mbit/s. FDCAN SRAM is shared by
+ * the three controller instances, so each instance must own a disjoint range.
+ */
+#define BOARD_CONFIG_FDCAN_NOMINAL_BIT_RATE (1000000UL)
+#define BOARD_CONFIG_FDCAN_NOMINAL_PRESCALER (3U)
+#define BOARD_CONFIG_FDCAN_NOMINAL_TIME_SEGMENT_1 (5U)
+#define BOARD_CONFIG_FDCAN_NOMINAL_TIME_SEGMENT_2 (2U)
+#define BOARD_CONFIG_FDCAN_NOMINAL_SYNC_JUMP_WIDTH (2U)
+#define BOARD_CONFIG_FDCAN_MESSAGE_RAM_WORD_COUNT (259U)
+#define BOARD_CONFIG_CAN1_MESSAGE_RAM_OFFSET_WORDS (0U)
+#define BOARD_CONFIG_CAN2_MESSAGE_RAM_OFFSET_WORDS (259U)
+#define BOARD_CONFIG_CAN3_MESSAGE_RAM_OFFSET_WORDS (518U)
+
+/* ------------------------------------------------------------------------- */
+/* USB OTG HS with the internal full-speed PHY                               */
+/* ------------------------------------------------------------------------- */
+
+#define BOARD_CONFIG_USB_VCP_LOGICAL_NAME "usb_vcp"
+#define BOARD_CONFIG_USB_OTG_INSTANCE (2U)
+#define BOARD_CONFIG_USB_OTG_ID_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_A, 10U)
+#define BOARD_CONFIG_USB_OTG_DM_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_A, 11U)
+#define BOARD_CONFIG_USB_OTG_DP_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_A, 12U)
+#define BOARD_CONFIG_USB_OTG_ALTERNATE_FUNCTION (10U)
+#define BOARD_CONFIG_USB_OTG_ID_CONNECTED (1U)
+
+/* ------------------------------------------------------------------------- */
+/* BMI088: SPI2                                                              */
+/* ------------------------------------------------------------------------- */
+
+#define BOARD_CONFIG_BMI088_LOGICAL_NAME "bmi088"
+#define BOARD_CONFIG_BMI088_SPI_INSTANCE (2U)
+#define BOARD_CONFIG_BMI088_SPI_ALTERNATE_FUNCTION (5U)
+#define BOARD_CONFIG_BMI088_SPI_KERNEL_FREQUENCY_HZ (183333333UL)
+#define BOARD_CONFIG_BMI088_SPI_PRESCALER (32U)
+#define BOARD_CONFIG_BMI088_SPI_FREQUENCY_HZ (5729166UL)
+#define BOARD_CONFIG_BMI088_SPI_CLOCK_POLARITY_HIGH (1U)
+#define BOARD_CONFIG_BMI088_SPI_CLOCK_PHASE_SECOND_EDGE (1U)
+#define BOARD_CONFIG_BMI088_SPI_SCK_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 10U)
+#define BOARD_CONFIG_BMI088_SPI_MISO_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 14U)
+#define BOARD_CONFIG_BMI088_SPI_MOSI_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 15U)
+#define BOARD_CONFIG_BMI088_ACCELEROMETER_CHIP_SELECT_PIN                                          \
+    BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_D, 8U)
+#define BOARD_CONFIG_BMI088_GYROSCOPE_CHIP_SELECT_PIN                                              \
+    BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_E, 15U)
+#define BOARD_CONFIG_BMI088_CHIP_SELECT_ACTIVE_LEVEL BOARD_CONFIG_GPIO_ACTIVE_LOW
+#define BOARD_CONFIG_BMI088_ACCELEROMETER_INTERRUPT_PIN                                            \
+    BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_E, 14U)
+#define BOARD_CONFIG_BMI088_ACCELEROMETER_EXTI_LINE (14U)
+#define BOARD_CONFIG_BMI088_GYROSCOPE_INTERRUPT_PIN                                                \
+    BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_E, 13U)
+#define BOARD_CONFIG_BMI088_GYROSCOPE_EXTI_LINE (13U)
+
+/* ------------------------------------------------------------------------- */
+/* Timer and PWM outputs                                                     */
+/* ------------------------------------------------------------------------- */
+
+#define BOARD_CONFIG_AUXILIARY_PWM_1_LOGICAL_NAME "auxiliary_pwm_1"
+#define BOARD_CONFIG_AUXILIARY_PWM_1_TIMER_INSTANCE (3U)
+#define BOARD_CONFIG_AUXILIARY_PWM_1_TIMER_CHANNEL (1U)
+#define BOARD_CONFIG_AUXILIARY_PWM_1_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_A, 6U)
+#define BOARD_CONFIG_AUXILIARY_PWM_1_ALTERNATE_FUNCTION (2U)
+
+#define BOARD_CONFIG_AUXILIARY_PWM_2_LOGICAL_NAME "auxiliary_pwm_2"
+#define BOARD_CONFIG_AUXILIARY_PWM_2_TIMER_INSTANCE (3U)
+#define BOARD_CONFIG_AUXILIARY_PWM_2_TIMER_CHANNEL (2U)
+#define BOARD_CONFIG_AUXILIARY_PWM_2_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_A, 7U)
+#define BOARD_CONFIG_AUXILIARY_PWM_2_ALTERNATE_FUNCTION (2U)
+
+#define BOARD_CONFIG_AUXILIARY_PWM_3_LOGICAL_NAME "auxiliary_pwm_3"
+#define BOARD_CONFIG_AUXILIARY_PWM_3_TIMER_INSTANCE (3U)
+#define BOARD_CONFIG_AUXILIARY_PWM_3_TIMER_CHANNEL (3U)
+#define BOARD_CONFIG_AUXILIARY_PWM_3_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 0U)
+#define BOARD_CONFIG_AUXILIARY_PWM_3_ALTERNATE_FUNCTION (2U)
+
+#define BOARD_CONFIG_AUXILIARY_PWM_4_LOGICAL_NAME "auxiliary_pwm_4"
+#define BOARD_CONFIG_AUXILIARY_PWM_4_TIMER_INSTANCE (3U)
+#define BOARD_CONFIG_AUXILIARY_PWM_4_TIMER_CHANNEL (4U)
+#define BOARD_CONFIG_AUXILIARY_PWM_4_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 1U)
+#define BOARD_CONFIG_AUXILIARY_PWM_4_ALTERNATE_FUNCTION (2U)
+
+/*
+ * PE9 exposes TIM1_CH1. It does not expose TIM1_CH2. The physical channel is
+ * assigned to the buzzer and must not also be registered as another PWM object.
+ */
+#define BOARD_CONFIG_BUZZER_PWM_LOGICAL_NAME "buzzer_pwm"
+#define BOARD_CONFIG_BUZZER_PWM_TIMER_INSTANCE (1U)
+#define BOARD_CONFIG_BUZZER_PWM_TIMER_CHANNEL (1U)
+#define BOARD_CONFIG_BUZZER_PWM_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_E, 9U)
+#define BOARD_CONFIG_BUZZER_PWM_ALTERNATE_FUNCTION (1U)
+
+/* ------------------------------------------------------------------------- */
+/* Known pin conflict                                                        */
+/* ------------------------------------------------------------------------- */
+
+/*
+ * PC6 and PC7 do not provide a hardware I2C alternate function on this MCU.
+ * They are already assigned to USART6. A bit-banged I2C bus on these pins is
+ * therefore intentionally disabled. Move I2C to valid free pins before setting
+ * BOARD_CONFIG_I2C_INSTANCE_COUNT above zero.
+ */
+#define BOARD_CONFIG_SOFTWARE_I2C_PC6_PC7_ENABLED (0U)
+
+#if BOARD_CONFIG_EXTI_INSTANCE_COUNT > BOARD_CONFIG_BSP_EXTI_MAX_INSTANCES
+#error "EXTI instance count exceeds the BSP capacity"
+#endif
+
+#if BOARD_CONFIG_USART_INSTANCE_COUNT > BOARD_CONFIG_BSP_USART_MAX_INSTANCES
+#error "USART instance count exceeds the BSP capacity"
+#endif
+
+#if BOARD_CONFIG_SPI_INSTANCE_COUNT > BOARD_CONFIG_BSP_SPI_MAX_INSTANCES
+#error "SPI instance count exceeds the BSP capacity"
+#endif
+
+#if BOARD_CONFIG_FDCAN_INSTANCE_COUNT > BOARD_CONFIG_BSP_FDCAN_MAX_INSTANCES
+#error "FDCAN instance count exceeds the BSP capacity"
+#endif
+
+#if BOARD_CONFIG_PWM_INSTANCE_COUNT > BOARD_CONFIG_BSP_PWM_MAX_INSTANCES
+#error "PWM instance count exceeds the BSP capacity"
+#endif
 
 #endif /* BOARD_CONFIG_H */

@@ -78,27 +78,19 @@ extern "C"
         bool is_initialized;
     } module_shooter_t;
 
-    module_shooter_status_t module_shooter_init(
-        module_shooter_t *me, const module_shooter_config_t *config);
+    module_shooter_status_t module_shooter_init(module_shooter_t *me,
+                                                const module_shooter_config_t *config);
     module_shooter_status_t module_shooter_enable(module_shooter_t *me);
     module_shooter_status_t module_shooter_disable(module_shooter_t *me);
-    module_shooter_status_t module_shooter_set_friction(
-        module_shooter_t *me, bool is_enabled,
-        float target_velocity_rad_per_s);
-    module_shooter_status_t module_shooter_request_shots(
-        module_shooter_t *me, uint16_t shot_count);
-    module_shooter_status_t module_shooter_cancel_shots(
-        module_shooter_t *me);
-    module_shooter_status_t module_shooter_reset_fault(
-        module_shooter_t *me);
-    module_shooter_status_t module_shooter_update(module_shooter_t *me,
-                                                   float delta_time_s);
-    module_shooter_state_t module_shooter_get_state(
-        const module_shooter_t *me);
-    uint16_t module_shooter_get_pending_shots(
-        const module_shooter_t *me);
-    uint8_t module_shooter_get_jam_retry_count(
-        const module_shooter_t *me);
+    module_shooter_status_t module_shooter_set_friction(module_shooter_t *me, bool is_enabled,
+                                                        float target_velocity_rad_per_s);
+    module_shooter_status_t module_shooter_request_shots(module_shooter_t *me, uint16_t shot_count);
+    module_shooter_status_t module_shooter_cancel_shots(module_shooter_t *me);
+    module_shooter_status_t module_shooter_reset_fault(module_shooter_t *me);
+    module_shooter_status_t module_shooter_update(module_shooter_t *me, float delta_time_s);
+    module_shooter_state_t module_shooter_get_state(const module_shooter_t *me);
+    uint16_t module_shooter_get_pending_shots(const module_shooter_t *me);
+    uint8_t module_shooter_get_jam_retry_count(const module_shooter_t *me);
 
 #ifdef __cplusplus
 }

@@ -185,15 +185,13 @@ bsp_status_t bsp_can_receive(bsp_can_t *const me, bsp_can_receive_fifo_t receive
         return BSP_STATUS_INVALID_ARGUMENT;
     }
     {
-        const bsp_status_t receive_status =
-            bsp_can_get_ops(me)->receive(me, receive_fifo, frame);
+        const bsp_status_t receive_status = bsp_can_get_ops(me)->receive(me, receive_fifo, frame);
         if (receive_status != BSP_STATUS_OK)
         {
             return receive_status;
         }
     }
-    return bsp_can_is_frame_valid(frame) ? BSP_STATUS_OK
-                                         : BSP_STATUS_IO_ERROR;
+    return bsp_can_is_frame_valid(frame) ? BSP_STATUS_OK : BSP_STATUS_IO_ERROR;
 }
 bsp_status_t bsp_can_get_transmit_free_level(const bsp_can_t *const me, uint32_t *free_level)
 {

@@ -309,8 +309,8 @@ module_ws2812_status_t module_ws2812_update(module_ws2812_t *me, uint32_t elapse
     }
     else if (effect->type == MODULE_WS2812_EFFECT_BREATH)
     {
-        int16_t new_brightness =
-            (int16_t)effect->brightness + (int16_t)(effect->brightness_direction * 5);
+        int32_t new_brightness =
+            (int32_t)effect->brightness + ((int32_t)effect->brightness_direction * 5);
         if (new_brightness >= 255)
         {
             new_brightness = 255;

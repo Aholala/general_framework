@@ -3,6 +3,10 @@
 BSP 层提供可移植、可多实例、与芯片厂商无关的外设接口。通用 BSP 不包含 STM32 HAL
 头文件，不保存 CubeMX 全局句柄，也不决定实际引脚和外设实例。
 
+当前 STM32H723VET6 板级资源、引脚冲突修正和移植检查见
+[BOARD_PINOUT.md](BOARD_PINOUT.md)，对应的机器可读常量集中在
+[`board_config.h`](board_config.h)。
+
 ## 目录原则
 
 一个外设能力对应一个目录，辅助职责作为该目录内的独立文件存在。例如：
@@ -43,6 +47,13 @@ bsp_fdcan/
 - [bsp_usb_vcp](bsp_usb_vcp/README.md)：USB CDC 虚拟串口异步收发；
 - [bsp_watchdog](bsp_watchdog/README.md)：硬件看门狗刷新与复位来源；
 - [bsp_timebase](bsp_timebase/README.md)：单调时钟、周期计数和微秒时间基准。
+- [bsp_storage](bsp_storage/README.md)：Flash、QSPI/OSPI、EEPROM 与 SDMMC 的统一存储基类；
+- [bsp_crc](bsp_crc/README.md)：硬件 CRC 计算接口；
+- [bsp_rng](bsp_rng/README.md)：硬件随机数和缓冲区填充；
+- [bsp_rtc](bsp_rtc/README.md)：结构化日期时间与 Unix 时间；
+- [bsp_stm32h723_port](bsp_stm32h723_port/README.md)：现有 H723 HAL 句柄到通用 BSP 对象的可替换适配层。
+
+`bsp_stm32h723_port` 不修改 `Core`，也不替 CubeMX 创建 DMA、缓存或中断配置；它只使用项目已经生成的句柄。
 
 ## C 面向对象模型
 

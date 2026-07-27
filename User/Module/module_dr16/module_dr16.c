@@ -114,7 +114,7 @@ static void module_dr16_parse_frame(module_dr16_t *const me,
     for (channel_index = 0U; channel_index < MODULE_DR16_CHANNEL_COUNT; ++channel_index)
     {
         me->data.channel[channel_index] = module_dr16_apply_deadband(
-            (int16_t)raw_channels[channel_index] - MODULE_DR16_CHANNEL_CENTER,
+            (int16_t)((int32_t)raw_channels[channel_index] - (int32_t)MODULE_DR16_CHANNEL_CENTER),
             me->channel_deadband);
         me->data.normalized_channel[channel_index] =
             module_dr16_normalize_channel_value(me->data.channel[channel_index]);

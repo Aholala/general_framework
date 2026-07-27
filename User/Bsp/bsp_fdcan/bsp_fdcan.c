@@ -30,8 +30,7 @@ static bool bsp_fdcan_is_frame_valid(const bsp_fdcan_frame_t *const frame)
     {
         return false;
     }
-    if (((frame->id_type != BSP_CAN_ID_STANDARD) &&
-         (frame->id_type != BSP_CAN_ID_EXTENDED)) ||
+    if (((frame->id_type != BSP_CAN_ID_STANDARD) && (frame->id_type != BSP_CAN_ID_EXTENDED)) ||
         ((frame->frame_type != BSP_CAN_FRAME_DATA) &&
          (frame->frame_type != BSP_CAN_FRAME_REMOTE)) ||
         ((frame->format != BSP_FDCAN_FORMAT_CLASSIC) &&
@@ -199,11 +198,9 @@ bsp_status_t bsp_fdcan_configure_filter(bsp_fdcan_t *const me,
         ((filter_config->receive_fifo != BSP_CAN_RX_FIFO_0) &&
          (filter_config->receive_fifo != BSP_CAN_RX_FIFO_1)) ||
         ((filter_config->id_type == BSP_CAN_ID_STANDARD) &&
-         ((filter_config->identifier > 0x7FFU) ||
-          (filter_config->mask > 0x7FFU))) ||
+         ((filter_config->identifier > 0x7FFU) || (filter_config->mask > 0x7FFU))) ||
         ((filter_config->id_type == BSP_CAN_ID_EXTENDED) &&
-         ((filter_config->identifier > 0x1FFFFFFFU) ||
-          (filter_config->mask > 0x1FFFFFFFU))))
+         ((filter_config->identifier > 0x1FFFFFFFU) || (filter_config->mask > 0x1FFFFFFFU))))
     {
         return BSP_STATUS_INVALID_ARGUMENT;
     }
@@ -234,8 +231,7 @@ bsp_status_t bsp_fdcan_receive(bsp_fdcan_t *const me, bsp_can_receive_fifo_t rec
         return status;
     }
     if ((frame == NULL) ||
-        ((receive_fifo != BSP_CAN_RX_FIFO_0) &&
-         (receive_fifo != BSP_CAN_RX_FIFO_1)))
+        ((receive_fifo != BSP_CAN_RX_FIFO_0) && (receive_fifo != BSP_CAN_RX_FIFO_1)))
     {
         return BSP_STATUS_INVALID_ARGUMENT;
     }
@@ -244,8 +240,7 @@ bsp_status_t bsp_fdcan_receive(bsp_fdcan_t *const me, bsp_can_receive_fifo_t rec
     {
         return status;
     }
-    return bsp_fdcan_is_frame_valid(frame) ? BSP_STATUS_OK
-                                           : BSP_STATUS_IO_ERROR;
+    return bsp_fdcan_is_frame_valid(frame) ? BSP_STATUS_OK : BSP_STATUS_IO_ERROR;
 }
 
 bsp_status_t bsp_fdcan_get_protocol_status(const bsp_fdcan_t *const me,

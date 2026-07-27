@@ -45,15 +45,15 @@ extern "C"
         bool is_initialized;
     } module_swerve_t;
 
-    module_swerve_status_t module_swerve_init(
-        module_swerve_t *me, const module_swerve_config_t *config);
+    module_swerve_status_t module_swerve_init(module_swerve_t *me,
+                                              const module_swerve_config_t *config);
     module_swerve_status_t module_swerve_enable(module_swerve_t *me);
     module_swerve_status_t module_swerve_disable(module_swerve_t *me);
-    module_swerve_status_t module_swerve_apply_target(
-        module_swerve_t *me, const alg_swerve_module_target_t *target,
-        float delta_time_s);
-    module_swerve_status_t module_swerve_get_steering_angle(
-        const module_swerve_t *me, float *steering_angle_rad);
+    module_swerve_status_t module_swerve_apply_target(module_swerve_t *me,
+                                                      const alg_swerve_module_target_t *target,
+                                                      float delta_time_s);
+    module_swerve_status_t module_swerve_get_steering_angle(const module_swerve_t *me,
+                                                            float *steering_angle_rad);
 
 #ifdef __cplusplus
 }

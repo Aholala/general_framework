@@ -62,13 +62,11 @@ module_motor_status_t module_m2006_register(module_m2006_t *const me,
                         : MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
 }
 
-module_motor_status_t module_m2006_unregister(
-    module_m2006_t *const me,
-    module_motor_registry_t *const registry)
+module_motor_status_t module_m2006_unregister(module_m2006_t *const me,
+                                              module_motor_registry_t *const registry)
 {
-    return (me != NULL)
-               ? module_dji_motor_unregister(&me->super, registry)
-               : MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    return (me != NULL) ? module_dji_motor_unregister(&me->super, registry)
+                        : MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
 }
 
 module_motor_t *module_m2006_as_motor(module_m2006_t *const me)

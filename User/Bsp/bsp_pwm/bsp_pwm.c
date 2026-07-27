@@ -206,8 +206,7 @@ bsp_status_t bsp_pwm_set_duty_cycle(bsp_pwm_t *const me, float duty_cycle)
     {
         return status;
     }
-    if (!isfinite(duty_cycle) || (duty_cycle < 0.0F) ||
-        (duty_cycle > 1.0F))
+    if (!isfinite(duty_cycle) || (duty_cycle < 0.0F) || (duty_cycle > 1.0F))
     {
         return BSP_STATUS_OUT_OF_RANGE;
     }

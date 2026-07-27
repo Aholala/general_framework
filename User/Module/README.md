@@ -24,6 +24,7 @@ Module 把设备协议、数据解析和功能状态机封装成可注册、多�
 - [module_bmi088](module_bmi088/README.md)：六轴 IMU 驱动；
 - [module_dr16](module_dr16/README.md)：遥控器流解析、双缓冲和在线检测；
 - [module_referee](module_referee/README.md)：裁判系统组帧、CRC、路由和统计。
+- [module_referee_ui](module_referee_ui/README.md)：客户端图形队列、批量编码和发送限频；
 
 ## 通信
 
@@ -39,6 +40,7 @@ Module 把设备协议、数据解析和功能状态机封装成可注册、多�
 - [module_buzzer](module_buzzer/README.md)：非阻塞音调序列；
 - [module_oled](module_oled/README.md)：单色 OLED 帧缓冲图形；
 - [module_ws2812](module_ws2812/README.md)：RGB 灯带和效果引擎。
+- [module_diagnostic](module_diagnostic/README.md)：故障确认、恢复、严重度和锁存诊断；
 
 ## 生命周期
 

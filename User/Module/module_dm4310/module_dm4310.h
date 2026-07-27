@@ -38,9 +38,8 @@ extern "C"
                                              const module_dm4310_config_t *const config);
     module_motor_status_t module_dm4310_register(module_dm4310_t *const me,
                                                  module_motor_registry_t *const registry);
-    module_motor_status_t module_dm4310_unregister(
-        module_dm4310_t *const me,
-        module_motor_registry_t *const registry);
+    module_motor_status_t module_dm4310_unregister(module_dm4310_t *const me,
+                                                   module_motor_registry_t *const registry);
     module_motor_t *module_dm4310_as_motor(module_dm4310_t *const me);
     module_dm_motor_t *module_dm4310_as_dm_motor(module_dm4310_t *const me);
     module_motor_status_t module_dm4310_enable(module_dm4310_t *const me);

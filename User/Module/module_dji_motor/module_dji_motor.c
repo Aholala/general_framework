@@ -185,10 +185,18 @@ module_motor_status_t module_dji_motor_init(module_dji_motor_t *const me,
     me->gear_ratio = (config->motor_model == MODULE_DJI_MOTOR_M2006)
                          ? 36.0F
                          : ((config->motor_model == MODULE_DJI_MOTOR_M3508) ? 19.0F : 1.0F);
-    me->maximum_command_value =
-        (config->motor_model == MODULE_DJI_MOTOR_M2006)
-            ? 10000
-            : ((config->motor_model == MODULE_DJI_MOTOR_M3508) ? 16000 : 30000);
+    if (config->motor_model == MODULE_DJI_MOTOR_M2006)
+    {
+        me->maximum_command_value = 10000;
+    }
+    else if (config->motor_model == MODULE_DJI_MOTOR_M3508)
+    {
+        me->maximum_command_value = 16000;
+    }
+    else
+    {
+        me->maximum_command_value = 30000;
+    }
     me->target_value = 0.0F;
     me->command_value = 0;
     me->previous_encoder_count = 0U;

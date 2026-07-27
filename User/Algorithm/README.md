@@ -8,6 +8,10 @@ Algorithm 只处理数值、状态和几何关系，不访问设备、寄存器�
 - [alg_math](alg_math/README.md)：标量、统计、向量、矩阵和四元数；
 - [alg_motion](alg_motion/README.md)：速率限制与周期量连续化；
 - [alg_trajectory](alg_trajectory/README.md)：梯形速度、S 曲线和在线目标切换。
+- [alg_attitude](alg_attitude/README.md)：Mahony/Madgwick 六轴姿态备份与外部 yaw 修正；
+- [alg_power_limit](alg_power_limit/README.md)：裁判功率、缓冲能量和多执行器优先级分配；
+- [alg_chassis_estimator](alg_chassis_estimator/README.md)：任意轮布局加权最小二乘里程计；
+- [alg_ballistic](alg_ballistic/README.md)：带空气阻力的弹道补偿和目标提前量；
 
 ## 滤波与状态估计
 

@@ -67,8 +67,7 @@ static bsp_status_t bsp_usb_vcp_device_get_connected(const bsp_usb_vcp_t *const 
 {
     const bsp_usb_vcp_device_t *const me = bsp_usb_vcp_get_device_const(usb_vcp_base);
     return (me->driver_ops->get_connected != NULL)
-               ? me->driver_ops->get_connected(
-                     usb_vcp_base->super.device_handle, is_connected)
+               ? me->driver_ops->get_connected(usb_vcp_base->super.device_handle, is_connected)
                : BSP_STATUS_UNSUPPORTED;
 }
 
@@ -77,8 +76,7 @@ static bsp_status_t bsp_usb_vcp_device_get_busy(const bsp_usb_vcp_t *const usb_v
 {
     const bsp_usb_vcp_device_t *const me = bsp_usb_vcp_get_device_const(usb_vcp_base);
     return (me->driver_ops->get_busy != NULL)
-               ? me->driver_ops->get_busy(
-                     usb_vcp_base->super.device_handle, is_busy)
+               ? me->driver_ops->get_busy(usb_vcp_base->super.device_handle, is_busy)
                : BSP_STATUS_UNSUPPORTED;
 }
 
@@ -95,8 +93,7 @@ bsp_status_t bsp_usb_vcp_init(bsp_usb_vcp_device_t *const me,
 {
     bsp_status_t status;
     if ((me == NULL) || (config == NULL) || (config->device_handle == NULL) ||
-        (config->driver_ops == NULL) ||
-        (config->driver_ops->transmit == NULL) ||
+        (config->driver_ops == NULL) || (config->driver_ops->transmit == NULL) ||
         (config->driver_ops->receive == NULL))
     {
         return BSP_STATUS_INVALID_ARGUMENT;

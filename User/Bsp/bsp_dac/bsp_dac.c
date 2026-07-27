@@ -42,8 +42,7 @@ static bsp_status_t bsp_dac_device_stop_dma(bsp_dac_t *const dac_base)
 {
     bsp_dac_device_t *const me = bsp_dac_get_device(dac_base);
     return (me->driver_ops->stop_dma != NULL)
-               ? me->driver_ops->stop_dma(dac_base->super.device_handle,
-                                          me->channel)
+               ? me->driver_ops->stop_dma(dac_base->super.device_handle, me->channel)
                : BSP_STATUS_UNSUPPORTED;
 }
 
@@ -64,9 +63,8 @@ static bsp_status_t bsp_dac_device_start_dma(bsp_dac_t *const dac_base,
 {
     bsp_dac_device_t *const me = bsp_dac_get_device(dac_base);
     return (me->driver_ops->start_dma != NULL)
-               ? me->driver_ops->start_dma(dac_base->super.device_handle,
-                                           me->channel, sample_buffer,
-                                           sample_count)
+               ? me->driver_ops->start_dma(dac_base->super.device_handle, me->channel,
+                                           sample_buffer, sample_count)
                : BSP_STATUS_UNSUPPORTED;
 }
 
@@ -93,9 +91,8 @@ bsp_status_t bsp_dac_init(bsp_dac_device_t *const me, const bsp_dac_config_t *co
     if ((me == NULL) || (config == NULL) || (config->device_handle == NULL) ||
         (config->driver_ops == NULL) || (config->resolution_bits == 0U) ||
         (config->resolution_bits > 31U) || !isfinite(config->reference_voltage_v) ||
-        (config->reference_voltage_v <= 0.0F) ||
-        (config->driver_ops->start == NULL) || (config->driver_ops->stop == NULL) ||
-        (config->driver_ops->set_raw == NULL) ||
+        (config->reference_voltage_v <= 0.0F) || (config->driver_ops->start == NULL) ||
+        (config->driver_ops->stop == NULL) || (config->driver_ops->set_raw == NULL) ||
         (config->driver_ops->get_raw == NULL))
     {
         return BSP_STATUS_INVALID_ARGUMENT;
@@ -182,8 +179,7 @@ bsp_status_t bsp_dac_set_normalized(bsp_dac_t *const me, float normalized_value)
     {
         return status;
     }
-    if (!isfinite(normalized_value) || (normalized_value < 0.0F) ||
-        (normalized_value > 1.0F))
+    if (!isfinite(normalized_value) || (normalized_value < 0.0F) || (normalized_value > 1.0F))
     {
         return BSP_STATUS_OUT_OF_RANGE;
     }
@@ -197,8 +193,7 @@ bsp_status_t bsp_dac_set_voltage(bsp_dac_t *const me, float voltage_v)
     {
         return status;
     }
-    if (!isfinite(voltage_v) || (voltage_v < 0.0F) ||
-        (voltage_v > me->reference_voltage_v))
+    if (!isfinite(voltage_v) || (voltage_v < 0.0F) || (voltage_v > me->reference_voltage_v))
     {
         return BSP_STATUS_OUT_OF_RANGE;
     }
@@ -216,8 +211,7 @@ bsp_status_t bsp_dac_start_dma(bsp_dac_t *const me, const uint32_t *sample_buffe
     }
     if (status == BSP_STATUS_OK)
     {
-        for (sample_index = 0U; sample_index < sample_count;
-             ++sample_index)
+        for (sample_index = 0U; sample_index < sample_count; ++sample_index)
         {
             if (sample_buffer[sample_index] > me->maximum_raw_value)
             {

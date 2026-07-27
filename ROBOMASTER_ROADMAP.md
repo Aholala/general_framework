@@ -1,44 +1,25 @@
-# RoboMaster 电控库补充路线
+# RoboMaster 电控库能力状态
 
-现有库已经覆盖控制/滤波/姿态、常见底盘运动学、CAN 电机、BMI088、DR16、
-板间通信、视觉和发射机构。下面按实战优先级补充，不建议一次创建只有空接口
-的目录。
+本仓库保持 Algorithm、BSP、Module、App 四层。当前工作只完善前三层；比赛模式、板间角色、任务周期、控制目标选择和安全联锁组合属于 App，暂不写入库。
 
-## 已完成的第一批通用能力
+## 已具备
 
-1. `module_referee`：裁判系统流解析、CRC8/CRC16、命令路由、在线检测和版本
-   隔离核心；
-2. `bsp_gpio`、`bsp_watchdog`；
-3. `alg_trajectory`、`module_buzzer`、`module_bluetooth`、`module_oled`、
-   `module_ws2812`、`module_nrf24l01`、`module_servo`。
+- 算法：数学、滤波、KF/EKF、Mahony/Madgwick、PID、LQR、轨迹与多轴同步、底盘运动学和缺轮降级、底盘估计、功率限制、弹道解算；
+- BSP：GPIO、EXTI、USART、SPI、I2C、CAN/FDCAN、定时器、PWM、编码器、ADC/DAC、USB VCP、看门狗、时间基准、统一存储、CRC、RNG、RTC；
+- 模块：DJI/DM 电机、DM 总线、BMI088、DR16、裁判系统与 UI、板间通信、视觉、发射机构、舵轮、功率、超级电容、参数、诊断、热量、弹药、受击、蜂鸣器、OLED、WS2812、蓝牙、NRF24L01 和舵机；
+- H723 适配：独立端口把现有 CubeMX HAL 句柄装配为通用 BSP 对象，不修改 `Core`。
 
-## 下一优先级
+## 项目落地时仍必须完成
 
-1. `module_power_manager`：裁判功率数据、母线电压/电流、缓冲能量和超级电容
-   状态的统一输入；策略计算放 Algorithm，模式选择放 App。
-2. `alg_power_limit`：底盘总功率估计、轮电机功率分配、饱和回分配与掉线轮
-   剔除。
-3. `module_parameter_store`：参数版本、CRC、双备份和断电安全提交；底层依赖
-   通用非易失存储 BSP。
+这些内容无法由无引脚、无参数的通用库替项目决定：
 
-## 第二优先级
+1. 在 CubeMX 中确认 UART5 DMA、NVIC、MPU/D-cache 策略和看门狗启动时机；
+2. 为实际 QSPI/SDMMC/RTC/RNG 硬件分配引脚和生成句柄；
+3. 根据当赛季官方协议核对裁判命令、客户端 UI ID 和字段长度；
+4. 标定电机、超级电容、弹速、阻力、热量与功率参数；
+5. 在 App 中建立控制周期、通信周期、故障降级、发射联锁和板间主从策略；
+6. 进行台架、断线、堵转、欠压、掉电提交、总线满载和整车实测。
 
-1. `module_supercapacitor`：不同厂商电容协议派生类，统一电压、电流、能量、
-   故障和使能接口。
-2. `module_referee_ui`：图形对象缓存、增删改批处理和发送限频。
-3. `alg_trajectory`：梯形/S 曲线、位置速度加速度约束、在线重规划。
-4. `alg_chassis_estimator`：轮速、IMU yaw/角速度和可选外部定位的平面状态融合。
-5. `module_servo`、`module_indicator`：使用 BSP 基类注入，
-   不直接操作 HAL。
-6. `bsp_flash`、`bsp_qspi`/`bsp_ospi`、`bsp_sdmmc`：按具体机器人是否需要
-   日志、参数和离线数据选择实现。
+## 可选扩展
 
-## 第三优先级
-
-- `module_armor_hit`、`module_heat_manager`、`module_ammunition_manager`；
-- `alg_ballistic`：弹道补偿和飞行时间，但目标选择仍属于 App；
-- `module_diagnostic`：设备健康快照、故障码和分层日志；
-- `bsp_rtc`、`bsp_crc`、`bsp_rng`、`bsp_eth`：仅在项目确有需求时加入。
-
-DMA 不应单独包装成供 Module 使用的“外设类”。它是 USART/SPI/ADC 等传输
-实现的一部分，由平台适配器和对应 BSP 的传输模式管理。
+只有车型确有需求时再增加以太网、日志文件系统、磁力计、气压计、绝对值编码器、激光雷达或定位系统。它们应继续通过现有 BSP 基类和 Module 生命周期接入，不能把厂商 HAL 传播到算法和业务模块。

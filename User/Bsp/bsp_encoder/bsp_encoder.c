@@ -86,10 +86,8 @@ bsp_status_t bsp_encoder_init(bsp_encoder_device_t *const me,
     if ((me == NULL) || (config == NULL) || (config->device_handle == NULL) ||
         (config->driver_ops == NULL) || (config->driver_ops->start == NULL) ||
         (config->driver_ops->stop == NULL) || (config->driver_ops->set_count == NULL) ||
-        (config->driver_ops->get_count == NULL) ||
-        (config->driver_ops->get_direction == NULL) ||
-        ((config->counter_modulus != 0U) &&
-         (config->counter_modulus < 2U)))
+        (config->driver_ops->get_count == NULL) || (config->driver_ops->get_direction == NULL) ||
+        ((config->counter_modulus != 0U) && (config->counter_modulus < 2U)))
     {
         return BSP_STATUS_INVALID_ARGUMENT;
     }
@@ -164,8 +162,7 @@ bsp_status_t bsp_encoder_get_delta(bsp_encoder_t *const me, int32_t *count_delta
     status = bsp_encoder_get_count(me, &current_count);
     if (status == BSP_STATUS_OK)
     {
-        count_difference =
-            (int64_t)current_count - (int64_t)me->previous_count;
+        count_difference = (int64_t)current_count - (int64_t)me->previous_count;
         if (me->counter_modulus > 0U)
         {
             const int64_t modulus = (int64_t)me->counter_modulus;
@@ -179,8 +176,7 @@ bsp_status_t bsp_encoder_get_delta(bsp_encoder_t *const me, int32_t *count_delta
                 count_difference += modulus;
             }
         }
-        if ((count_difference > INT32_MAX) ||
-            (count_difference < INT32_MIN))
+        if ((count_difference > INT32_MAX) || (count_difference < INT32_MIN))
         {
             return BSP_STATUS_OUT_OF_RANGE;
         }

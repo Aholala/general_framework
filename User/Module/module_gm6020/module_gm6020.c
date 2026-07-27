@@ -63,13 +63,11 @@ module_motor_status_t module_gm6020_register(module_gm6020_t *const me,
                         : MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
 }
 
-module_motor_status_t module_gm6020_unregister(
-    module_gm6020_t *const me,
-    module_motor_registry_t *const registry)
+module_motor_status_t module_gm6020_unregister(module_gm6020_t *const me,
+                                               module_motor_registry_t *const registry)
 {
-    return (me != NULL)
-               ? module_dji_motor_unregister(&me->super, registry)
-               : MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    return (me != NULL) ? module_dji_motor_unregister(&me->super, registry)
+                        : MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
 }
 
 module_motor_t *module_gm6020_as_motor(module_gm6020_t *const me)

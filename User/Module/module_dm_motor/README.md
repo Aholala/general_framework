@@ -62,3 +62,8 @@ module_dm_motor_register(&motor, &registry);
 - 主机/反馈 ID 错误；
 - 离线、恢复和显式使能；
 - 两个 DM 实例共享 CAN。
+# 多电机总线
+
+`module_dm_motor_bus_t` 为达妙多实例提供反馈 ID 路由、重复 ID 检查和轮询发送预算。电机应先注册到通用电机注册表，再注册到对应 DM 总线；总线只接受使用同一个 `bsp_can_t` 的对象。
+
+`maximum_transmits_per_cycle` 用来限制一个控制周期内的独立 CAN 帧数量，避免多个 MIT 电机同时刷新时堵塞邮箱。调用方应按控制频率和 CAN 总线负载计算该值，并监控未知帧与发送错误计数。

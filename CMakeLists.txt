@@ -15,6 +15,9 @@ project(${CMAKE_PROJECT_NAME} LANGUAGES C ASM)
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 add_executable(${CMAKE_PROJECT_NAME})
+set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/firmware"
+)
 
 function(framework_configure_library target_name)
     target_compile_features(${target_name} PUBLIC c_std_11)
@@ -39,6 +42,7 @@ set(stm32_definitions
     USE_PWR_LDO_SUPPLY
     USE_HAL_DRIVER
     STM32H723xx
+    HSE_VALUE=24000000UL
     $<$<CONFIG:Debug>:DEBUG>
 )
 
@@ -48,15 +52,32 @@ set(stm32_include_directories
     ${CMAKE_CURRENT_SOURCE_DIR}/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy
     ${CMAKE_CURRENT_SOURCE_DIR}/Drivers/CMSIS/Device/ST/STM32H7xx/Include
     ${CMAKE_CURRENT_SOURCE_DIR}/Drivers/CMSIS/Include
+    ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2
+    ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F
+    ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Core/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/USB_DEVICE/App
+    ${CMAKE_CURRENT_SOURCE_DIR}/USB_DEVICE/Target
 )
 
 set(stm32_application_sources
     Core/Src/main.c
     Core/Src/gpio.c
+    Core/Src/fdcan.c
+    Core/Src/freertos.c
+    Core/Src/spi.c
+    Core/Src/stm32h7xx_hal_timebase_tim.c
+    Core/Src/tim.c
+    Core/Src/usart.c
     Core/Src/stm32h7xx_it.c
     Core/Src/stm32h7xx_hal_msp.c
     Core/Src/sysmem.c
     Core/Src/syscalls.c
+    USB_DEVICE/App/usb_device.c
+    USB_DEVICE/App/usbd_cdc_if.c
+    USB_DEVICE/App/usbd_desc.c
+    USB_DEVICE/Target/usbd_conf.c
     startup_stm32h723xx.s
 )
 
@@ -67,6 +88,7 @@ set(stm32_driver_sources
     Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma.c
     Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma_ex.c
     Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_exti.c
+    Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_fdcan.c
     Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_flash.c
     Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_flash_ex.c
     Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_gpio.c
@@ -78,8 +100,35 @@ set(stm32_driver_sources
     Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pwr_ex.c
     Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc.c
     Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.c
+    Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi.c
+    Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi_ex.c
     Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.c
     Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.c
+    Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.c
+    Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.c
+    Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pcd.c
+    Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pcd_ex.c
+    Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_usb.c
+)
+
+set(freertos_sources
+    Middlewares/Third_Party/FreeRTOS/Source/croutine.c
+    Middlewares/Third_Party/FreeRTOS/Source/event_groups.c
+    Middlewares/Third_Party/FreeRTOS/Source/list.c
+    Middlewares/Third_Party/FreeRTOS/Source/queue.c
+    Middlewares/Third_Party/FreeRTOS/Source/stream_buffer.c
+    Middlewares/Third_Party/FreeRTOS/Source/tasks.c
+    Middlewares/Third_Party/FreeRTOS/Source/timers.c
+    Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.c
+    Middlewares/Third_Party/FreeRTOS/Source/portable/MemMang/heap_4.c
+    Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.c
+)
+
+set(usb_device_sources
+    Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c
+    Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ctlreq.c
+    Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ioreq.c
+    Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/usbd_cdc.c
 )
 
 add_library(stm32cubemx INTERFACE)
@@ -89,16 +138,19 @@ target_compile_definitions(stm32cubemx INTERFACE ${stm32_definitions})
 add_library(stm32_drivers OBJECT ${stm32_driver_sources})
 target_link_libraries(stm32_drivers PUBLIC stm32cubemx)
 
+add_library(freertos OBJECT ${freertos_sources})
+target_link_libraries(freertos PUBLIC stm32cubemx)
+
+add_library(stm32_usb_device OBJECT ${usb_device_sources})
+target_link_libraries(stm32_usb_device PUBLIC stm32cubemx)
+
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${stm32_application_sources})
-set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
-    ADDITIONAL_CLEAN_FILES "${CMAKE_PROJECT_NAME}.map"
-)
 
 # ---------------------------------------------------------------------------
 # Algorithm layer
 # ---------------------------------------------------------------------------
 
-add_library(alg_math STATIC
+add_library(alg_math OBJECT
     User/Algorithm/alg_math/alg_math_scalar.c
     User/Algorithm/alg_math/alg_math_statistics.c
     User/Algorithm/alg_math/alg_math_vector.c
@@ -109,16 +161,43 @@ target_include_directories(alg_math PUBLIC User/Algorithm/alg_math)
 target_link_libraries(alg_math PUBLIC m)
 framework_configure_library(alg_math)
 
-add_library(alg_motion STATIC User/Algorithm/alg_motion/alg_motion.c)
+add_library(alg_motion OBJECT User/Algorithm/alg_motion/alg_motion.c)
 target_include_directories(alg_motion PUBLIC User/Algorithm/alg_motion)
 target_link_libraries(alg_motion PUBLIC m)
 framework_configure_library(alg_motion)
 
-add_library(alg_trajectory STATIC User/Algorithm/alg_trajectory/alg_trajectory.c)
+add_library(alg_trajectory OBJECT
+    User/Algorithm/alg_trajectory/alg_trajectory.c
+    User/Algorithm/alg_trajectory/alg_trajectory_group.c
+)
 target_include_directories(alg_trajectory PUBLIC User/Algorithm/alg_trajectory)
 framework_configure_library(alg_trajectory)
 
-add_library(alg_filter STATIC
+add_library(alg_attitude OBJECT User/Algorithm/alg_attitude/alg_attitude.c)
+target_include_directories(alg_attitude PUBLIC User/Algorithm/alg_attitude)
+target_link_libraries(alg_attitude PUBLIC m)
+framework_configure_library(alg_attitude)
+
+add_library(alg_power_limit OBJECT User/Algorithm/alg_power_limit/alg_power_limit.c)
+target_include_directories(alg_power_limit PUBLIC User/Algorithm/alg_power_limit)
+target_link_libraries(alg_power_limit PUBLIC m)
+framework_configure_library(alg_power_limit)
+
+add_library(alg_chassis_estimator OBJECT
+    User/Algorithm/alg_chassis_estimator/alg_chassis_estimator.c
+)
+target_include_directories(alg_chassis_estimator
+    PUBLIC User/Algorithm/alg_chassis_estimator
+)
+target_link_libraries(alg_chassis_estimator PUBLIC m)
+framework_configure_library(alg_chassis_estimator)
+
+add_library(alg_ballistic OBJECT User/Algorithm/alg_ballistic/alg_ballistic.c)
+target_include_directories(alg_ballistic PUBLIC User/Algorithm/alg_ballistic)
+target_link_libraries(alg_ballistic PUBLIC m)
+framework_configure_library(alg_ballistic)
+
+add_library(alg_filter OBJECT
     User/Algorithm/alg_filter/alg_filter_basic.c
     User/Algorithm/alg_filter/alg_filter_window.c
     User/Algorithm/alg_filter/alg_filter_fir.c
@@ -129,7 +208,7 @@ target_include_directories(alg_filter PUBLIC User/Algorithm/alg_filter)
 target_link_libraries(alg_filter PUBLIC m)
 framework_configure_library(alg_filter)
 
-add_library(alg_kalman STATIC
+add_library(alg_kalman OBJECT
     User/Algorithm/alg_kalman/alg_kalman_matrix.c
     User/Algorithm/alg_kalman/alg_kalman_scalar.c
     User/Algorithm/alg_kalman/alg_kalman_linear.c
@@ -139,7 +218,7 @@ target_include_directories(alg_kalman PUBLIC User/Algorithm/alg_kalman)
 target_link_libraries(alg_kalman PUBLIC m)
 framework_configure_library(alg_kalman)
 
-add_library(alg_imu_ekf STATIC
+add_library(alg_imu_ekf OBJECT
     User/Algorithm/alg_imu_ekf/alg_imu_ekf_core.c
     User/Algorithm/alg_imu_ekf/alg_imu_ekf_model.c
     User/Algorithm/alg_imu_ekf/alg_imu_ekf_update.c
@@ -149,7 +228,7 @@ target_include_directories(alg_imu_ekf PUBLIC User/Algorithm/alg_imu_ekf)
 target_link_libraries(alg_imu_ekf PUBLIC alg_filter alg_kalman m)
 framework_configure_library(alg_imu_ekf)
 
-add_library(alg_pid STATIC
+add_library(alg_pid OBJECT
     User/Algorithm/alg_pid/alg_pid_core.c
     User/Algorithm/alg_pid/alg_pid_incremental.c
     User/Algorithm/alg_pid/alg_pid_schedule.c
@@ -160,7 +239,7 @@ target_include_directories(alg_pid PUBLIC User/Algorithm/alg_pid)
 target_link_libraries(alg_pid PUBLIC m)
 framework_configure_library(alg_pid)
 
-add_library(alg_lqr STATIC
+add_library(alg_lqr OBJECT
     User/Algorithm/alg_lqr/alg_lqr_matrix.c
     User/Algorithm/alg_lqr/alg_lqr_riccati.c
     User/Algorithm/alg_lqr/alg_lqr_controller.c
@@ -170,18 +249,18 @@ target_include_directories(alg_lqr PUBLIC User/Algorithm/alg_lqr)
 target_link_libraries(alg_lqr PUBLIC m)
 framework_configure_library(alg_lqr)
 
-add_library(alg_axis_controller STATIC
+add_library(alg_axis_controller OBJECT
     User/Algorithm/alg_axis_controller/alg_axis_controller.c
 )
 target_include_directories(alg_axis_controller PUBLIC User/Algorithm/alg_axis_controller)
 target_link_libraries(alg_axis_controller PUBLIC alg_pid alg_lqr)
 framework_configure_library(alg_axis_controller)
 
-add_library(alg_chassis STATIC User/Algorithm/alg_chassis/alg_chassis.c)
+add_library(alg_chassis OBJECT User/Algorithm/alg_chassis/alg_chassis.c)
 target_include_directories(alg_chassis PUBLIC User/Algorithm/alg_chassis)
 framework_configure_library(alg_chassis)
 
-add_library(alg_chassis_fault STATIC
+add_library(alg_chassis_fault OBJECT
     User/Algorithm/alg_chassis_fault/alg_chassis_fault.c
 )
 target_include_directories(alg_chassis_fault PUBLIC User/Algorithm/alg_chassis_fault)
@@ -189,7 +268,7 @@ target_link_libraries(alg_chassis_fault PUBLIC alg_chassis)
 framework_configure_library(alg_chassis_fault)
 
 foreach(chassis_algorithm IN ITEMS ackermann differential mecanum omni swerve)
-    add_library(alg_${chassis_algorithm} STATIC
+    add_library(alg_${chassis_algorithm} OBJECT
         User/Algorithm/alg_${chassis_algorithm}/alg_${chassis_algorithm}.c
     )
     target_include_directories(alg_${chassis_algorithm}
@@ -221,9 +300,15 @@ set(bsp_include_directories
     User/Bsp/bsp_usb_vcp
     User/Bsp/bsp_watchdog
     User/Bsp/bsp_timebase
+    User/Bsp/bsp_stm32h723_port
+    User/Bsp/bsp_storage
+    User/Bsp/bsp_crc
+    User/Bsp/bsp_rng
+    User/Bsp/bsp_rtc
 )
 
-add_library(bsp STATIC
+add_library(bsp OBJECT
+    User/Bsp/board_config.h
     User/Bsp/bsp_common/bsp_common.c
     User/Bsp/bsp_gpio/bsp_gpio.c
     User/Bsp/bsp_exti/bsp_exti.c
@@ -242,8 +327,15 @@ add_library(bsp STATIC
     User/Bsp/bsp_usb_vcp/bsp_usb_vcp.c
     User/Bsp/bsp_watchdog/bsp_watchdog.c
     User/Bsp/bsp_timebase/bsp_timebase.c
+    User/Bsp/bsp_stm32h723_port/bsp_stm32h723_port.c
+    User/Bsp/bsp_storage/bsp_storage.c
+    User/Bsp/bsp_crc/bsp_crc.c
+    User/Bsp/bsp_rng/bsp_rng.c
+    User/Bsp/bsp_rtc/bsp_rtc.c
 )
 target_include_directories(bsp PUBLIC ${bsp_include_directories})
+target_include_directories(bsp SYSTEM PRIVATE ${stm32_include_directories})
+target_compile_definitions(bsp PRIVATE ${stm32_definitions})
 framework_configure_library(bsp)
 
 # ---------------------------------------------------------------------------
@@ -273,9 +365,11 @@ set(module_include_directories
     User/Module/module_nrf24l01
     User/Module/module_referee
     User/Module/module_servo
+    User/Module/module_diagnostic
+    User/Module/module_referee_ui
 )
 
-add_library(module STATIC
+add_library(module OBJECT
     User/Module/module_device/module_device.c
     User/Module/module_motor/module_motor.c
     User/Module/module_motor_health/module_motor_health.c
@@ -284,6 +378,7 @@ add_library(module STATIC
     User/Module/module_m3508/module_m3508.c
     User/Module/module_gm6020/module_gm6020.c
     User/Module/module_dm_motor/module_dm_motor.c
+    User/Module/module_dm_motor/module_dm_motor_bus.c
     User/Module/module_dm4310/module_dm4310.c
     User/Module/module_bmi088/module_bmi088.c
     User/Module/module_dr16/module_dr16.c
@@ -298,21 +393,28 @@ add_library(module STATIC
     User/Module/module_nrf24l01/module_nrf24l01.c
     User/Module/module_referee/module_referee.c
     User/Module/module_referee/module_referee_crc.c
+    User/Module/module_referee/module_referee_data.c
     User/Module/module_servo/module_servo.c
+    User/Module/module_diagnostic/module_diagnostic.c
+    User/Module/module_referee_ui/module_referee_ui.c
 )
 target_include_directories(module PUBLIC ${module_include_directories})
 target_link_libraries(module PUBLIC bsp alg_pid alg_swerve)
 framework_configure_library(module)
 
-list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
-
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     stm32cubemx
     stm32_drivers
+    freertos
+    stm32_usb_device
     bsp
     alg_math
     alg_motion
     alg_trajectory
+    alg_attitude
+    alg_power_limit
+    alg_chassis_estimator
+    alg_ballistic
     alg_filter
     alg_kalman
     alg_imu_ekf

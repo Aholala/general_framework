@@ -69,8 +69,7 @@ bsp_status_t bsp_can_dispatcher_init(bsp_can_dispatcher_t *const me,
     return status;
 }
 
-bsp_status_t bsp_can_dispatcher_remove_route(bsp_can_dispatcher_t *const me,
-                                             size_t route_index)
+bsp_status_t bsp_can_dispatcher_remove_route(bsp_can_dispatcher_t *const me, size_t route_index)
 {
     size_t move_index;
 
@@ -90,11 +89,9 @@ bsp_status_t bsp_can_dispatcher_remove_route(bsp_can_dispatcher_t *const me,
     {
         return BSP_STATUS_OUT_OF_RANGE;
     }
-    for (move_index = route_index; (move_index + 1U) < me->route_count;
-         ++move_index)
+    for (move_index = route_index; (move_index + 1U) < me->route_count; ++move_index)
     {
-        me->route_storage[move_index] =
-            me->route_storage[move_index + 1U];
+        me->route_storage[move_index] = me->route_storage[move_index + 1U];
     }
     --me->route_count;
     me->route_storage[me->route_count] = (bsp_can_route_t){0};

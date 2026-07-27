@@ -40,9 +40,8 @@ extern "C"
                                              const module_gm6020_config_t *const config);
     module_motor_status_t module_gm6020_register(module_gm6020_t *const me,
                                                  module_motor_registry_t *const registry);
-    module_motor_status_t module_gm6020_unregister(
-        module_gm6020_t *const me,
-        module_motor_registry_t *const registry);
+    module_motor_status_t module_gm6020_unregister(module_gm6020_t *const me,
+                                                   module_motor_registry_t *const registry);
     module_motor_t *module_gm6020_as_motor(module_gm6020_t *const me);
     module_dji_motor_t *module_gm6020_as_dji_motor(module_gm6020_t *const me);
     module_motor_status_t module_gm6020_enable(module_gm6020_t *const me);

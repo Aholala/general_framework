@@ -101,9 +101,8 @@ extern "C"
                                                const module_dm_motor_config_t *const config);
     module_motor_status_t module_dm_motor_register(module_dm_motor_t *const me,
                                                    module_motor_registry_t *const registry);
-    module_motor_status_t module_dm_motor_unregister(
-        module_dm_motor_t *const me,
-        module_motor_registry_t *const registry);
+    module_motor_status_t module_dm_motor_unregister(module_dm_motor_t *const me,
+                                                     module_motor_registry_t *const registry);
     module_motor_t *module_dm_motor_as_base(module_dm_motor_t *const me);
     module_motor_status_t module_dm_motor_send_state_command(module_dm_motor_t *const me,
                                                              module_dm_state_command_t command);
@@ -114,14 +113,14 @@ extern "C"
     module_motor_status_t module_dm_motor_command_position_velocity(module_dm_motor_t *const me,
                                                                     float position_rad,
                                                                     float velocity_rad_per_s);
-    module_motor_status_t module_dm_motor_set_mit_target(
-        module_dm_motor_t *const me,
-        const module_dm_mit_command_t *const command);
-    module_motor_status_t module_dm_motor_set_velocity_target(
-        module_dm_motor_t *const me, float velocity_rad_per_s);
-    module_motor_status_t module_dm_motor_set_position_velocity_target(
-        module_dm_motor_t *const me, float position_rad,
-        float velocity_rad_per_s);
+    module_motor_status_t
+    module_dm_motor_set_mit_target(module_dm_motor_t *const me,
+                                   const module_dm_mit_command_t *const command);
+    module_motor_status_t module_dm_motor_set_velocity_target(module_dm_motor_t *const me,
+                                                              float velocity_rad_per_s);
+    module_motor_status_t module_dm_motor_set_position_velocity_target(module_dm_motor_t *const me,
+                                                                       float position_rad,
+                                                                       float velocity_rad_per_s);
     module_motor_status_t module_dm_motor_handle_feedback(module_dm_motor_t *const me,
                                                           const bsp_can_frame_t *const frame);
     module_dm_fault_t module_dm_motor_get_fault(const module_dm_motor_t *const me);

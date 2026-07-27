@@ -37,8 +37,7 @@ static bsp_status_t bsp_adc_device_stop_dma(bsp_adc_t *const adc_base)
 {
     bsp_adc_device_t *const me = bsp_adc_get_device(adc_base);
     return (me->driver_ops->stop_dma != NULL)
-               ? me->driver_ops->stop_dma(adc_base->super.device_handle,
-                                          me->channel)
+               ? me->driver_ops->stop_dma(adc_base->super.device_handle, me->channel)
                : BSP_STATUS_UNSUPPORTED;
 }
 
@@ -61,9 +60,8 @@ static bsp_status_t bsp_adc_device_start_dma(bsp_adc_t *const adc_base, uint32_t
 {
     bsp_adc_device_t *const me = bsp_adc_get_device(adc_base);
     return (me->driver_ops->start_dma != NULL)
-               ? me->driver_ops->start_dma(adc_base->super.device_handle,
-                                           me->channel, sample_buffer,
-                                           sample_count)
+               ? me->driver_ops->start_dma(adc_base->super.device_handle, me->channel,
+                                           sample_buffer, sample_count)
                : BSP_STATUS_UNSUPPORTED;
 }
 
@@ -90,9 +88,8 @@ bsp_status_t bsp_adc_init(bsp_adc_device_t *const me, const bsp_adc_config_t *co
     if ((me == NULL) || (config == NULL) || (config->device_handle == NULL) ||
         (config->driver_ops == NULL) || (config->resolution_bits == 0U) ||
         (config->resolution_bits > 31U) || !isfinite(config->reference_voltage_v) ||
-        (config->reference_voltage_v <= 0.0F) ||
-        (config->driver_ops->start == NULL) || (config->driver_ops->stop == NULL) ||
-        (config->driver_ops->calibrate == NULL) ||
+        (config->reference_voltage_v <= 0.0F) || (config->driver_ops->start == NULL) ||
+        (config->driver_ops->stop == NULL) || (config->driver_ops->calibrate == NULL) ||
         (config->driver_ops->read_raw == NULL))
     {
         return BSP_STATUS_INVALID_ARGUMENT;

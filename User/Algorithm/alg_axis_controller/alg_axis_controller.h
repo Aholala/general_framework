@@ -77,18 +77,18 @@ extern "C"
         float equilibrium_control;
     } alg_axis_lqr_t;
 
-    alg_axis_controller_status_t
-    alg_axis_pid_init(alg_axis_pid_t *me, const alg_axis_pid_config_t *config);
-    alg_axis_controller_status_t
-    alg_axis_lqr_init(alg_axis_lqr_t *me, const alg_axis_lqr_config_t *config);
+    alg_axis_controller_status_t alg_axis_pid_init(alg_axis_pid_t *me,
+                                                   const alg_axis_pid_config_t *config);
+    alg_axis_controller_status_t alg_axis_lqr_init(alg_axis_lqr_t *me,
+                                                   const alg_axis_lqr_config_t *config);
     alg_axis_controller_t *alg_axis_pid_as_controller(alg_axis_pid_t *me);
     alg_axis_controller_t *alg_axis_lqr_as_controller(alg_axis_lqr_t *me);
-    alg_axis_controller_status_t alg_axis_controller_reset(
-        alg_axis_controller_t *me, float measured_position_rad,
-        float measured_velocity_rad_per_s, float initial_output);
+    alg_axis_controller_status_t alg_axis_controller_reset(alg_axis_controller_t *me,
+                                                           float measured_position_rad,
+                                                           float measured_velocity_rad_per_s,
+                                                           float initial_output);
     alg_axis_controller_status_t
-    alg_axis_controller_update(alg_axis_controller_t *me,
-                               const alg_axis_controller_input_t *input,
+    alg_axis_controller_update(alg_axis_controller_t *me, const alg_axis_controller_input_t *input,
                                float *control_output);
 
 #ifdef __cplusplus

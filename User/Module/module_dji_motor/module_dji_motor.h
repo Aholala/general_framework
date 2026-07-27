@@ -83,9 +83,8 @@ extern "C"
                                                 const module_dji_motor_config_t *const config);
     module_motor_status_t module_dji_motor_register(module_dji_motor_t *const me,
                                                     module_motor_registry_t *const registry);
-    module_motor_status_t module_dji_motor_unregister(
-        module_dji_motor_t *const me,
-        module_motor_registry_t *const registry);
+    module_motor_status_t module_dji_motor_unregister(module_dji_motor_t *const me,
+                                                      module_motor_registry_t *const registry);
     module_motor_t *module_dji_motor_as_base(module_dji_motor_t *const me);
     module_motor_status_t module_dji_motor_bus_handle_feedback(module_dji_motor_bus_t *const me,
                                                                const bsp_can_frame_t *const frame);

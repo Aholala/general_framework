@@ -134,8 +134,7 @@ bsp_status_t bsp_usart_transmit(bsp_usart_t *const me, const uint8_t *data, size
     {
         return status;
     }
-    if ((data == NULL) || (size == 0U) ||
-        !bsp_transfer_mode_is_valid(mode))
+    if ((data == NULL) || (size == 0U) || !bsp_transfer_mode_is_valid(mode))
     {
         return BSP_STATUS_INVALID_ARGUMENT;
     }
@@ -150,8 +149,7 @@ bsp_status_t bsp_usart_receive(bsp_usart_t *const me, uint8_t *data, size_t size
     {
         return status;
     }
-    if ((data == NULL) || (size == 0U) ||
-        !bsp_transfer_mode_is_valid(mode))
+    if ((data == NULL) || (size == 0U) || !bsp_transfer_mode_is_valid(mode))
     {
         return BSP_STATUS_INVALID_ARGUMENT;
     }
@@ -166,8 +164,7 @@ bsp_status_t bsp_usart_receive_to_idle(bsp_usart_t *const me, uint8_t *data, siz
     {
         return status;
     }
-    if ((data == NULL) || (capacity == 0U) ||
-        !bsp_transfer_mode_is_valid(mode))
+    if ((data == NULL) || (capacity == 0U) || !bsp_transfer_mode_is_valid(mode))
     {
         return BSP_STATUS_INVALID_ARGUMENT;
     }
