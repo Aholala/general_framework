@@ -64,6 +64,7 @@ set(stm32_include_directories
 set(stm32_application_sources
     Core/Src/main.c
     Core/Src/gpio.c
+    Core/Src/dma.c
     Core/Src/fdcan.c
     Core/Src/freertos.c
     Core/Src/spi.c

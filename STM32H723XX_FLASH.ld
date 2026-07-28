@@ -213,14 +213,6 @@ SECTIONS
   PROVIDE( __arm32_tls_tcb_offset = MAX(8, __tls_align) );
   PROVIDE( __arm64_tls_tcb_offset = MAX(16, __tls_align) );
 
-  .dma_buffer (NOLOAD) :
-  {
-    . = ALIGN(32);
-    *(.dma_buffer)
-    *(.dma_buffer*)
-    . = ALIGN(32);
-  } >RAM_D1
-
   .bss (NOLOAD) : ALIGN(4)
   {
     *(.bss)

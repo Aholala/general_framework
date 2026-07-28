@@ -1,126 +1,253 @@
+/**
+ * @file module_robot_link.h
+ * @author Ahola邱泽钦 (aholace0328@gmail.com)
+ * @brief 云台板与底盘板之间的 CAN 数据协议头文件
+ * @version 1.0
+ * @date 2026-07-28
+ * @copyright Copyright (c) 2026
+ *
+ * @note 传输 DR16、云台、底盘、发射机构和心跳关键数据。
+ *       从 base_identifier 开始连续分配 8 个消息类型。
+ *       支持分片组装（同一数据组的多个分片共享序列号）。
+ */
+
 #ifndef MODULE_ROBOT_LINK_H
 #define MODULE_ROBOT_LINK_H
 
-#include "bsp_can.h"
-#include "module_dr16.h"
+#include "bsp_can.h"     // CAN BSP 抽象层
+#include "module_dr16.h" // DR16 遥控器数据结构
 
-#include <stdbool.h>
-#include <stdint.h>
+#include <stdbool.h> // bool
+#include <stdint.h>  // uint32_t
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
+    /* ======================== 状态码枚举 ======================== */
+
+    /**
+     * @brief Robot Link 模块状态码
+     */
     typedef enum
     {
-        MODULE_ROBOT_LINK_STATUS_OK = 0,
-        MODULE_ROBOT_LINK_STATUS_INVALID_ARGUMENT,
-        MODULE_ROBOT_LINK_STATUS_NOT_INITIALIZED,
-        MODULE_ROBOT_LINK_STATUS_TRANSPORT_ERROR,
-        MODULE_ROBOT_LINK_STATUS_INVALID_FRAME
+        MODULE_ROBOT_LINK_STATUS_OK = 0,           // 操作成功
+        MODULE_ROBOT_LINK_STATUS_INVALID_ARGUMENT, // 参数非法
+        MODULE_ROBOT_LINK_STATUS_NOT_INITIALIZED,  // 对象未初始化
+        MODULE_ROBOT_LINK_STATUS_TRANSPORT_ERROR,  // CAN 传输错误
+        MODULE_ROBOT_LINK_STATUS_INVALID_FRAME     // 无效帧（ID 越界等）
     } module_robot_link_status_t;
 
+    /* ======================== 消息类型枚举 ======================== */
+
+    /**
+     * @brief Robot Link 协议消息类型
+     * @note 从 base_identifier 开始连续分配
+     */
     typedef enum
     {
-        MODULE_ROBOT_LINK_MESSAGE_REMOTE_CHANNELS_PRIMARY = 0,
-        MODULE_ROBOT_LINK_MESSAGE_REMOTE_CHANNELS_AUXILIARY,
-        MODULE_ROBOT_LINK_MESSAGE_REMOTE_INPUT,
-        MODULE_ROBOT_LINK_MESSAGE_GIMBAL_PRIMARY,
-        MODULE_ROBOT_LINK_MESSAGE_GIMBAL_AUXILIARY,
-        MODULE_ROBOT_LINK_MESSAGE_CHASSIS,
-        MODULE_ROBOT_LINK_MESSAGE_SHOOTER,
-        MODULE_ROBOT_LINK_MESSAGE_HEARTBEAT,
-        MODULE_ROBOT_LINK_MESSAGE_COUNT
+        MODULE_ROBOT_LINK_MESSAGE_REMOTE_CHANNELS_PRIMARY = 0, // 遥控主通道（channel 0~2）
+        MODULE_ROBOT_LINK_MESSAGE_REMOTE_CHANNELS_AUXILIARY,   // 遥控辅助通道（channel
+                                                               // 3+dial+keyboard）
+        MODULE_ROBOT_LINK_MESSAGE_REMOTE_INPUT,                // 遥控输入（鼠标+开关+按键）
+        MODULE_ROBOT_LINK_MESSAGE_GIMBAL_PRIMARY,              // 云台主数据（角度+偏航角速度）
+        MODULE_ROBOT_LINK_MESSAGE_GIMBAL_AUXILIARY,            // 云台辅助数据（俯仰角速度）
+        MODULE_ROBOT_LINK_MESSAGE_CHASSIS,                     // 底盘数据（速度+状态）
+        MODULE_ROBOT_LINK_MESSAGE_SHOOTER,                     // 发射机构数据
+        MODULE_ROBOT_LINK_MESSAGE_HEARTBEAT,                   // 心跳
+        MODULE_ROBOT_LINK_MESSAGE_COUNT                        // 消息总数（=8）
     } module_robot_link_message_t;
 
+    /* ======================== 数据结构体 ======================== */
+
+    /**
+     * @brief 云台数据
+     */
     typedef struct
     {
-        float yaw_rad;
-        float pitch_rad;
-        float yaw_velocity_rad_per_s;
-        float pitch_velocity_rad_per_s;
-        bool imu_valid;
-        bool motors_online;
+        float yaw_rad;                  // 偏航角（弧度）
+        float pitch_rad;                // 俯仰角（弧度）
+        float yaw_velocity_rad_per_s;   // 偏航角速度（rad/s）
+        float pitch_velocity_rad_per_s; // 俯仰角速度（rad/s）
+        bool imu_valid;                 // IMU 数据是否有效
+        bool motors_online;             // 电机是否在线
     } module_robot_link_gimbal_data_t;
 
+    /**
+     * @brief 底盘数据
+     */
     typedef struct
     {
-        float velocity_x_m_per_s;
-        float velocity_y_m_per_s;
-        float angular_velocity_rad_per_s;
-        bool motors_online;
-        bool self_lock_active;
+        float velocity_x_m_per_s;         // X 方向速度（m/s）
+        float velocity_y_m_per_s;         // Y 方向速度（m/s）
+        float angular_velocity_rad_per_s; // 角速度（rad/s）
+        bool motors_online;               // 电机是否在线
+        bool self_lock_active;            // 自锁是否激活
     } module_robot_link_chassis_data_t;
 
+    /**
+     * @brief 发射机构数据
+     */
     typedef struct
     {
-        float friction_velocity_rad_per_s;
-        float feeder_position_rad;
-        uint8_t state;
-        uint8_t jam_retry_count;
+        float friction_velocity_rad_per_s; // 摩擦轮速度（rad/s）
+        float feeder_position_rad;         // 拨弹盘位置（弧度）
+        uint8_t state;                     // 发射机构状态
+        uint8_t jam_retry_count;           // 卡弹重试次数
     } module_robot_link_shooter_data_t;
 
+    /* ======================== 配置结构体 ======================== */
+
+    /**
+     * @brief Robot Link 初始化配置
+     */
     typedef struct
     {
-        bsp_can_t *can;
-        uint32_t base_identifier;
-        uint32_t transmit_timeout_ms;
-        uint32_t offline_timeout_ms;
+        bsp_can_t *can;               // CAN BSP 基类
+        uint32_t base_identifier;     // CAN ID 基址（消息从此开始连续分配）
+        uint32_t transmit_timeout_ms; // 发送超时（毫秒）
+        uint32_t offline_timeout_ms;  // 离线超时（毫秒）
     } module_robot_link_config_t;
 
+    /* ======================== 对象结构体 ======================== */
+
+    /**
+     * @brief Robot Link 设备对象
+     */
     typedef struct
     {
-        bsp_can_t *can;
-        uint32_t base_identifier;
-        uint32_t transmit_timeout_ms;
-        uint32_t offline_timeout_ms;
-        module_dr16_data_t remote_data;
-        module_dr16_data_t remote_staging;
-        module_robot_link_gimbal_data_t gimbal_data;
-        module_robot_link_gimbal_data_t gimbal_staging;
-        module_robot_link_chassis_data_t chassis_data;
-        module_robot_link_shooter_data_t shooter_data;
-        uint32_t remote_elapsed_time_ms;
-        uint32_t gimbal_elapsed_time_ms;
-        uint32_t chassis_elapsed_time_ms;
-        uint32_t shooter_elapsed_time_ms;
-        uint8_t transmit_sequence;
-        uint8_t remote_receive_mask;
-        uint8_t remote_assembly_sequence;
-        uint8_t gimbal_receive_mask;
-        uint8_t gimbal_assembly_sequence;
-        bool remote_online;
-        bool gimbal_online;
-        bool chassis_online;
-        bool shooter_online;
-        bool is_initialized;
+        bsp_can_t *can;                                 // CAN BSP 基类
+        uint32_t base_identifier;                       // CAN ID 基址
+        uint32_t transmit_timeout_ms;                   // 发送超时
+        uint32_t offline_timeout_ms;                    // 离线超时
+        module_dr16_data_t remote_data;                 // 遥控器已提交数据（供外部读取）
+        module_dr16_data_t remote_staging;              // 遥控器暂存数据（分片组装中）
+        module_robot_link_gimbal_data_t gimbal_data;    // 云台已提交数据
+        module_robot_link_gimbal_data_t gimbal_staging; // 云台暂存数据
+        module_robot_link_chassis_data_t chassis_data;  // 底盘数据（单帧）
+        module_robot_link_shooter_data_t shooter_data;  // 发射机构数据（单帧）
+        uint32_t remote_elapsed_time_ms;                // 遥控器距上次接收的时间（ms）
+        uint32_t gimbal_elapsed_time_ms;                // 云台距上次接收的时间（ms）
+        uint32_t chassis_elapsed_time_ms;               // 底盘距上次接收的时间（ms）
+        uint32_t shooter_elapsed_time_ms;               // 发射机构距上次接收的时间（ms）
+        uint8_t transmit_sequence;                      // 发送序列号（递增）
+        uint8_t remote_receive_mask;                    // 遥控器接收掩码（位0~2）
+        uint8_t remote_assembly_sequence;               // 遥控器当前组装序列号
+        uint8_t gimbal_receive_mask;                    // 云台接收掩码（位0~1）
+        uint8_t gimbal_assembly_sequence;               // 云台当前组装序列号
+        bool remote_online;                             // 遥控器是否在线
+        bool gimbal_online;                             // 云台是否在线
+        bool chassis_online;                            // 底盘是否在线
+        bool shooter_online;                            // 发射机构是否在线
+        bool is_initialized;                            // 是否已初始化
     } module_robot_link_t;
 
+    /* ======================== 公共 API ======================== */
+
+    /**
+     * @brief 初始化 Robot Link 模块
+     * @param me Robot Link 对象
+     * @param config 配置参数
+     * @return 执行状态
+     */
     module_robot_link_status_t module_robot_link_init(module_robot_link_t *me,
                                                       const module_robot_link_config_t *config);
+
+    /**
+     * @brief 发送遥控器数据（三帧分片）
+     * @param me Robot Link 对象
+     * @param remote_data 遥控器数据
+     * @return 执行状态
+     */
     module_robot_link_status_t module_robot_link_send_remote(module_robot_link_t *me,
                                                              const module_dr16_data_t *remote_data);
+
+    /**
+     * @brief 发送云台数据（两帧分片）
+     * @param me Robot Link 对象
+     * @param gimbal_data 云台数据
+     * @return 执行状态
+     */
     module_robot_link_status_t
     module_robot_link_send_gimbal(module_robot_link_t *me,
                                   const module_robot_link_gimbal_data_t *gimbal_data);
+
+    /**
+     * @brief 发送底盘数据（单帧）
+     * @param me Robot Link 对象
+     * @param chassis_data 底盘数据
+     * @return 执行状态
+     */
     module_robot_link_status_t
     module_robot_link_send_chassis(module_robot_link_t *me,
                                    const module_robot_link_chassis_data_t *chassis_data);
+
+    /**
+     * @brief 发送发射机构数据（单帧）
+     * @param me Robot Link 对象
+     * @param shooter_data 发射机构数据
+     * @return 执行状态
+     */
     module_robot_link_status_t
     module_robot_link_send_shooter(module_robot_link_t *me,
                                    const module_robot_link_shooter_data_t *shooter_data);
+
+    /**
+     * @brief 发送心跳帧
+     * @param me Robot Link 对象
+     * @param board_role 板卡角色
+     * @param uptime_ms 运行时间（毫秒）
+     * @return 执行状态
+     */
     module_robot_link_status_t module_robot_link_send_heartbeat(module_robot_link_t *me,
                                                                 uint8_t board_role,
                                                                 uint32_t uptime_ms);
+
+    /**
+     * @brief 处理接收到的 CAN 帧
+     * @param me Robot Link 对象
+     * @param frame CAN 帧
+     * @return 执行状态
+     */
     module_robot_link_status_t module_robot_link_handle_frame(module_robot_link_t *me,
                                                               const bsp_can_frame_t *frame);
+
+    /**
+     * @brief 更新各数据组的在线超时计时
+     * @param me Robot Link 对象
+     * @param elapsed_time_ms 距上次更新的时间（毫秒）
+     */
     void module_robot_link_update_time(module_robot_link_t *me, uint32_t elapsed_time_ms);
+
+    /**
+     * @brief 获取遥控器数据（只读）
+     * @param me Robot Link 对象
+     * @return 遥控器数据指针，若离线则返回 NULL
+     */
     const module_dr16_data_t *module_robot_link_get_remote(const module_robot_link_t *me);
+
+    /**
+     * @brief 获取云台数据（只读）
+     * @param me Robot Link 对象
+     * @return 云台数据指针，若离线则返回 NULL
+     */
     const module_robot_link_gimbal_data_t *
     module_robot_link_get_gimbal(const module_robot_link_t *me);
+
+    /**
+     * @brief 获取底盘数据（只读）
+     * @param me Robot Link 对象
+     * @return 底盘数据指针，若离线则返回 NULL
+     */
     const module_robot_link_chassis_data_t *
     module_robot_link_get_chassis(const module_robot_link_t *me);
+
+    /**
+     * @brief 获取发射机构数据（只读）
+     * @param me Robot Link 对象
+     * @return 发射机构数据指针，若离线则返回 NULL
+     */
     const module_robot_link_shooter_data_t *
     module_robot_link_get_shooter(const module_robot_link_t *me);
 

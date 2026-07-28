@@ -1,337 +1,209 @@
-#include "module_shooter.h"
+/**
+ * @file module_shooter.h
+ * @author Ahola邱泽钦 (aholace0328@gmail.com)
+ * @brief RoboMaster 发射机构状态机头文件
+ * @version 1.0
+ * @date 2026-07-28
+ * @copyright Copyright (c) 2026
+ *
+ * @note 组合左右摩擦轮和拨弹电机，提供摩擦轮启停、排队发射、位置步进、
+ *       堵转确认、自动回退、有限重试和故障锁存。
+ *       依赖三个 module_motor_t * 对象。
+ */
 
-#include <math.h>
-#include <stddef.h>
-#include <stdlib.h>
+#ifndef MODULE_SHOOTER_H
+#define MODULE_SHOOTER_H
 
-static bool module_shooter_direction_is_valid(float direction_sign)
+#include "module_motor.h" // 电机基类
+
+#include <stdbool.h> // bool
+#include <stdint.h>  // uint8_t, uint16_t
+
+#ifdef __cplusplus
+extern "C"
 {
-    return (direction_sign == 1.0F) || (direction_sign == -1.0F);
+#endif
+
+    /* ======================== 状态码枚举 ======================== */
+
+    /**
+     * @brief 发射机构模块状态码
+     */
+    typedef enum
+    {
+        MODULE_SHOOTER_STATUS_OK = 0,           // 操作成功
+        MODULE_SHOOTER_STATUS_INVALID_ARGUMENT, // 参数非法
+        MODULE_SHOOTER_STATUS_NOT_INITIALIZED,  // 对象未初始化
+        MODULE_SHOOTER_STATUS_NOT_READY,        // 未就绪（电机离线或禁用）
+        MODULE_SHOOTER_STATUS_MOTOR_ERROR,      // 电机操作错误
+        MODULE_SHOOTER_STATUS_FAULT             // 故障锁存（超过最大重试）
+    } module_shooter_status_t;
+
+    /* ======================== 状态机枚举 ======================== */
+
+    /**
+     * @brief 发射机构运行状态
+     */
+    typedef enum
+    {
+        MODULE_SHOOTER_STATE_DISABLED = 0, // 禁用（所有目标归零）
+        MODULE_SHOOTER_STATE_READY,        // 就绪（等待射击）
+        MODULE_SHOOTER_STATE_FEEDING,      // 送弹中（拨弹盘运动）
+        MODULE_SHOOTER_STATE_ROLLBACK,     // 回退中（堵转后退）
+        MODULE_SHOOTER_STATE_FAULT         // 故障锁存
+    } module_shooter_state_t;
+
+    /* ======================== 配置结构体 ======================== */
+
+    /**
+     * @brief 发射机构初始化配置
+     * @note 所有阈值需实车标定
+     */
+    typedef struct
+    {
+        module_motor_t *left_friction_motor;    // 左摩擦轮电机
+        module_motor_t *right_friction_motor;   // 右摩擦轮电机
+        module_motor_t *feeder_motor;           // 拨弹电机
+        float left_friction_direction_sign;     // 左摩擦轮方向符号（+1 或 -1）
+        float right_friction_direction_sign;    // 右摩擦轮方向符号
+        float feeder_direction_sign;            // 拨弹盘方向符号（+1 正向，-1 反向）
+        float feeder_step_rad;                  // 单次射击拨弹盘步进角度（弧度）
+        float feeder_position_tolerance_rad;    // 拨弹盘位置到达容差（弧度）
+        float jam_velocity_threshold_rad_per_s; // 堵转速度阈值（rad/s，低于此值视为堵转）
+        float jam_current_threshold_a;          // 堵转电流阈值（安培，优先使用）
+        int16_t jam_current_threshold_raw;      // 堵转电流原始阈值（备用）
+        float jam_confirmation_time_s;          // 堵转确认时间（秒）
+        float rollback_angle_rad;               // 堵转回退角度（弧度）
+        float rollback_position_tolerance_rad;  // 回退到位容差（弧度）
+        uint8_t maximum_jam_retries;            // 最大堵转重试次数
+        uint16_t maximum_pending_shots;         // 最大待发弹量（防溢出）
+    } module_shooter_config_t;
+
+    /* ======================== 对象结构体 ======================== */
+
+    /**
+     * @brief 发射机构设备对象
+     */
+    typedef struct
+    {
+        module_motor_t *left_friction_motor;      // 左摩擦轮电机
+        module_motor_t *right_friction_motor;     // 右摩擦轮电机
+        module_motor_t *feeder_motor;             // 拨弹电机
+        float left_friction_direction_sign;       // 左摩擦轮方向
+        float right_friction_direction_sign;      // 右摩擦轮方向
+        float feeder_direction_sign;              // 拨弹盘方向
+        float feeder_step_rad;                    // 步进角度
+        float feeder_position_tolerance_rad;      // 到位容差
+        float jam_velocity_threshold_rad_per_s;   // 堵转速度阈值
+        float jam_current_threshold_a;            // 堵转电流阈值（安培）
+        int16_t jam_current_threshold_raw;        // 堵转电流阈值（原始值）
+        float jam_confirmation_time_s;            // 堵转确认时间
+        float rollback_angle_rad;                 // 回退角度
+        float rollback_position_tolerance_rad;    // 回退容差
+        float friction_target_velocity_rad_per_s; // 摩擦轮目标速度（rad/s）
+        float feeder_target_position_rad;         // 拨弹盘目标位置（弧度）
+        float jam_elapsed_time_s;                 // 堵转已累积时间（秒）
+        uint16_t pending_shots;                   // 待发射数量
+        uint16_t maximum_pending_shots;           // 最大待发弹量
+        uint8_t jam_retry_count;                  // 当前堵转重试次数
+        uint8_t maximum_jam_retries;              // 最大重试次数
+        module_shooter_state_t state;             // 当前状态
+        bool friction_enabled;                    // 摩擦轮是否使能
+        bool is_initialized;                      // 是否已初始化
+    } module_shooter_t;
+
+    /* ======================== 公共 API ======================== */
+
+    /**
+     * @brief 初始化发射机构
+     * @param me 发射机构对象
+     * @param config 配置参数
+     * @return 执行状态
+     */
+    module_shooter_status_t module_shooter_init(module_shooter_t *me,
+                                                const module_shooter_config_t *config);
+
+    /**
+     * @brief 使能发射机构（使能三个电机，读取拨弹当前位置作为初始目标）
+     * @param me 发射机构对象
+     * @return 执行状态
+     */
+    module_shooter_status_t module_shooter_enable(module_shooter_t *me);
+
+    /**
+     * @brief 禁用发射机构（禁用三个电机，清空待发队列）
+     * @param me 发射机构对象
+     * @return 执行状态
+     */
+    module_shooter_status_t module_shooter_disable(module_shooter_t *me);
+
+    /**
+     * @brief 设置摩擦轮使能状态和目标速度
+     * @param me 发射机构对象
+     * @param is_enabled true=使能，false=停止
+     * @param target_velocity_rad_per_s 目标速度（rad/s，非负）
+     * @return 执行状态
+     */
+    module_shooter_status_t module_shooter_set_friction(module_shooter_t *me, bool is_enabled,
+                                                        float target_velocity_rad_per_s);
+
+    /**
+     * @brief 请求发射指定数量的弹丸（加入队列）
+     * @param me 发射机构对象
+     * @param shot_count 请求发射数量
+     * @return 执行状态
+     * @note 会检查是否超过最大待发量
+     */
+    module_shooter_status_t module_shooter_request_shots(module_shooter_t *me, uint16_t shot_count);
+
+    /**
+     * @brief 取消所有待发射请求
+     * @param me 发射机构对象
+     * @return 执行状态
+     * @note 不清除摩擦轮状态
+     */
+    module_shooter_status_t module_shooter_cancel_shots(module_shooter_t *me);
+
+    /**
+     * @brief 清除故障状态（需电机在线且就绪）
+     * @param me 发射机构对象
+     * @return 执行状态
+     * @note 需要所有电机在线、反馈有效，并将目标位置对齐当前反馈
+     */
+    module_shooter_status_t module_shooter_reset_fault(module_shooter_t *me);
+
+    /**
+     * @brief 周期更新状态机（推进送弹、堵转检测、回退等）
+     * @param me 发射机构对象
+     * @param delta_time_s 时间步长（秒）
+     * @return 执行状态
+     * @note 只设置电机目标，底层电机仍需由统一调度器 update/flush
+     */
+    module_shooter_status_t module_shooter_update(module_shooter_t *me, float delta_time_s);
+
+    /**
+     * @brief 获取当前状态
+     * @param me 发射机构对象
+     * @return 当前状态
+     */
+    module_shooter_state_t module_shooter_get_state(const module_shooter_t *me);
+
+    /**
+     * @brief 获取待发弹量
+     * @param me 发射机构对象
+     * @return 待发弹量
+     */
+    uint16_t module_shooter_get_pending_shots(const module_shooter_t *me);
+
+    /**
+     * @brief 获取当前堵重重试次数
+     * @param me 发射机构对象
+     * @return 重试次数
+     */
+    uint8_t module_shooter_get_jam_retry_count(const module_shooter_t *me);
+
+#ifdef __cplusplus
 }
+#endif
 
-static bool module_shooter_jam_current_detected(const module_shooter_t *me,
-                                                const module_motor_feedback_t *feeder_feedback)
-{
-    if (feeder_feedback->is_current_a_valid)
-    {
-        return fabsf(feeder_feedback->current_a) >= me->jam_current_threshold_a;
-    }
-    return abs(feeder_feedback->current_raw) >= abs(me->jam_current_threshold_raw);
-}
-
-static module_shooter_status_t module_shooter_set_motor_targets(module_shooter_t *me)
-{
-    const float left_velocity_rad_per_s =
-        me->friction_enabled
-            ? me->friction_target_velocity_rad_per_s * me->left_friction_direction_sign
-            : 0.0F;
-    const float right_velocity_rad_per_s =
-        me->friction_enabled
-            ? me->friction_target_velocity_rad_per_s * me->right_friction_direction_sign
-            : 0.0F;
-
-    if ((module_motor_set_target(me->left_friction_motor, left_velocity_rad_per_s) !=
-         MODULE_MOTOR_STATUS_OK) ||
-        (module_motor_set_target(me->right_friction_motor, right_velocity_rad_per_s) !=
-         MODULE_MOTOR_STATUS_OK) ||
-        (module_motor_set_target(me->feeder_motor, me->feeder_target_position_rad) !=
-         MODULE_MOTOR_STATUS_OK))
-    {
-        return MODULE_SHOOTER_STATUS_MOTOR_ERROR;
-    }
-    return MODULE_SHOOTER_STATUS_OK;
-}
-
-static module_shooter_status_t module_shooter_update_motors(module_shooter_t *me,
-                                                            float delta_time_s)
-{
-    if ((module_motor_update(me->left_friction_motor, delta_time_s) != MODULE_MOTOR_STATUS_OK) ||
-        (module_motor_update(me->right_friction_motor, delta_time_s) != MODULE_MOTOR_STATUS_OK) ||
-        (module_motor_update(me->feeder_motor, delta_time_s) != MODULE_MOTOR_STATUS_OK))
-    {
-        return MODULE_SHOOTER_STATUS_MOTOR_ERROR;
-    }
-    return MODULE_SHOOTER_STATUS_OK;
-}
-
-module_shooter_status_t module_shooter_init(module_shooter_t *me,
-                                            const module_shooter_config_t *config)
-{
-    if ((me == NULL) || (config == NULL) || (config->left_friction_motor == NULL) ||
-        (config->right_friction_motor == NULL) || (config->feeder_motor == NULL) ||
-        !config->left_friction_motor->is_initialized ||
-        !config->right_friction_motor->is_initialized || !config->feeder_motor->is_initialized ||
-        !module_shooter_direction_is_valid(config->left_friction_direction_sign) ||
-        !module_shooter_direction_is_valid(config->right_friction_direction_sign) ||
-        !module_shooter_direction_is_valid(config->feeder_direction_sign) ||
-        !isfinite(config->feeder_step_rad) || (config->feeder_step_rad <= 0.0F) ||
-        !isfinite(config->feeder_position_tolerance_rad) ||
-        (config->feeder_position_tolerance_rad < 0.0F) ||
-        !isfinite(config->jam_velocity_threshold_rad_per_s) ||
-        (config->jam_velocity_threshold_rad_per_s < 0.0F) ||
-        !isfinite(config->jam_current_threshold_a) || (config->jam_current_threshold_a < 0.0F) ||
-        !isfinite(config->jam_confirmation_time_s) || (config->jam_confirmation_time_s <= 0.0F) ||
-        !isfinite(config->rollback_angle_rad) || (config->rollback_angle_rad <= 0.0F) ||
-        !isfinite(config->rollback_position_tolerance_rad) ||
-        (config->rollback_position_tolerance_rad < 0.0F) || (config->maximum_jam_retries == 0U) ||
-        (config->maximum_pending_shots == 0U))
-    {
-        return MODULE_SHOOTER_STATUS_INVALID_ARGUMENT;
-    }
-    *me = (module_shooter_t){
-        .left_friction_motor = config->left_friction_motor,
-        .right_friction_motor = config->right_friction_motor,
-        .feeder_motor = config->feeder_motor,
-        .left_friction_direction_sign = config->left_friction_direction_sign,
-        .right_friction_direction_sign = config->right_friction_direction_sign,
-        .feeder_direction_sign = config->feeder_direction_sign,
-        .feeder_step_rad = config->feeder_step_rad,
-        .feeder_position_tolerance_rad = config->feeder_position_tolerance_rad,
-        .jam_velocity_threshold_rad_per_s = config->jam_velocity_threshold_rad_per_s,
-        .jam_current_threshold_a = config->jam_current_threshold_a,
-        .jam_current_threshold_raw = config->jam_current_threshold_raw,
-        .jam_confirmation_time_s = config->jam_confirmation_time_s,
-        .rollback_angle_rad = config->rollback_angle_rad,
-        .rollback_position_tolerance_rad = config->rollback_position_tolerance_rad,
-        .maximum_pending_shots = config->maximum_pending_shots,
-        .maximum_jam_retries = config->maximum_jam_retries,
-        .state = MODULE_SHOOTER_STATE_DISABLED,
-        .is_initialized = true,
-    };
-    return MODULE_SHOOTER_STATUS_OK;
-}
-
-module_shooter_status_t module_shooter_enable(module_shooter_t *me)
-{
-    const module_motor_feedback_t *feeder_feedback;
-
-    if (me == NULL)
-    {
-        return MODULE_SHOOTER_STATUS_INVALID_ARGUMENT;
-    }
-    if (!me->is_initialized)
-    {
-        return MODULE_SHOOTER_STATUS_NOT_INITIALIZED;
-    }
-    if ((module_motor_enable(me->left_friction_motor) != MODULE_MOTOR_STATUS_OK) ||
-        (module_motor_enable(me->right_friction_motor) != MODULE_MOTOR_STATUS_OK) ||
-        (module_motor_enable(me->feeder_motor) != MODULE_MOTOR_STATUS_OK))
-    {
-        (void)module_shooter_disable(me);
-        return MODULE_SHOOTER_STATUS_MOTOR_ERROR;
-    }
-    feeder_feedback = module_motor_get_feedback(me->feeder_motor);
-    if ((feeder_feedback == NULL) || !feeder_feedback->is_online)
-    {
-        (void)module_shooter_disable(me);
-        return MODULE_SHOOTER_STATUS_NOT_READY;
-    }
-    me->feeder_target_position_rad = feeder_feedback->position_rad;
-    me->state = MODULE_SHOOTER_STATE_READY;
-    return MODULE_SHOOTER_STATUS_OK;
-}
-
-module_shooter_status_t module_shooter_disable(module_shooter_t *me)
-{
-    module_shooter_status_t status = MODULE_SHOOTER_STATUS_OK;
-
-    if (me == NULL)
-    {
-        return MODULE_SHOOTER_STATUS_INVALID_ARGUMENT;
-    }
-    if (!me->is_initialized)
-    {
-        return MODULE_SHOOTER_STATUS_NOT_INITIALIZED;
-    }
-    if ((module_motor_disable(me->left_friction_motor) != MODULE_MOTOR_STATUS_OK) ||
-        (module_motor_disable(me->right_friction_motor) != MODULE_MOTOR_STATUS_OK) ||
-        (module_motor_disable(me->feeder_motor) != MODULE_MOTOR_STATUS_OK))
-    {
-        status = MODULE_SHOOTER_STATUS_MOTOR_ERROR;
-    }
-    me->pending_shots = 0U;
-    me->friction_enabled = false;
-    me->state = MODULE_SHOOTER_STATE_DISABLED;
-    return status;
-}
-
-module_shooter_status_t module_shooter_set_friction(module_shooter_t *me, bool is_enabled,
-                                                    float target_velocity_rad_per_s)
-{
-    if ((me == NULL) || !isfinite(target_velocity_rad_per_s) || (target_velocity_rad_per_s < 0.0F))
-    {
-        return MODULE_SHOOTER_STATUS_INVALID_ARGUMENT;
-    }
-    if (!me->is_initialized)
-    {
-        return MODULE_SHOOTER_STATUS_NOT_INITIALIZED;
-    }
-    me->friction_enabled = is_enabled;
-    me->friction_target_velocity_rad_per_s = target_velocity_rad_per_s;
-    return MODULE_SHOOTER_STATUS_OK;
-}
-
-module_shooter_status_t module_shooter_request_shots(module_shooter_t *me, uint16_t shot_count)
-{
-    if ((me == NULL) || (shot_count == 0U))
-    {
-        return MODULE_SHOOTER_STATUS_INVALID_ARGUMENT;
-    }
-    if (!me->is_initialized)
-    {
-        return MODULE_SHOOTER_STATUS_NOT_INITIALIZED;
-    }
-    if (me->state == MODULE_SHOOTER_STATE_FAULT)
-    {
-        return MODULE_SHOOTER_STATUS_FAULT;
-    }
-    if ((uint32_t)me->pending_shots + shot_count > me->maximum_pending_shots)
-    {
-        return MODULE_SHOOTER_STATUS_INVALID_ARGUMENT;
-    }
-    me->pending_shots = (uint16_t)(me->pending_shots + shot_count);
-    return MODULE_SHOOTER_STATUS_OK;
-}
-
-module_shooter_status_t module_shooter_cancel_shots(module_shooter_t *me)
-{
-    if (me == NULL)
-    {
-        return MODULE_SHOOTER_STATUS_INVALID_ARGUMENT;
-    }
-    if (!me->is_initialized)
-    {
-        return MODULE_SHOOTER_STATUS_NOT_INITIALIZED;
-    }
-    me->pending_shots = 0U;
-    return MODULE_SHOOTER_STATUS_OK;
-}
-
-module_shooter_status_t module_shooter_reset_fault(module_shooter_t *me)
-{
-    const module_motor_feedback_t *feeder_feedback;
-
-    if (me == NULL)
-    {
-        return MODULE_SHOOTER_STATUS_INVALID_ARGUMENT;
-    }
-    if (!me->is_initialized)
-    {
-        return MODULE_SHOOTER_STATUS_NOT_INITIALIZED;
-    }
-    if (me->state != MODULE_SHOOTER_STATE_FAULT)
-    {
-        return MODULE_SHOOTER_STATUS_OK;
-    }
-    feeder_feedback = module_motor_get_feedback(me->feeder_motor);
-    if ((feeder_feedback == NULL) || !feeder_feedback->is_online)
-    {
-        return MODULE_SHOOTER_STATUS_NOT_READY;
-    }
-    me->feeder_target_position_rad = feeder_feedback->position_rad;
-    me->jam_retry_count = 0U;
-    me->jam_elapsed_time_s = 0.0F;
-    me->state = MODULE_SHOOTER_STATE_READY;
-    return MODULE_SHOOTER_STATUS_OK;
-}
-
-module_shooter_status_t module_shooter_update(module_shooter_t *me, float delta_time_s)
-{
-    const module_motor_feedback_t *feeder_feedback;
-    float position_error_rad;
-    module_shooter_status_t status;
-
-    if ((me == NULL) || !isfinite(delta_time_s) || (delta_time_s <= 0.0F))
-    {
-        return MODULE_SHOOTER_STATUS_INVALID_ARGUMENT;
-    }
-    if (!me->is_initialized)
-    {
-        return MODULE_SHOOTER_STATUS_NOT_INITIALIZED;
-    }
-    if (me->state == MODULE_SHOOTER_STATE_DISABLED)
-    {
-        return MODULE_SHOOTER_STATUS_NOT_READY;
-    }
-    if (me->state == MODULE_SHOOTER_STATE_FAULT)
-    {
-        return MODULE_SHOOTER_STATUS_FAULT;
-    }
-    feeder_feedback = module_motor_get_feedback(me->feeder_motor);
-    if ((feeder_feedback == NULL) || !feeder_feedback->is_online)
-    {
-        return MODULE_SHOOTER_STATUS_NOT_READY;
-    }
-
-    position_error_rad = me->feeder_target_position_rad - feeder_feedback->position_rad;
-    if ((me->state == MODULE_SHOOTER_STATE_READY) && (me->pending_shots > 0U))
-    {
-        me->feeder_target_position_rad += me->feeder_direction_sign * me->feeder_step_rad;
-        me->jam_elapsed_time_s = 0.0F;
-        me->state = MODULE_SHOOTER_STATE_FEEDING;
-    }
-    else if (me->state == MODULE_SHOOTER_STATE_FEEDING)
-    {
-        if (fabsf(position_error_rad) <= me->feeder_position_tolerance_rad)
-        {
-            --me->pending_shots;
-            me->jam_retry_count = 0U;
-            me->jam_elapsed_time_s = 0.0F;
-            me->state = MODULE_SHOOTER_STATE_READY;
-        }
-        else if ((fabsf(feeder_feedback->velocity_rad_per_s) <=
-                  me->jam_velocity_threshold_rad_per_s) &&
-                 module_shooter_jam_current_detected(me, feeder_feedback))
-        {
-            me->jam_elapsed_time_s += delta_time_s;
-            if (me->jam_elapsed_time_s >= me->jam_confirmation_time_s)
-            {
-                ++me->jam_retry_count;
-                if (me->jam_retry_count > me->maximum_jam_retries)
-                {
-                    me->state = MODULE_SHOOTER_STATE_FAULT;
-                    return MODULE_SHOOTER_STATUS_FAULT;
-                }
-                me->feeder_target_position_rad =
-                    feeder_feedback->position_rad -
-                    (me->feeder_direction_sign * me->rollback_angle_rad);
-                me->jam_elapsed_time_s = 0.0F;
-                me->state = MODULE_SHOOTER_STATE_ROLLBACK;
-            }
-        }
-        else
-        {
-            me->jam_elapsed_time_s = 0.0F;
-        }
-    }
-    else if ((me->state == MODULE_SHOOTER_STATE_ROLLBACK) &&
-             (fabsf(position_error_rad) <= me->rollback_position_tolerance_rad))
-    {
-        me->feeder_target_position_rad =
-            feeder_feedback->position_rad + (me->feeder_direction_sign * me->feeder_step_rad);
-        me->jam_elapsed_time_s = 0.0F;
-        me->state = MODULE_SHOOTER_STATE_FEEDING;
-    }
-
-    status = module_shooter_set_motor_targets(me);
-    if (status != MODULE_SHOOTER_STATUS_OK)
-    {
-        return status;
-    }
-    return module_shooter_update_motors(me, delta_time_s);
-}
-
-module_shooter_state_t module_shooter_get_state(const module_shooter_t *me)
-{
-    return ((me != NULL) && me->is_initialized) ? me->state : MODULE_SHOOTER_STATE_DISABLED;
-}
-
-uint16_t module_shooter_get_pending_shots(const module_shooter_t *me)
-{
-    return ((me != NULL) && me->is_initialized) ? me->pending_shots : 0U;
-}
-
-uint8_t module_shooter_get_jam_retry_count(const module_shooter_t *me)
-{
-    return ((me != NULL) && me->is_initialized) ? me->jam_retry_count : 0U;
-}
+#endif /* MODULE_SHOOTER_H */

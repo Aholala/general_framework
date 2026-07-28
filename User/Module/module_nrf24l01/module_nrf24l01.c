@@ -201,6 +201,23 @@ static module_nrf24l01_status_t module_nrf24l01_write_single_register(module_nrf
 }
 
 /**
+ * @brief 将公共链路地址写入发送地址和自动应答管道0
+ */
+static module_nrf24l01_status_t
+module_nrf24l01_apply_transmit_address(module_nrf24l01_t *me)
+{
+    if (module_nrf24l01_write_register(me, MODULE_NRF24L01_REGISTER_TRANSMIT_ADDRESS,
+                                       me->link_address, me->address_size) !=
+        MODULE_NRF24L01_STATUS_OK)
+    {
+        return MODULE_NRF24L01_STATUS_TRANSPORT_ERROR;
+    }
+
+    return module_nrf24l01_write_register(me, MODULE_NRF24L01_REGISTER_RECEIVE_ADDRESS_PIPE_0,
+                                          me->link_address, me->address_size);
+}
+
+/**
  * @brief 设置工作模式
  * @param me 设备对象
  * @param mode 目标模式
@@ -283,6 +300,8 @@ static const module_device_ops_t s_module_nrf24l01_ops = {
 
 /* ======================== 公共 API ======================== */
 
+const uint8_t module_nrf24l01_ace_address[MODULE_NRF24L01_ACE_ADDRESS_SIZE] = {'A', 'C', 'E'};
+
 /**
  * @brief 初始化 nRF24L01 设备
  * @param me 设备对象
@@ -302,7 +321,8 @@ module_nrf24l01_status_t module_nrf24l01_init(module_nrf24l01_t *me,
         !bsp_device_is_initialized(&config->chip_enable_gpio->super) ||
         !bsp_device_is_initialized(&config->chip_select_gpio->super) || (config->channel > 125U) ||
         (config->address_size < 3U) || (config->address_size > 5U) ||
-        (config->payload_size == 0U) ||
+        (config->link_address == NULL) ||
+        (config->payload_size < MODULE_NRF24L01_PACKET_OVERHEAD_SIZE) ||
         (config->payload_size > MODULE_NRF24L01_MAXIMUM_PAYLOAD_SIZE) ||
         (config->automatic_retransmit_count > 15U) ||
         (config->automatic_retransmit_delay_us < 250U) ||
@@ -321,7 +341,9 @@ module_nrf24l01_status_t module_nrf24l01_init(module_nrf24l01_t *me,
     me->chip_select_gpio = config->chip_select_gpio;
     me->channel = config->channel;
     me->address_size = config->address_size;
+    memcpy(me->link_address, config->link_address, config->address_size);
     me->payload_size = config->payload_size;
+    me->next_transmit_sequence = 0U;
 
     // 配置寄存器：使能 CRC，2 字节 CRC
     me->configuration_register =
@@ -393,6 +415,12 @@ module_nrf24l01_status_t module_nrf24l01_init(module_nrf24l01_t *me,
         // 管道0 载荷宽度
         (module_nrf24l01_write_single_register(
              me, MODULE_NRF24L01_REGISTER_RECEIVE_PAYLOAD_WIDTH_PIPE_0, me->payload_size) !=
+         MODULE_NRF24L01_STATUS_OK) ||
+        (module_nrf24l01_write_register(me, MODULE_NRF24L01_REGISTER_RECEIVE_ADDRESS_PIPE_0,
+                                        me->link_address, me->address_size) !=
+         MODULE_NRF24L01_STATUS_OK) ||
+        (module_nrf24l01_write_register(me, MODULE_NRF24L01_REGISTER_TRANSMIT_ADDRESS,
+                                        me->link_address, me->address_size) !=
          MODULE_NRF24L01_STATUS_OK))
     {
         module_device_abort_init(&me->super);
@@ -505,9 +533,14 @@ module_nrf24l01_status_t module_nrf24l01_set_receive_address(module_nrf24l01_t *
         return MODULE_NRF24L01_STATUS_INVALID_ARGUMENT;
     }
     // 管道0~1 使用完整地址，管道2~5 只使用低字节（与管道1共享高字节）
-    return module_nrf24l01_write_register(
+    const module_nrf24l01_status_t status = module_nrf24l01_write_register(
         me, (uint8_t)(MODULE_NRF24L01_REGISTER_RECEIVE_ADDRESS_PIPE_0 + pipe_index), address,
         (pipe_index < 2U) ? address_size : 1U);
+    if ((status == MODULE_NRF24L01_STATUS_OK) && (pipe_index == 0U))
+    {
+        memcpy(me->link_address, address, address_size);
+    }
+    return status;
 }
 
 /**
@@ -585,15 +618,8 @@ module_nrf24l01_status_t module_nrf24l01_set_transmit_address(module_nrf24l01_t 
         return MODULE_NRF24L01_STATUS_INVALID_ARGUMENT;
     }
 
-    // 设置发送地址
-    if (module_nrf24l01_write_register(me, MODULE_NRF24L01_REGISTER_TRANSMIT_ADDRESS, address,
-                                       address_size) != MODULE_NRF24L01_STATUS_OK)
-    {
-        return MODULE_NRF24L01_STATUS_TRANSPORT_ERROR;
-    }
-    // 同时设置管道0 接收地址（用于自动应答）
-    return module_nrf24l01_write_register(me, MODULE_NRF24L01_REGISTER_RECEIVE_ADDRESS_PIPE_0,
-                                          address, address_size);
+    memcpy(me->link_address, address, address_size);
+    return module_nrf24l01_apply_transmit_address(me);
 }
 
 /**
@@ -616,6 +642,14 @@ module_nrf24l01_status_t module_nrf24l01_start_receive(module_nrf24l01_t *me)
     if (me->transmit_pending)
     {
         return MODULE_NRF24L01_STATUS_BUSY;
+    }
+
+    // 恢复双方共用的链路地址。
+    status = module_nrf24l01_write_register(me, MODULE_NRF24L01_REGISTER_RECEIVE_ADDRESS_PIPE_0,
+                                            me->link_address, me->address_size);
+    if (status != MODULE_NRF24L01_STATUS_OK)
+    {
+        return status;
     }
 
     // 设置接收模式
@@ -665,6 +699,12 @@ module_nrf24l01_status_t module_nrf24l01_transmit(module_nrf24l01_t *me, const u
     if (me->transmit_pending)
     {
         return MODULE_NRF24L01_STATUS_BUSY;
+    }
+
+    status = module_nrf24l01_apply_transmit_address(me);
+    if (status != MODULE_NRF24L01_STATUS_OK)
+    {
+        return status;
     }
 
     /* -------- 切换到发送模式 -------- */
@@ -813,6 +853,134 @@ module_nrf24l01_status_t module_nrf24l01_receive(module_nrf24l01_t *me, uint8_t 
     // 清除 RX_DR 中断标志
     return module_nrf24l01_write_single_register(me, MODULE_NRF24L01_REGISTER_STATUS,
                                                  MODULE_NRF24L01_STATUS_RECEIVE_DATA_READY);
+}
+
+/**
+ * @brief 计算 CRC16-CCITT-FALSE
+ */
+uint16_t module_nrf24l01_crc16(const uint8_t *packet_data, size_t data_size)
+{
+    uint16_t checksum = 0xFFFFU;
+
+    if ((packet_data == NULL) && (data_size != 0U))
+    {
+        return 0U;
+    }
+
+    for (size_t byte_index = 0U; byte_index < data_size; ++byte_index)
+    {
+        checksum ^= (uint16_t)((uint16_t)packet_data[byte_index] << 8U);
+        for (uint8_t bit_index = 0U; bit_index < 8U; ++bit_index)
+        {
+            if ((checksum & 0x8000U) != 0U)
+            {
+                checksum = (uint16_t)((checksum << 1U) ^ 0x1021U);
+            }
+            else
+            {
+                checksum <<= 1U;
+            }
+        }
+    }
+
+    return checksum;
+}
+
+/**
+ * @brief 按点对点协议发送应用数据
+ */
+module_nrf24l01_status_t module_nrf24l01_send_packet(module_nrf24l01_t *me,
+                                                      uint8_t message_type,
+                                                      const uint8_t *packet_data,
+                                                      size_t data_size)
+{
+    uint8_t radio_payload[MODULE_NRF24L01_MAXIMUM_PAYLOAD_SIZE] = {0U};
+    uint16_t checksum;
+    module_nrf24l01_status_t status;
+
+    if ((me == NULL) || ((packet_data == NULL) && (data_size != 0U)))
+    {
+        return MODULE_NRF24L01_STATUS_INVALID_ARGUMENT;
+    }
+    if (!module_device_is_initialized(&me->super))
+    {
+        return MODULE_NRF24L01_STATUS_NOT_INITIALIZED;
+    }
+    if ((me->payload_size < MODULE_NRF24L01_PACKET_OVERHEAD_SIZE) ||
+        (data_size > (size_t)(me->payload_size - MODULE_NRF24L01_PACKET_OVERHEAD_SIZE)))
+    {
+        return MODULE_NRF24L01_STATUS_INVALID_ARGUMENT;
+    }
+
+    radio_payload[0] = MODULE_NRF24L01_PACKET_HEADER_FIRST;
+    radio_payload[1] = MODULE_NRF24L01_PACKET_HEADER_SECOND;
+    radio_payload[2] = message_type;
+    radio_payload[3] = me->next_transmit_sequence;
+    radio_payload[4] = (uint8_t)data_size;
+    if (data_size != 0U)
+    {
+        memcpy(&radio_payload[5], packet_data, data_size);
+    }
+
+    checksum = module_nrf24l01_crc16(radio_payload, 5U + data_size);
+    radio_payload[5U + data_size] = (uint8_t)(checksum & 0xFFU);
+    radio_payload[6U + data_size] = (uint8_t)(checksum >> 8U);
+
+    status = module_nrf24l01_transmit(me, radio_payload, me->payload_size);
+    if (status == MODULE_NRF24L01_STATUS_OK)
+    {
+        ++me->next_transmit_sequence;
+    }
+    return status;
+}
+
+/**
+ * @brief 接收并校验一个点对点协议数据包
+ */
+module_nrf24l01_status_t module_nrf24l01_receive_packet(module_nrf24l01_t *me,
+                                                         module_nrf24l01_packet_t *packet,
+                                                         uint8_t *pipe_index)
+{
+    uint8_t radio_payload[MODULE_NRF24L01_MAXIMUM_PAYLOAD_SIZE];
+    size_t checksum_offset;
+    uint16_t received_checksum;
+    uint16_t calculated_checksum;
+    module_nrf24l01_status_t status;
+
+    if ((me == NULL) || (packet == NULL))
+    {
+        return MODULE_NRF24L01_STATUS_INVALID_ARGUMENT;
+    }
+
+    status = module_nrf24l01_receive(me, radio_payload, sizeof(radio_payload), pipe_index);
+    if (status != MODULE_NRF24L01_STATUS_OK)
+    {
+        return status;
+    }
+    if ((radio_payload[0] != MODULE_NRF24L01_PACKET_HEADER_FIRST) ||
+        (radio_payload[1] != MODULE_NRF24L01_PACKET_HEADER_SECOND) ||
+        (radio_payload[4] > (uint8_t)(me->payload_size - MODULE_NRF24L01_PACKET_OVERHEAD_SIZE)))
+    {
+        return MODULE_NRF24L01_STATUS_INVALID_PACKET;
+    }
+
+    checksum_offset = 5U + radio_payload[4];
+    received_checksum = (uint16_t)radio_payload[checksum_offset] |
+                        (uint16_t)((uint16_t)radio_payload[checksum_offset + 1U] << 8U);
+    calculated_checksum = module_nrf24l01_crc16(radio_payload, checksum_offset);
+    if (received_checksum != calculated_checksum)
+    {
+        return MODULE_NRF24L01_STATUS_CHECKSUM_ERROR;
+    }
+
+    packet->message_type = radio_payload[2];
+    packet->sequence = radio_payload[3];
+    packet->data_size = radio_payload[4];
+    if (packet->data_size != 0U)
+    {
+        memcpy(packet->data, &radio_payload[5], packet->data_size);
+    }
+    return MODULE_NRF24L01_STATUS_OK;
 }
 
 /**

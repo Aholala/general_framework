@@ -212,4 +212,4 @@ extern "C"
 }
 #endif
 
-#endif /* MODULE_DR16_H */
+#endif

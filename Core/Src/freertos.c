@@ -29,6 +29,7 @@
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
+typedef StaticTask_t osStaticThreadDef_t;
 /* USER CODE BEGIN PTD */
 
 /* USER CODE END PTD */
@@ -49,14 +50,14 @@
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
-static StaticTask_t defaultTaskControlBlock;
-static uint32_t defaultTaskBuffer[128];
+uint32_t defaultTaskBuffer[ 128 ];
+osStaticThreadDef_t defaultTaskControlBlock;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .cb_mem = &defaultTaskControlBlock,
   .cb_size = sizeof(defaultTaskControlBlock),
-  .stack_mem = defaultTaskBuffer,
-  .stack_size = 128 * 4,
+  .stack_mem = &defaultTaskBuffer[0],
+  .stack_size = sizeof(defaultTaskBuffer),
   .priority = (osPriority_t) osPriorityNormal,
 };
 
@@ -66,8 +67,6 @@ const osThreadAttr_t defaultTask_attributes = {
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
-void vApplicationMallocFailedHook(void);
-void vApplicationStackOverflowHook(TaskHandle_t task_handle, char *task_name);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 

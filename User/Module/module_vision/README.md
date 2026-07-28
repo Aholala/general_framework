@@ -1,59 +1,146 @@
-# module_vision
+# 视觉通信模块 (module_vision)
 
-云台与视觉计算机之间的轻量二进制协议，基于 USB CDC 虚拟串口发送 IMU/心跳并接收目标
-yaw、pitch、角速度、置信度和跟踪状态。
+## 1. 模块概述
 
-## 消息
+`module_vision` 是视觉设备（如摄像头、AI 处理板）与主控之间通过 USB CDC 虚拟串口进行固定格式二进制帧通信的模块。它定义了 5 字节帧结构，包含双字节帧头、两个数据字节和 CRC8 校验，支持发送、接收流解析和帧同步。
 
-- `MODULE_VISION_MESSAGE_IMU`：四元数、三轴角速度和时间戳；
-- `MODULE_VISION_MESSAGE_TARGET`：目标角度、角速度、置信度和状态；
-- `MODULE_VISION_MESSAGE_HEARTBEAT`：MCU 运行时间。
+**核心功能**：
 
-帧包含同步头、类型、序号、长度、payload 和 CRC16，最大 payload 为 48 字节。
+- 发送两个数据字节（带 CRC8 校验）
+- 接收数据流解析（支持分包、粘包、帧前噪声）
+- CRC8 校验（初值 0xFF，多项式 0x8C，LSB first）
+- 最新有效帧数据缓存
+- USB 发送忙状态检测
 
-## 初始化
+- **固定帧格式**：极简 5 字节帧，适合高速、低开销通信。
+- **流式解析**：支持任意数据流输入，自动同步和丢弃无效字节。
+- **非阻塞发送**：检测 USB 忙状态，避免覆盖未完成发送。
+
+## 2. 设计边界
+
+| **模块负责**                 | **模块不负责**                    |
+| :--------------------------- | :-------------------------------- |
+| 固定帧的组帧、CRC 计算和发送 | 具体的视觉数据处理算法            |
+| 接收字节流的帧同步和校验     | 高层协议（如 JSON、Protobuf）解析 |
+| 最新有效帧数据的缓存         | 帧序号或更复杂的数据结构          |
+| USB 发送忙状态检查           | USB 硬件初始化或配置              |
+
+## 3. 帧格式
+
+帧固定为 5 字节：
+
+| 字节偏移 | 内容          | 说明                  |
+| :------- | :------------ | :-------------------- |
+| 0        | `0xA5`        | 帧头 1                |
+| 1        | `0x5A`        | 帧头 2                |
+| 2        | `data_first`  | 第一个数据字节        |
+| 3        | `data_second` | 第二个数据字节        |
+| 4        | CRC8          | 对字节 0～3 计算 CRC8 |
+
+### CRC8 参数
+
+- 初始值：`0xFF`
+- 多项式：`0x8C`（CRC-8/SAE-J1850 常用变体）
+- 处理顺序：LSB first（右移）
+- 结果异或值：`0x00`
+
+> 注意：CRC 校验**不包含**帧头本身？不，CRC 是对帧头加数据（4 个字节）计算，然后存放于第 4 字节。公式为 `CRC = crc8(帧头1, 帧头2, data_first, data_second)`。
+
+## 4. 依赖
+
+- `bsp_usb_vcp`：USB 虚拟串口 BSP 抽象层，提供 `transmit`、`get_busy` 等接口。
+
+## 5. API 参考
+
+| 函数                      | 说明                                 | 返回值                            |
+| :------------------------ | :----------------------------------- | :-------------------------------- |
+| `module_vision_init`      | 初始化模块，保存 USB VCP 句柄和超时  | `OK` / `INVALID_ARGUMENT`         |
+| `module_vision_send_data` | 发送两个数据字节（组帧+CRC+发送）    | `OK` / `BUSY` / `TRANSPORT_ERROR` |
+| `module_vision_feed_data` | 注入接收数据流，解析并更新最新有效帧 | `OK` / `INVALID_FRAME`            |
+| `module_vision_get_data`  | 获取最新有效帧的两个数据字节         | `OK` / `NO_DATA`                  |
+| `module_vision_crc8`      | 计算 CRC8（可单独使用）              | CRC 值                            |
+
+## 6. 使用示例
+
+### 6.1 初始化
 
 ```c
-module_vision_init(&vision, &config);
+static module_vision_t s_vision;
+
+const module_vision_config_t cfg = {
+    .usb_vcp = board_usb_vcp_ptr,          // 已初始化的 USB VCP
+    .transmit_timeout_ms = 10,
+};
+
+module_vision_init(&s_vision, &cfg);
 ```
 
-配置需要 USB VCP 基类、发送超时和目标离线超时。BSP 必须实现 `get_busy`，因为异步发送
-前必须确认对象内部发送缓冲区没有仍被 USB 使用。
-
-## 发送缓冲区安全
-
-发送帧构造在 `module_vision_t::transmit_buffer`，不是栈数组。USB 完成前该缓冲区保持
-有效；忙时返回 `MODULE_VISION_STATUS_BUSY`，调用方可丢弃一帧高频 IMU 遥测。
-
-## 流式接收
-
-USB 数据通过 `module_vision_feed_data` 输入。模块把分包拼入内部 stream buffer，查找
-完整帧并校验 CRC。非法帧返回错误并重新同步，不直接修改有效目标。
-
-接收接口应在任务上下文调用；USB ISR 只转交数据块和长度。
-
-## 目标生命周期
-
-有效 TARGET 帧更新内部快照和计数。周期调用：
+### 6.2 发送数据
 
 ```c
-module_vision_update_time(&vision, elapsed_time_ms);
+// 发送两个字节（例如目标检测结果和置信度）
+uint8_t result = 0x01;
+uint8_t confidence = 0x64;
+module_vision_status_t st = module_vision_send_data(&s_vision, result, confidence);
+if (st == MODULE_VISION_STATUS_BUSY) {
+    // USB 发送忙，稍后重试
+}
+else if (st != MODULE_VISION_STATUS_OK) {
+    // 传输错误处理
+}
 ```
 
-超时后 `get_target` 返回 NO_TARGET。App 应平滑退出视觉跟随，回到遥控或保持模式，不能
-继续锁定最后坐标。
+### 6.3 接收数据（在 USB 回调中）
 
-## 坐标约定
+```c
+// USB 接收回调（通常由 bsp_usb_vcp 触发）
+void usb_vcp_receive_callback(const uint8_t *data, size_t size, void *ctx) {
+    module_vision_t *vision = (module_vision_t *)ctx;
+    module_vision_feed_data(vision, data, size);
+}
 
-协议值使用弧度、弧度每秒和毫秒。四元数顺序必须与视觉端共同固定。视觉补偿的时间同步、
-弹道预测和相机到云台外参属于 App/算法层。
+// 在任务中定期检查最新数据
+module_vision_data_t rx_data;
+if (module_vision_get_data(&s_vision, &rx_data) == MODULE_VISION_STATUS_OK) {
+    // 使用 rx_data.data_first, rx_data.data_second
+    // rx_data.update_count 可用于检测是否更新
+}
+```
 
-## 建议验证
+### 6.4 手动注入测试数据
 
-- IMU/心跳帧字节和 CRC；
-- TARGET 分包、粘包、噪声与错误 CRC；
-- USB BUSY 时不覆盖发送缓冲；
-- 序号回绕；
-- 置信度和跟踪状态；
-- 目标超时；
-- 拔插 USB 后安全回退。
+```c
+uint8_t test_frame[] = {0xA5, 0x5A, 0x01, 0x02, 0x??}; // CRC 需正确
+module_vision_feed_data(&s_vision, test_frame, sizeof(test_frame));
+```
+
+## 7. 解析状态机
+
+- **流式解析**：输入任意字节流，自动查找帧头 `0xA5 0x5A`。
+- **丢弃无效字节**：若在帧头后收到非预期字节，会重置同步。
+- **CRC 校验**：只有当 CRC 正确时才更新 `received_data`。
+- **覆盖策略**：总是保留最新有效的帧数据；`update_count` 递增可用于检测更新。
+
+## 8. 注意事项
+
+- **USB 发送忙**：调用 `send_data` 前模块会检查 USB 是否忙，若忙则返回 `BUSY`，**不会**阻塞或覆盖发送缓冲区。
+- **发送缓冲区**：`module_vision_t` 内部有一个 5 字节发送缓冲区，因此调用 `send_data` 后数据会被立即复制并发送，调用者可安全释放源数据。
+- **接收数据有效期**：`get_data` 返回的 `module_vision_data_t` 在下次有效帧到来前保持不变，`update_count` 可辅助判断是否更新。
+- **CRC 工具**：`module_vision_crc8` 是公开函数，可用于其他需要 CRC8 的场景。
+- **帧头冲突**：数据字节若为 `0xA5` 或 `0x5A` 不影响解析，因为帧头是两个连续字节，解析器会正确区分。
+
+## 9. 建议验证测试项
+
+- [ ] 发送正常帧，USB 未忙时返回 `OK`
+- [ ] USB 忙时返回 `BUSY`
+- [ ] 接收完整正确帧后，`get_data` 返回有效数据
+- [ ] 接收 CRC 错误的帧，`received_data` 不更新
+- [ ] 接收半帧（如只收到 `0xA5`）后继续接收剩余字节，能正常解析
+- [ ] 接收粘包（连续两帧），能正确解析两帧（但只保留最新一帧）
+- [ ] 接收帧前噪声（如 `0x00 0xA5 0x5A ...`），能自动同步
+- [ ] 发送后 USB 发送错误返回 `TRANSPORT_ERROR`
+- [ ] `data_first` 和 `data_second` 取边界值（0x00, 0xFF, 0xA5, 0x5A）时通信正常
+
+---
+
+**总结**：`module_vision` 提供了极简、可靠的视觉通信基础，适用于需要低延迟、高可靠性的实时视觉数据（如目标检测结果、舵机角度等）。固定帧格式和 CRC 校验确保了数据完整性，流式解析器能稳定处理实际通信中的各种异常情况。

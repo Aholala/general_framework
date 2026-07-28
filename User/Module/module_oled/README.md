@@ -1,65 +1,223 @@
-# module_oled
+# OLED 显示模块 (module_oled)
 
-基于 I2C 的单色页式 OLED 帧缓冲驱动，提供像素、直线、矩形、位图、清屏、对比度和整帧
-刷新。适用于常见 SSD1306 类控制器的基础图形显示。
+## 1. 模块概述
 
-## 配置与缓冲区
+`module_oled` 是基于 I2C 的单色页式 OLED 帧缓冲驱动，提供像素、直线、矩形、位图、清屏、对比度和整帧刷新。适用于常见 SSD1306 类控制器的基础图形显示（如 128x64、128x32 等）。
 
-`module_oled_config_t` 包含 I2C、7 位地址、宽高、帧缓冲、缓冲区大小、超时、逻辑名称和
-注册键。
+**核心功能**：
 
-所需帧缓冲区大小为：
+- 页式帧缓冲管理（宽度 × 高度/8 字节）
+- 像素点绘制与擦除
+- Bresenham 直线绘制
+- 空心/填充矩形绘制
+- 位图绘制（逐行高位在前格式）
+- 全屏清空（全亮/全灭）
+- 对比度调节
+- 整帧刷新到屏幕
+
+**设计哲学**：
+
+- **零动态内存**：帧缓冲由调用者静态分配，Module 不分配任何内存。
+- **页式寻址**：兼容 SSD1306 的页寻址模式，便于理解和使用。
+- **非阻塞友好**：绘图操作仅修改本地帧缓冲，刷新操作可独立调度。
+
+## 2. 设计边界
+
+| **模块负责**         | **模块不负责**       |
+| :------------------- | :------------------- |
+| 帧缓冲管理和绘图原语 | 字体渲染和字符串排版 |
+| I2C 通信与初始化序列 | UI 页面管理          |
+| 整屏刷新             | 脏区域跟踪和增量刷新 |
+| 对比度控制           | 动画引擎             |
+
+**适用场景**：
+
+- 调试信息显示（系统状态、传感器数据）
+- 用户界面（菜单、参数设置）
+- 简单图形显示（波形、图标）
+
+## 3. 对象模型
 
 ```text
-width_pixels * ceil(height_pixels / 8)
+module_device_t                    (设备基类)
+└── module_oled_t                  (OLED 对象：I2C、帧缓冲、宽高)
 ```
 
-缓冲区由调用者静态持有。像素按页组织，Module 不使用动态内存。
+`module_oled_t` 内部保存 I2C 基类、设备地址、屏幕尺寸和帧缓冲指针。通过 `module_device` 基类可接入统一设备管理框架。
 
-## 生命周期
+## 4. 内存计算
+
+帧缓冲区大小计算公式：
 
 ```c
-module_oled_init(&oled, &config);
-module_oled_start(&oled);
-module_oled_clear(&oled, false);
-module_oled_flush(&oled);
+frame_buffer_size = width_pixels * (height_pixels / 8)
 ```
 
-`start` 发送控制器初始化序列；`stop` 关闭显示。显示内容修改只作用于本地帧缓冲，调用
-`flush` 才发送到屏幕。
+例如：
 
-## 绘图接口
+- 128×64 显示：128 × 8 = 1024 字节
+- 128×32 显示：128 × 4 = 512 字节
+- 64×48 显示：64 × 6 = 384 字节
 
-- `set_pixel`；
-- `draw_line`；
-- `draw_rectangle`，支持填充/空心；
-- `draw_bitmap`；
-- `clear`；
-- `set_contrast`。
+**约束**：`height_pixels` 必须是 8 的倍数，最大 64 像素。
 
-坐标超出边界时接口按实现进行裁剪或返回参数错误，调用者不应依赖整数溢出。
+## 5. 核心类型
 
-## 位图格式
+### 5.1 配置结构 (`module_oled_config_t`)
 
-位图按本模块页式排列解释，大小必须覆盖指定宽高。字体渲染、字符串排版和 UI 页面管理
-应作为更高层组件，不应把字体资源写进底层驱动。
+```c
+typedef struct {
+    bsp_i2c_t *i2c;              // I2C BSP 基类
+    uint16_t address_7bit;       // 7 位 I2C 地址（0x3C 或 0x3D）
+    uint16_t width_pixels;       // 屏幕宽度（像素），最大 128
+    uint16_t height_pixels;      // 屏幕高度（像素），最大 64，且为 8 的倍数
+    uint8_t *frame_buffer;       // 帧缓冲区（调用者分配）
+    size_t frame_buffer_size;    // 缓冲区大小
+    uint32_t timeout_ms;         // I2C 超时（毫秒）
+    const char *logical_name;    // 逻辑名称
+    uint32_t registration_key;   // 注册键值
+} module_oled_config_t;
+```
 
-## 实时性
+## 6. API 参考
 
-整帧 I2C 刷新耗时较长。不要在高优先级控制任务或 ISR 中刷新；可按页面、脏区域或较低
-刷新率由 App 调度。共享 I2C 时需要总线互斥。
+| 函数                         | 说明                        | 返回值                    |
+| :--------------------------- | :-------------------------- | :------------------------ |
+| `module_oled_init`           | 初始化 OLED 设备            | `OK` / `INVALID_ARGUMENT` |
+| `module_oled_start`          | 启动 OLED（发送初始化序列） | `OK` / `TRANSPORT_ERROR`  |
+| `module_oled_stop`           | 停止 OLED（关闭显示）       | `OK` / `TRANSPORT_ERROR`  |
+| `module_oled_clear`          | 清屏（全亮或全灭）          | `OK` / `NOT_INITIALIZED`  |
+| `module_oled_set_pixel`      | 设置单个像素                | `OK` / `INVALID_ARGUMENT` |
+| `module_oled_draw_line`      | 绘制直线（Bresenham 算法）  | `OK` / `INVALID_ARGUMENT` |
+| `module_oled_draw_rectangle` | 绘制矩形（空心或填充）      | `OK` / `INVALID_ARGUMENT` |
+| `module_oled_draw_bitmap`    | 绘制位图                    | `OK` / `INVALID_ARGUMENT` |
+| `module_oled_flush`          | 将帧缓冲区刷新到屏幕        | `OK` / `TRANSPORT_ERROR`  |
+| `module_oled_set_contrast`   | 设置对比度（0~255）         | `OK` / `TRANSPORT_ERROR`  |
 
-## 故障策略
+## 7. 使用示例
 
-OLED 是非关键设备。显示离线不应阻塞电机控制，传输错误应统计并低频重试。比赛代码不要
-在故障路径无限同步刷新屏幕。
+### 7.1 初始化与启动
 
-## 建议验证
+```c
+static module_oled_t s_oled;
+static uint8_t oled_buffer[128 * 64 / 8];   // 128x64 显示
 
-- 不同宽高和缓冲区边界；
-- 四角像素、斜线和矩形裁剪；
-- 位图大小检查；
-- 全亮/全灭；
-- 对比度边界；
-- I2C NACK 和超时；
-- 多次绘制后一次刷新。
+const module_oled_config_t cfg = {
+    .i2c = board_i2c_ptr,                   // 已初始化的 I2C 基类
+    .address_7bit = 0x3C,                   // SSD1306 默认地址
+    .width_pixels = 128,
+    .height_pixels = 64,
+    .frame_buffer = oled_buffer,
+    .frame_buffer_size = sizeof(oled_buffer),
+    .timeout_ms = 10,
+    .logical_name = "oled",
+    .registration_key = 0,
+};
+
+module_oled_init(&s_oled, &cfg);
+module_oled_start(&s_oled);   // 发送初始化序列并刷新一次
+```
+
+### 7.2 基本绘图
+
+```c
+// 清屏（全灭）
+module_oled_clear(&s_oled, false);
+module_oled_flush(&s_oled);
+
+// 绘制像素
+module_oled_set_pixel(&s_oled, 10, 10, true);
+
+// 绘制对角线
+module_oled_draw_line(&s_oled, 0, 0, 127, 63, true);
+
+// 绘制填充矩形
+module_oled_draw_rectangle(&s_oled, 20, 20, 40, 30, true, true);
+
+// 绘制空心矩形（边框）
+module_oled_draw_rectangle(&s_oled, 60, 20, 40, 30, false, true);
+
+// 刷新显示
+module_oled_flush(&s_oled);
+```
+
+### 7.3 绘制位图（如字体/图标）
+
+```c
+// 8x8 数字位图示例（1 表示亮，0 表示灭）
+static const uint8_t digit_0[] = {
+    0x3C, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x3C
+};
+
+module_oled_draw_bitmap(&s_oled, 50, 20, 8, 8, digit_0, sizeof(digit_0), true);
+module_oled_flush(&s_oled);
+```
+
+### 7.4 对比度调节
+
+```c
+// 降低对比度（0~255）
+module_oled_set_contrast(&s_oled, 0x40);
+```
+
+### 7.5 停止显示
+
+```c
+module_oled_stop(&s_oled);
+```
+
+## 8. 刷新机制
+
+- `start()` 发送初始化序列后自动调用 `flush()` 显示初始内容。
+- 绘图函数只修改本地帧缓冲，**不会**自动更新屏幕。
+- 所有修改需要调用 `flush()` 才会发送到屏幕。
+- 整屏刷新耗时较长（I2C 传输 1024 字节数据 + 命令开销）。
+
+**推荐刷新策略**：
+
+```c
+// 低频率刷新（如 5Hz）
+if (need_refresh) {
+    module_oled_flush(&s_oled);
+    need_refresh = false;
+}
+```
+
+## 9. 实时性注意事项
+
+- 整屏 I2C 刷新耗时可能达到 **10~50ms**，取决于 I2C 速率。
+- **不要在**高优先级控制任务或 ISR 中调用 `flush()`。
+- 可由低优先级任务或主循环调度。
+- 若 I2C 总线被其他设备共享，需外部互斥（信号量或临界区）。
+
+## 10. 故障处理
+
+- OLED 是**非关键设备**，显示故障不应阻塞电机控制或安全逻辑。
+- I2C 传输错误应返回 `TRANSPORT_ERROR`，调用者应统计并低频重试。
+- 避免在故障路径无限同步刷新屏幕（可能导致系统卡死）。
+
+## 11. 错误码速查
+
+| 状态码             | 触发场景                                     |
+| :----------------- | :------------------------------------------- |
+| `INVALID_ARGUMENT` | 参数为空、宽高非法、缓冲区太小、坐标超出边界 |
+| `NOT_INITIALIZED`  | 对象未初始化                                 |
+| `NOT_STARTED`      | 未调用 `start()` 或已调用 `stop()`           |
+| `TRANSPORT_ERROR`  | I2C 通信失败（NACK、超时等）                 |
+
+## 12. 建议验证测试项
+
+- [ ] 不同宽高（128x64、128x32、64x48）初始化成功
+- [ ] 四角像素正确点亮/熄灭
+- [ ] 直线各种斜率（水平、垂直、45°、任意角度）
+- [ ] 空心/填充矩形边界正确
+- [ ] 位图绘制大小检查和裁剪
+- [ ] 全亮/全灭清屏
+- [ ] 对比度边界值（0 和 255）
+- [ ] I2C NACK 和超时返回 `TRANSPORT_ERROR`
+- [ ] 多次绘图后一次刷新显示正确
+- [ ] 停止后拒绝操作（`NOT_STARTED`）
+
+---
+
+**总结**：`module_oled` 提供了轻量、可移植的 OLED 显示驱动，适用于需要简单图形显示的嵌入式系统。其页式帧缓冲设计兼容 SSD1306 类控制器，绘图原语覆盖了大多数基础图形需求。配合 `module_device` 基类，可接入统一设备管理框架。
