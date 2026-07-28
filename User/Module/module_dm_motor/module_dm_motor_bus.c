@@ -76,9 +76,11 @@ module_motor_status_t module_dm_motor_bus_register(module_dm_motor_bus_t *me,
     // ---- 检查重复 ----
     for (motor_index = 0U; motor_index < me->motor_count; ++motor_index)
     {
-        // 检查是否已注册、反馈 ID 重复、发送 ID 重复
+        // 反馈 CAN ID 可以共用，但反馈 D0 中的电机 ID 低 4 位必须可区分。
         if ((me->motor_storage[motor_index] == motor) ||
-            (me->motor_storage[motor_index]->feedback_identifier == motor->feedback_identifier) ||
+            ((me->motor_storage[motor_index]->feedback_identifier == motor->feedback_identifier) &&
+             ((me->motor_storage[motor_index]->master_identifier & 0x0FU) ==
+              (motor->master_identifier & 0x0FU))) ||
             (me->motor_storage[motor_index]->mode_vptr->get_transmit_identifier(
                  me->motor_storage[motor_index]) ==
              motor->mode_vptr->get_transmit_identifier(motor)))
@@ -159,7 +161,10 @@ module_motor_status_t module_dm_motor_bus_handle_feedback(module_dm_motor_bus_t 
     // ---- 查找匹配的电机 ----
     for (motor_index = 0U; motor_index < me->motor_count; ++motor_index)
     {
-        if (me->motor_storage[motor_index]->feedback_identifier == frame->identifier)
+        if ((me->motor_storage[motor_index]->feedback_identifier == frame->identifier) &&
+            (frame->data_length == 8U) &&
+            ((frame->data[0] & 0x0FU) ==
+             (uint8_t)(me->motor_storage[motor_index]->master_identifier & 0x0FU)))
         {
             const module_motor_status_t status =
                 module_dm_motor_handle_feedback(me->motor_storage[motor_index], frame);

@@ -6,7 +6,7 @@
  * @date 2026-07-28
  * @copyright Copyright (c) 2026
  *
- * @note 支持 MIT、速度和位置速度三种控制模式，通过 mode_vptr 多态实现。
+ * @note 支持 MIT、位置速度、速度和力位混合四种控制模式，通过 mode_vptr 多态实现。
  *       浮点量按 limits 范围量化到协议字段，需与固件协议一致。
  */
 
@@ -78,7 +78,9 @@ static bool module_dm_motor_is_identifier_valid(module_dm_control_mode_t control
     const uint32_t identifier_offset =
         (control_mode == MODULE_DM_MODE_VELOCITY)
             ? 0x200U
-            : ((control_mode == MODULE_DM_MODE_POSITION_VELOCITY) ? 0x100U : 0U);
+            : ((control_mode == MODULE_DM_MODE_POSITION_VELOCITY)
+                   ? 0x100U
+                   : ((control_mode == MODULE_DM_MODE_FORCE_POSITION) ? 0x300U : 0U));
     return master_identifier <= (0x7FFU - identifier_offset);
 }
 
@@ -151,6 +153,14 @@ static uint32_t module_dm_motor_get_velocity_identifier(const module_dm_motor_t 
 static uint32_t module_dm_motor_get_position_velocity_identifier(const module_dm_motor_t *const me)
 {
     return me->master_identifier + 0x100U;
+}
+
+/**
+ * @brief 获取力位混合模式的 CAN 发送 ID（偏移 0x300）
+ */
+static uint32_t module_dm_motor_get_force_position_identifier(const module_dm_motor_t *const me)
+{
+    return me->master_identifier + 0x300U;
 }
 
 /* ======================== 模式编码函数 ======================== */
@@ -262,17 +272,54 @@ static module_motor_status_t module_dm_motor_encode_position_velocity(module_dm_
     return MODULE_MOTOR_STATUS_OK;
 }
 
+/**
+ * @brief 力位混合模式编码函数
+ * @note D0-D3: p_des(float LE)，D4-D5: v_des*100(uint16 LE)，
+ *       D6-D7: i_des*10000(uint16 LE)
+ */
+static module_motor_status_t module_dm_motor_encode_force_position(module_dm_motor_t *const me,
+                                                                   uint8_t transmit_data[8])
+{
+    const module_dm_force_position_command_t *const command = &me->force_position_command;
+    uint16_t velocity_limit_raw;
+    uint16_t current_limit_raw;
+
+    if (!module_dm_motor_is_within(command->position_rad, me->limits.position_min_rad,
+                                   me->limits.position_max_rad) ||
+        !module_dm_motor_is_within(command->velocity_limit_rad_per_s, 0.0F, 100.0F) ||
+        !module_dm_motor_is_within(command->current_limit_per_unit, 0.0F, 1.0F))
+    {
+        return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
+    }
+
+    velocity_limit_raw = (uint16_t)(command->velocity_limit_rad_per_s * 100.0F + 0.5F);
+    current_limit_raw = (uint16_t)(command->current_limit_per_unit * 10000.0F + 0.5F);
+    module_dm_motor_encode_float_little_endian(command->position_rad, &transmit_data[0]);
+    transmit_data[4] = (uint8_t)velocity_limit_raw;
+    transmit_data[5] = (uint8_t)(velocity_limit_raw >> 8U);
+    transmit_data[6] = (uint8_t)current_limit_raw;
+    transmit_data[7] = (uint8_t)(current_limit_raw >> 8U);
+    return MODULE_MOTOR_STATUS_OK;
+}
+
 /* ======================== 模式操作虚表 ======================== */
 
 static const module_dm_mode_ops_t s_module_dm_mit_ops = {
     .encode_command = module_dm_motor_encode_mit,
-    .get_transmit_identifier = module_dm_motor_get_mit_identifier};
+    .get_transmit_identifier = module_dm_motor_get_mit_identifier,
+    .transmit_data_length = 8U};
 static const module_dm_mode_ops_t s_module_dm_velocity_ops = {
     .encode_command = module_dm_motor_encode_velocity,
-    .get_transmit_identifier = module_dm_motor_get_velocity_identifier};
+    .get_transmit_identifier = module_dm_motor_get_velocity_identifier,
+    .transmit_data_length = 4U};
 static const module_dm_mode_ops_t s_module_dm_position_velocity_ops = {
     .encode_command = module_dm_motor_encode_position_velocity,
-    .get_transmit_identifier = module_dm_motor_get_position_velocity_identifier};
+    .get_transmit_identifier = module_dm_motor_get_position_velocity_identifier,
+    .transmit_data_length = 8U};
+static const module_dm_mode_ops_t s_module_dm_force_position_ops = {
+    .encode_command = module_dm_motor_encode_force_position,
+    .get_transmit_identifier = module_dm_motor_get_force_position_identifier,
+    .transmit_data_length = 8U};
 
 /* ======================== 内部传输函数 ======================== */
 
@@ -285,12 +332,13 @@ static const module_dm_mode_ops_t s_module_dm_position_velocity_ops = {
  */
 static module_motor_status_t module_dm_motor_transmit(module_dm_motor_t *const me,
                                                       const uint8_t transmit_data[8],
-                                                      uint32_t transmit_identifier)
+                                                      uint32_t transmit_identifier,
+                                                      uint8_t transmit_data_length)
 {
     const bsp_can_frame_t frame = {.identifier = transmit_identifier,
                                    .id_type = BSP_CAN_ID_STANDARD,
                                    .frame_type = BSP_CAN_FRAME_DATA,
-                                   .data_length = 8U,
+                                   .data_length = transmit_data_length,
                                    .data = {transmit_data[0], transmit_data[1], transmit_data[2],
                                             transmit_data[3], transmit_data[4], transmit_data[5],
                                             transmit_data[6], transmit_data[7]}};
@@ -355,9 +403,13 @@ static module_motor_status_t module_dm_motor_set_target_virtual(module_motor_t *
     {
         me->target_velocity_rad_per_s = target_value;
     }
-    else // POSITION_VELOCITY
+    else if (me->control_mode == MODULE_DM_MODE_POSITION_VELOCITY)
     {
         me->target_position_rad = target_value;
+    }
+    else
+    {
+        me->force_position_command.position_rad = target_value;
     }
     return MODULE_MOTOR_STATUS_OK;
 }
@@ -387,7 +439,8 @@ static module_motor_status_t module_dm_motor_update_virtual(module_motor_t *cons
         return status;
     }
     // 发送 CAN 帧
-    return module_dm_motor_transmit(me, transmit_data, me->mode_vptr->get_transmit_identifier(me));
+    return module_dm_motor_transmit(me, transmit_data, me->mode_vptr->get_transmit_identifier(me),
+                                    me->mode_vptr->transmit_data_length);
 }
 
 /** 电机虚表 */
@@ -408,7 +461,7 @@ module_motor_status_t module_dm_motor_init(module_dm_motor_t *const me,
     // ---- 参数校验 ----
     if ((me == NULL) || (config == NULL) || (config->logical_name == NULL) ||
         (config->can == NULL) || !bsp_device_is_initialized(&config->can->super) ||
-        (config->control_mode > MODULE_DM_MODE_POSITION_VELOCITY) ||
+        (config->control_mode > MODULE_DM_MODE_FORCE_POSITION) ||
         !module_dm_motor_is_identifier_valid(config->control_mode, config->master_identifier) ||
         (config->feedback_identifier > 0x7FFU) ||
         !module_dm_motor_are_limits_valid(&config->limits))
@@ -421,7 +474,9 @@ module_motor_status_t module_dm_motor_init(module_dm_motor_t *const me,
                         ? &s_module_dm_mit_ops
                         : ((config->control_mode == MODULE_DM_MODE_VELOCITY)
                                ? &s_module_dm_velocity_ops
-                               : &s_module_dm_position_velocity_ops);
+                               : ((config->control_mode == MODULE_DM_MODE_POSITION_VELOCITY)
+                                      ? &s_module_dm_position_velocity_ops
+                                      : &s_module_dm_force_position_ops));
 
     // ---- 保存配置 ----
     me->can = config->can;
@@ -430,6 +485,7 @@ module_motor_status_t module_dm_motor_init(module_dm_motor_t *const me,
     me->mit_command = (module_dm_mit_command_t){0};
     me->target_position_rad = 0.0F;
     me->target_velocity_rad_per_s = 0.0F;
+    me->force_position_command = (module_dm_force_position_command_t){0};
     me->master_identifier = config->master_identifier;
     me->feedback_identifier = config->feedback_identifier;
     me->transmit_timeout_ms = config->transmit_timeout_ms;
@@ -493,7 +549,7 @@ module_motor_t *module_dm_motor_as_base(module_dm_motor_t *const me)
  * @param command 状态命令
  * @return 执行状态
  * @note 命令帧格式：前 7 字节为 0xFF，第 8 字节为命令码
- *       ENABLE=0xFD, DISABLE=0xFC, SAVE_ZERO=0xFE, CLEAR_FAULT=0xFB
+ *       ENABLE=0xFC, DISABLE=0xFD, SET_ZERO=0xFE, CLEAR_FAULT=0xFB
  */
 module_motor_status_t module_dm_motor_send_state_command(module_dm_motor_t *const me,
                                                          module_dm_state_command_t command)
@@ -512,7 +568,8 @@ module_motor_status_t module_dm_motor_send_state_command(module_dm_motor_t *cons
         return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
     }
     transmit_data[7] = command_codes[command]; // 命令码放入最后一个字节
-    return module_dm_motor_transmit(me, transmit_data, me->master_identifier);
+    return module_dm_motor_transmit(me, transmit_data,
+                                    me->mode_vptr->get_transmit_identifier(me), 8U);
 }
 
 /**
@@ -630,6 +687,43 @@ module_motor_status_t module_dm_motor_set_position_velocity_target(module_dm_mot
 }
 
 /**
+ * @brief 立即执行力位混合模式命令
+ */
+module_motor_status_t
+module_dm_motor_command_force_position(module_dm_motor_t *const me,
+                                       const module_dm_force_position_command_t *const command)
+{
+    const module_motor_status_t status = module_dm_motor_set_force_position_target(me, command);
+    return (status == MODULE_MOTOR_STATUS_OK) ? module_motor_update(&me->super, 1.0F) : status;
+}
+
+/**
+ * @brief 设置力位混合模式目标
+ */
+module_motor_status_t
+module_dm_motor_set_force_position_target(module_dm_motor_t *const me,
+                                          const module_dm_force_position_command_t *const command)
+{
+    if ((me == NULL) || (command == NULL))
+    {
+        return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    }
+    if (me->control_mode != MODULE_DM_MODE_FORCE_POSITION)
+    {
+        return MODULE_MOTOR_STATUS_UNSUPPORTED;
+    }
+    if (!module_dm_motor_is_within(command->position_rad, me->limits.position_min_rad,
+                                   me->limits.position_max_rad) ||
+        !module_dm_motor_is_within(command->velocity_limit_rad_per_s, 0.0F, 100.0F) ||
+        !module_dm_motor_is_within(command->current_limit_per_unit, 0.0F, 1.0F))
+    {
+        return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
+    }
+    me->force_position_command = *command;
+    return MODULE_MOTOR_STATUS_OK;
+}
+
+/**
  * @brief 处理 CAN 反馈帧
  * @param me 电机对象
  * @param frame CAN 帧
@@ -647,7 +741,8 @@ module_motor_status_t module_dm_motor_handle_feedback(module_dm_motor_t *const m
     // ---- 参数校验 ----
     if ((me == NULL) || (frame == NULL) || !me->super.is_registered ||
         (frame->id_type != BSP_CAN_ID_STANDARD) || (frame->frame_type != BSP_CAN_FRAME_DATA) ||
-        (frame->identifier != me->feedback_identifier) || (frame->data_length != 8U))
+        (frame->identifier != me->feedback_identifier) || (frame->data_length != 8U) ||
+        ((frame->data[0] & 0x0FU) != (uint8_t)(me->master_identifier & 0x0FU)))
     {
         return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
     }
@@ -678,6 +773,14 @@ module_motor_status_t module_dm_motor_handle_feedback(module_dm_motor_t *const m
     if (me->fault != MODULE_DM_FAULT_NONE)
     {
         me->super.state = MODULE_MOTOR_STATE_FAULT;
+    }
+    else if (state_code == 1U)
+    {
+        me->super.state = MODULE_MOTOR_STATE_ENABLED;
+    }
+    else
+    {
+        me->super.state = MODULE_MOTOR_STATE_DISABLED;
     }
     return MODULE_MOTOR_STATUS_OK;
 }

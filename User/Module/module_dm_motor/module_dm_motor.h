@@ -6,7 +6,8 @@
  * @date 2026-07-28
  * @copyright Copyright (c) 2026
  *
- * @note 支持 MIT、速度和位置速度三种控制模式，以及使能、失能、保存零位和清故障命令。
+ * @note 支持 MIT、位置速度、速度和力位混合四种控制模式，
+ *       以及使能、失能、设置零位和清故障命令。
  *       DM4310 通过派生配置复用本模块。
  */
 
@@ -34,7 +35,8 @@ extern "C"
     {
         MODULE_DM_MODE_MIT = 0,          // MIT 模式（位置+速度+Kp+Kd+扭矩）
         MODULE_DM_MODE_VELOCITY,         // 速度模式
-        MODULE_DM_MODE_POSITION_VELOCITY // 位置+速度模式
+        MODULE_DM_MODE_POSITION_VELOCITY, // 位置+速度模式
+        MODULE_DM_MODE_FORCE_POSITION     // 力位混合模式（位置+速度限制+电流限制）
     } module_dm_control_mode_t;
 
     /**
@@ -44,8 +46,9 @@ extern "C"
     {
         MODULE_DM_COMMAND_DISABLE = 0, // 失能
         MODULE_DM_COMMAND_ENABLE,      // 使能
-        MODULE_DM_COMMAND_SAVE_ZERO,   // 保存零位（修改驱动器持久状态，需谨慎）
-        MODULE_DM_COMMAND_CLEAR_FAULT  // 清除故障
+        MODULE_DM_COMMAND_SET_ZERO,    // 将当前位置设为输出轴零位
+        MODULE_DM_COMMAND_CLEAR_FAULT, // 清除故障
+        MODULE_DM_COMMAND_SAVE_ZERO = MODULE_DM_COMMAND_SET_ZERO // 兼容旧名称
     } module_dm_state_command_t;
 
     /**
@@ -96,6 +99,16 @@ extern "C"
     } module_dm_mit_command_t;
 
     /**
+     * @brief 力位混合模式命令
+     */
+    typedef struct
+    {
+        float position_rad;               // 目标位置（rad）
+        float velocity_limit_rad_per_s;   // 速度限制（0~100 rad/s）
+        float current_limit_per_unit;     // 相电流限制标幺值（0~1）
+    } module_dm_force_position_command_t;
+
+    /**
      * @brief 模式操作虚表（用于多态）
      * @note 不同控制模式以不同编码方式实现同名目标更新
      */
@@ -104,6 +117,7 @@ extern "C"
         module_motor_status_t (*encode_command)(module_dm_motor_t *const me,
                                                 uint8_t transmit_data[8]);
         uint32_t (*get_transmit_identifier)(const module_dm_motor_t *const me);
+        uint8_t transmit_data_length;
     } module_dm_mode_ops_t;
 
     /* ======================== 配置结构体 ======================== */
@@ -138,6 +152,7 @@ extern "C"
         module_dm_mit_command_t mit_command;   // MIT 命令缓存
         float target_position_rad;             // 位置目标（位置速度模式）
         float target_velocity_rad_per_s;       // 速度目标（速度/位置速度模式）
+        module_dm_force_position_command_t force_position_command;
         uint32_t master_identifier;            // 主机标识符
         uint32_t feedback_identifier;          // 反馈标识符
         uint32_t transmit_timeout_ms;          // 发送超时
@@ -221,6 +236,13 @@ extern "C"
                                                                     float velocity_rad_per_s);
 
     /**
+     * @brief 立即执行力位混合模式命令
+     */
+    module_motor_status_t
+    module_dm_motor_command_force_position(module_dm_motor_t *const me,
+                                           const module_dm_force_position_command_t *const command);
+
+    /**
      * @brief 设置 MIT 目标（由统一 update 调度发送）
      * @param me 电机对象
      * @param command MIT 命令
@@ -249,6 +271,13 @@ extern "C"
     module_motor_status_t module_dm_motor_set_position_velocity_target(module_dm_motor_t *const me,
                                                                        float position_rad,
                                                                        float velocity_rad_per_s);
+
+    /**
+     * @brief 设置力位混合模式目标（由统一 update 调度发送）
+     */
+    module_motor_status_t
+    module_dm_motor_set_force_position_target(module_dm_motor_t *const me,
+                                              const module_dm_force_position_command_t *const command);
 
     /**
      * @brief 处理 CAN 反馈帧
