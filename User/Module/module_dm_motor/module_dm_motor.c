@@ -1,19 +1,43 @@
+/**
+ * @file module_dm_motor.c
+ * @author Ahola邱泽钦 (aholace0328@gmail.com)
+ * @brief 达妙电机 CAN 协议驱动实现
+ * @version 1.0
+ * @date 2026-07-28
+ * @copyright Copyright (c) 2026
+ *
+ * @note 支持 MIT、速度和位置速度三种控制模式，通过 mode_vptr 多态实现。
+ *       浮点量按 limits 范围量化到协议字段，需与固件协议一致。
+ */
+
 #include "module_dm_motor.h"
 
-#include <math.h>
-#include <stddef.h>
-#include <string.h>
+#include <math.h>   // isfinite
+#include <stddef.h> // NULL
+#include <string.h> // memcpy, memset
 
+/**
+ * @brief 从 module_motor_t 基类获取派生 module_dm_motor_t 对象
+ */
 static module_dm_motor_t *module_dm_motor_get_device(module_motor_t *const motor_base)
 {
     return MODULE_MOTOR_CONTAINER_OF(motor_base, module_dm_motor_t, super);
 }
 
+/**
+ * @brief 检查值是否在范围内（有限且 >= min <= max）
+ */
 static bool module_dm_motor_is_within(float value, float minimum, float maximum)
 {
     return isfinite(value) && (value >= minimum) && (value <= maximum);
 }
 
+/**
+ * @brief 检查限制参数是否合法
+ * @param limits 限制参数
+ * @return true=合法
+ * @note 检查所有字段有限，且 min < max
+ */
 static bool module_dm_motor_are_limits_valid(const module_dm_limits_t *const limits)
 {
     const float values[] = {
@@ -25,6 +49,7 @@ static bool module_dm_motor_are_limits_valid(const module_dm_limits_t *const lim
     };
     size_t value_index;
 
+    // 检查所有值是否有限
     for (value_index = 0U; value_index < (sizeof(values) / sizeof(values[0])); ++value_index)
     {
         if (!isfinite(values[value_index]))
@@ -32,6 +57,7 @@ static bool module_dm_motor_are_limits_valid(const module_dm_limits_t *const lim
             return false;
         }
     }
+    // 检查 min < max
     return (limits->position_min_rad < limits->position_max_rad) &&
            (limits->velocity_min_rad_per_s < limits->velocity_max_rad_per_s) &&
            (limits->torque_min_nm < limits->torque_max_nm) &&
@@ -39,6 +65,13 @@ static bool module_dm_motor_are_limits_valid(const module_dm_limits_t *const lim
            (limits->derivative_gain_min < limits->derivative_gain_max);
 }
 
+/**
+ * @brief 检查主机标识符是否合法
+ * @param control_mode 控制模式
+ * @param master_identifier 主机标识符
+ * @return true=合法
+ * @note 不同模式有不同的 CAN ID 偏移，需确保不超过 0x7FF
+ */
 static bool module_dm_motor_is_identifier_valid(module_dm_control_mode_t control_mode,
                                                 uint32_t master_identifier)
 {
@@ -49,6 +82,14 @@ static bool module_dm_motor_is_identifier_valid(module_dm_control_mode_t control
     return master_identifier <= (0x7FFU - identifier_offset);
 }
 
+/**
+ * @brief 将浮点值量化到无符号整数
+ * @param value 浮点值
+ * @param minimum 最小值
+ * @param maximum 最大值
+ * @param bit_count 位宽（8/12/16）
+ * @return 量化后的无符号整数（四舍五入）
+ */
 static uint32_t module_dm_motor_float_to_unsigned(float value, float minimum, float maximum,
                                                   uint8_t bit_count)
 {
@@ -56,6 +97,14 @@ static uint32_t module_dm_motor_float_to_unsigned(float value, float minimum, fl
     return (uint32_t)((value - minimum) * (float)maximum_integer / (maximum - minimum) + 0.5F);
 }
 
+/**
+ * @brief 将无符号整数反量化为浮点值
+ * @param value 无符号整数
+ * @param minimum 最小值
+ * @param maximum 最大值
+ * @param bit_count 位宽
+ * @return 浮点值
+ */
 static float module_dm_motor_unsigned_to_float(uint32_t value, float minimum, float maximum,
                                                uint8_t bit_count)
 {
@@ -63,31 +112,60 @@ static float module_dm_motor_unsigned_to_float(uint32_t value, float minimum, fl
     return (float)value * (maximum - minimum) / (float)maximum_integer + minimum;
 }
 
+/**
+ * @brief 将浮点数以小端序编码到 4 字节缓冲区
+ * @param value 浮点值
+ * @param output 输出缓冲区（4 字节）
+ */
 static void module_dm_motor_encode_float_little_endian(float value, uint8_t output[4])
 {
     uint32_t raw_value;
-    (void)memcpy(&raw_value, &value, sizeof(raw_value));
+    (void)memcpy(&raw_value, &value, sizeof(raw_value)); // 二进制复制
     output[0] = (uint8_t)raw_value;
     output[1] = (uint8_t)(raw_value >> 8U);
     output[2] = (uint8_t)(raw_value >> 16U);
     output[3] = (uint8_t)(raw_value >> 24U);
 }
 
+/**
+ * @brief 获取 MIT 模式的 CAN 发送 ID
+ * @param me 电机对象
+ * @return CAN ID
+ */
 static uint32_t module_dm_motor_get_mit_identifier(const module_dm_motor_t *const me)
 {
     return me->master_identifier;
 }
 
+/**
+ * @brief 获取速度模式的 CAN 发送 ID（偏移 0x200）
+ */
 static uint32_t module_dm_motor_get_velocity_identifier(const module_dm_motor_t *const me)
 {
     return me->master_identifier + 0x200U;
 }
 
+/**
+ * @brief 获取位置速度模式的 CAN 发送 ID（偏移 0x100）
+ */
 static uint32_t module_dm_motor_get_position_velocity_identifier(const module_dm_motor_t *const me)
 {
     return me->master_identifier + 0x100U;
 }
 
+/* ======================== 模式编码函数 ======================== */
+
+/**
+ * @brief MIT 模式编码函数
+ * @param me 电机对象
+ * @param transmit_data 输出 8 字节 CAN 数据
+ * @return 执行状态
+ * @note 协议格式：
+ *       字节 0-1：位置（16 位）
+ *       字节 2-3：速度（12 位）+ Kp（12 位）混合
+ *       字节 4-5：Kp（续）+ Kd（12 位）混合
+ *       字节 6-7：Kd（续）+ 扭矩（12 位）混合
+ */
 static module_motor_status_t module_dm_motor_encode_mit(module_dm_motor_t *const me,
                                                         uint8_t transmit_data[8])
 {
@@ -98,6 +176,7 @@ static module_motor_status_t module_dm_motor_encode_mit(module_dm_motor_t *const
     uint32_t torque_raw;
     const module_dm_mit_command_t *const command = &me->mit_command;
 
+    // ---- 检查所有字段是否在限制范围内 ----
     if (!module_dm_motor_is_within(command->position_rad, me->limits.position_min_rad,
                                    me->limits.position_max_rad) ||
         !module_dm_motor_is_within(command->velocity_rad_per_s, me->limits.velocity_min_rad_per_s,
@@ -112,6 +191,7 @@ static module_motor_status_t module_dm_motor_encode_mit(module_dm_motor_t *const
         return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
     }
 
+    // ---- 量化各字段 ----
     position_raw = module_dm_motor_float_to_unsigned(
         command->position_rad, me->limits.position_min_rad, me->limits.position_max_rad, 16U);
     velocity_raw = module_dm_motor_float_to_unsigned(command->velocity_rad_per_s,
@@ -126,17 +206,27 @@ static module_motor_status_t module_dm_motor_encode_mit(module_dm_motor_t *const
     torque_raw = module_dm_motor_float_to_unsigned(command->torque_nm, me->limits.torque_min_nm,
                                                    me->limits.torque_max_nm, 12U);
 
-    transmit_data[0] = (uint8_t)(position_raw >> 8U);
-    transmit_data[1] = (uint8_t)position_raw;
-    transmit_data[2] = (uint8_t)(velocity_raw >> 4U);
-    transmit_data[3] = (uint8_t)((velocity_raw << 4U) | (proportional_gain_raw >> 8U));
-    transmit_data[4] = (uint8_t)proportional_gain_raw;
-    transmit_data[5] = (uint8_t)(derivative_gain_raw >> 4U);
-    transmit_data[6] = (uint8_t)((derivative_gain_raw << 4U) | (torque_raw >> 8U));
-    transmit_data[7] = (uint8_t)torque_raw;
+    // ---- 打包（紧凑位域） ----
+    transmit_data[0] = (uint8_t)(position_raw >> 8U); // 位置高字节
+    transmit_data[1] = (uint8_t)position_raw;         // 位置低字节
+    transmit_data[2] = (uint8_t)(velocity_raw >> 4U); // 速度高 8 位
+    transmit_data[3] =
+        (uint8_t)((velocity_raw << 4U) | (proportional_gain_raw >> 8U)); // 速度低4位 + Kp高4位
+    transmit_data[4] = (uint8_t)proportional_gain_raw;                   // Kp 低 8 位
+    transmit_data[5] = (uint8_t)(derivative_gain_raw >> 4U);             // Kd 高 8 位
+    transmit_data[6] =
+        (uint8_t)((derivative_gain_raw << 4U) | (torque_raw >> 8U)); // Kd低4位 + 扭矩高4位
+    transmit_data[7] = (uint8_t)torque_raw;                          // 扭矩低 8 位
     return MODULE_MOTOR_STATUS_OK;
 }
 
+/**
+ * @brief 速度模式编码函数
+ * @param me 电机对象
+ * @param transmit_data 输出 8 字节 CAN 数据
+ * @return 执行状态
+ * @note 前 4 字节为 float 速度值（小端序），后 4 字节为零
+ */
 static module_motor_status_t module_dm_motor_encode_velocity(module_dm_motor_t *const me,
                                                              uint8_t transmit_data[8])
 {
@@ -150,6 +240,13 @@ static module_motor_status_t module_dm_motor_encode_velocity(module_dm_motor_t *
     return MODULE_MOTOR_STATUS_OK;
 }
 
+/**
+ * @brief 位置速度模式编码函数
+ * @param me 电机对象
+ * @param transmit_data 输出 8 字节 CAN 数据
+ * @return 执行状态
+ * @note 前 4 字节为位置（float），后 4 字节为速度（float）
+ */
 static module_motor_status_t module_dm_motor_encode_position_velocity(module_dm_motor_t *const me,
                                                                       uint8_t transmit_data[8])
 {
@@ -165,6 +262,8 @@ static module_motor_status_t module_dm_motor_encode_position_velocity(module_dm_
     return MODULE_MOTOR_STATUS_OK;
 }
 
+/* ======================== 模式操作虚表 ======================== */
+
 static const module_dm_mode_ops_t s_module_dm_mit_ops = {
     .encode_command = module_dm_motor_encode_mit,
     .get_transmit_identifier = module_dm_motor_get_mit_identifier};
@@ -175,6 +274,15 @@ static const module_dm_mode_ops_t s_module_dm_position_velocity_ops = {
     .encode_command = module_dm_motor_encode_position_velocity,
     .get_transmit_identifier = module_dm_motor_get_position_velocity_identifier};
 
+/* ======================== 内部传输函数 ======================== */
+
+/**
+ * @brief 发送 CAN 帧
+ * @param me 电机对象
+ * @param transmit_data 8 字节数据
+ * @param transmit_identifier CAN ID
+ * @return 执行状态
+ */
 static module_motor_status_t module_dm_motor_transmit(module_dm_motor_t *const me,
                                                       const uint8_t transmit_data[8],
                                                       uint32_t transmit_identifier)
@@ -191,6 +299,13 @@ static module_motor_status_t module_dm_motor_transmit(module_dm_motor_t *const m
                : MODULE_MOTOR_STATUS_TRANSPORT_ERROR;
 }
 
+/* ======================== 虚函数实现（module_motor_ops_t） ======================== */
+
+/**
+ * @brief 使能电机（虚函数实现）
+ * @param motor_base 基类指针
+ * @return 执行状态
+ */
 static module_motor_status_t module_dm_motor_enable_virtual(module_motor_t *const motor_base)
 {
     module_dm_motor_t *const me = module_dm_motor_get_device(motor_base);
@@ -202,6 +317,9 @@ static module_motor_status_t module_dm_motor_enable_virtual(module_motor_t *cons
     return status;
 }
 
+/**
+ * @brief 禁用电机（虚函数实现）
+ */
 static module_motor_status_t module_dm_motor_disable_virtual(module_motor_t *const motor_base)
 {
     module_dm_motor_t *const me = module_dm_motor_get_device(motor_base);
@@ -214,6 +332,12 @@ static module_motor_status_t module_dm_motor_disable_virtual(module_motor_t *con
     return status;
 }
 
+/**
+ * @brief 设置目标值（虚函数实现）
+ * @param motor_base 基类指针
+ * @param target_value 目标值（含义取决于控制模式）
+ * @return 执行状态
+ */
 static module_motor_status_t module_dm_motor_set_target_virtual(module_motor_t *const motor_base,
                                                                 float target_value)
 {
@@ -222,50 +346,66 @@ static module_motor_status_t module_dm_motor_set_target_virtual(module_motor_t *
     {
         return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
     }
+    // 不同模式将 target_value 存入不同字段
     if (me->control_mode == MODULE_DM_MODE_MIT)
     {
-        me->mit_command.torque_nm = target_value;
+        me->mit_command.torque_nm = target_value; // MIT 模式 target 作为前馈扭矩
     }
     else if (me->control_mode == MODULE_DM_MODE_VELOCITY)
     {
         me->target_velocity_rad_per_s = target_value;
     }
-    else
+    else // POSITION_VELOCITY
     {
         me->target_position_rad = target_value;
     }
     return MODULE_MOTOR_STATUS_OK;
 }
 
+/**
+ * @brief 更新电机（虚函数实现）
+ * @param motor_base 基类指针
+ * @param delta_time_s 时间步长（未使用）
+ * @return 执行状态
+ */
 static module_motor_status_t module_dm_motor_update_virtual(module_motor_t *const motor_base,
                                                             float delta_time_s)
 {
     module_dm_motor_t *const me = module_dm_motor_get_device(motor_base);
     uint8_t transmit_data[8];
     module_motor_status_t status;
-    (void)delta_time_s;
+    (void)delta_time_s; // 达妙协议不需要时间步长
 
     if (motor_base->state != MODULE_MOTOR_STATE_ENABLED)
     {
         return MODULE_MOTOR_STATUS_OK;
     }
+    // 通过模式虚表编码命令
     status = me->mode_vptr->encode_command(me, transmit_data);
     if (status != MODULE_MOTOR_STATUS_OK)
     {
         return status;
     }
+    // 发送 CAN 帧
     return module_dm_motor_transmit(me, transmit_data, me->mode_vptr->get_transmit_identifier(me));
 }
 
+/** 电机虚表 */
 static const module_motor_ops_t s_module_dm_motor_ops = {.enable = module_dm_motor_enable_virtual,
                                                          .disable = module_dm_motor_disable_virtual,
                                                          .set_target =
                                                              module_dm_motor_set_target_virtual,
                                                          .update = module_dm_motor_update_virtual};
 
+/* ======================== 公共 API ======================== */
+
+/**
+ * @brief 初始化达妙电机
+ */
 module_motor_status_t module_dm_motor_init(module_dm_motor_t *const me,
                                            const module_dm_motor_config_t *const config)
 {
+    // ---- 参数校验 ----
     if ((me == NULL) || (config == NULL) || (config->logical_name == NULL) ||
         (config->can == NULL) || !bsp_device_is_initialized(&config->can->super) ||
         (config->control_mode > MODULE_DM_MODE_POSITION_VELOCITY) ||
@@ -275,11 +415,15 @@ module_motor_status_t module_dm_motor_init(module_dm_motor_t *const me,
     {
         return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
     }
+
+    // ---- 选择模式操作表 ----
     me->mode_vptr = (config->control_mode == MODULE_DM_MODE_MIT)
                         ? &s_module_dm_mit_ops
                         : ((config->control_mode == MODULE_DM_MODE_VELOCITY)
                                ? &s_module_dm_velocity_ops
                                : &s_module_dm_position_velocity_ops);
+
+    // ---- 保存配置 ----
     me->can = config->can;
     me->control_mode = config->control_mode;
     me->limits = config->limits;
@@ -291,10 +435,15 @@ module_motor_status_t module_dm_motor_init(module_dm_motor_t *const me,
     me->transmit_timeout_ms = config->transmit_timeout_ms;
     me->fault = MODULE_DM_FAULT_NONE;
     me->mos_temperature_c = 0.0F;
+
+    // ---- 初始化基类 ----
     return module_motor_init_base(&me->super, &s_module_dm_motor_ops, config->logical_name,
                                   config->registration_key);
 }
 
+/**
+ * @brief 注册电机到电机注册表
+ */
 module_motor_status_t module_dm_motor_register(module_dm_motor_t *const me,
                                                module_motor_registry_t *const registry)
 {
@@ -305,6 +454,9 @@ module_motor_status_t module_dm_motor_register(module_dm_motor_t *const me,
     return module_motor_registry_register(registry, &me->super);
 }
 
+/**
+ * @brief 从电机注册表注销电机
+ */
 module_motor_status_t module_dm_motor_unregister(module_dm_motor_t *const me,
                                                  module_motor_registry_t *const registry)
 {
@@ -318,6 +470,7 @@ module_motor_status_t module_dm_motor_unregister(module_dm_motor_t *const me,
     {
         return MODULE_MOTOR_STATUS_NOT_REGISTERED;
     }
+    // 先禁用电机
     status = module_motor_disable(&me->super);
     if (status != MODULE_MOTOR_STATUS_OK)
     {
@@ -326,17 +479,29 @@ module_motor_status_t module_dm_motor_unregister(module_dm_motor_t *const me,
     return module_motor_registry_unregister(registry, &me->super);
 }
 
+/**
+ * @brief 向上转型为 module_motor_t
+ */
 module_motor_t *module_dm_motor_as_base(module_dm_motor_t *const me)
 {
     return (me != NULL) ? &me->super : NULL;
 }
 
+/**
+ * @brief 发送状态命令
+ * @param me 电机对象
+ * @param command 状态命令
+ * @return 执行状态
+ * @note 命令帧格式：前 7 字节为 0xFF，第 8 字节为命令码
+ *       ENABLE=0xFD, DISABLE=0xFC, SAVE_ZERO=0xFE, CLEAR_FAULT=0xFB
+ */
 module_motor_status_t module_dm_motor_send_state_command(module_dm_motor_t *const me,
                                                          module_dm_state_command_t command)
 {
     uint8_t transmit_data[8] = {0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU};
     static const uint8_t command_codes[] = {0xFDU, 0xFCU, 0xFEU, 0xFBU};
 
+    // 参数校验
     if ((me == NULL) || !me->super.is_registered)
     {
         return (me == NULL) ? MODULE_MOTOR_STATUS_INVALID_ARGUMENT
@@ -346,10 +511,13 @@ module_motor_status_t module_dm_motor_send_state_command(module_dm_motor_t *cons
     {
         return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
     }
-    transmit_data[7] = command_codes[command];
+    transmit_data[7] = command_codes[command]; // 命令码放入最后一个字节
     return module_dm_motor_transmit(me, transmit_data, me->master_identifier);
 }
 
+/**
+ * @brief 立即执行 MIT 命令
+ */
 module_motor_status_t module_dm_motor_command_mit(module_dm_motor_t *const me,
                                                   const module_dm_mit_command_t *const command)
 {
@@ -357,6 +525,9 @@ module_motor_status_t module_dm_motor_command_mit(module_dm_motor_t *const me,
     return (status == MODULE_MOTOR_STATUS_OK) ? module_motor_update(&me->super, 1.0F) : status;
 }
 
+/**
+ * @brief 设置 MIT 目标（由统一 update 调度）
+ */
 module_motor_status_t module_dm_motor_set_mit_target(module_dm_motor_t *const me,
                                                      const module_dm_mit_command_t *const command)
 {
@@ -368,6 +539,7 @@ module_motor_status_t module_dm_motor_set_mit_target(module_dm_motor_t *const me
     {
         return MODULE_MOTOR_STATUS_UNSUPPORTED;
     }
+    // 检查所有字段是否在限制范围内
     if (!module_dm_motor_is_within(command->position_rad, me->limits.position_min_rad,
                                    me->limits.position_max_rad) ||
         !module_dm_motor_is_within(command->velocity_rad_per_s, me->limits.velocity_min_rad_per_s,
@@ -385,6 +557,9 @@ module_motor_status_t module_dm_motor_set_mit_target(module_dm_motor_t *const me
     return MODULE_MOTOR_STATUS_OK;
 }
 
+/**
+ * @brief 立即执行速度命令
+ */
 module_motor_status_t module_dm_motor_command_velocity(module_dm_motor_t *const me,
                                                        float velocity_rad_per_s)
 {
@@ -392,6 +567,9 @@ module_motor_status_t module_dm_motor_command_velocity(module_dm_motor_t *const 
     return (status == MODULE_MOTOR_STATUS_OK) ? module_motor_update(&me->super, 1.0F) : status;
 }
 
+/**
+ * @brief 设置速度目标
+ */
 module_motor_status_t module_dm_motor_set_velocity_target(module_dm_motor_t *const me,
                                                           float velocity_rad_per_s)
 {
@@ -412,6 +590,9 @@ module_motor_status_t module_dm_motor_set_velocity_target(module_dm_motor_t *con
     return MODULE_MOTOR_STATUS_OK;
 }
 
+/**
+ * @brief 立即执行位置速度命令
+ */
 module_motor_status_t module_dm_motor_command_position_velocity(module_dm_motor_t *const me,
                                                                 float position_rad,
                                                                 float velocity_rad_per_s)
@@ -421,6 +602,9 @@ module_motor_status_t module_dm_motor_command_position_velocity(module_dm_motor_
     return (status == MODULE_MOTOR_STATUS_OK) ? module_motor_update(&me->super, 1.0F) : status;
 }
 
+/**
+ * @brief 设置位置速度目标
+ */
 module_motor_status_t module_dm_motor_set_position_velocity_target(module_dm_motor_t *const me,
                                                                    float position_rad,
                                                                    float velocity_rad_per_s)
@@ -445,6 +629,13 @@ module_motor_status_t module_dm_motor_set_position_velocity_target(module_dm_mot
     return MODULE_MOTOR_STATUS_OK;
 }
 
+/**
+ * @brief 处理 CAN 反馈帧
+ * @param me 电机对象
+ * @param frame CAN 帧
+ * @return 执行状态
+ * @note 解码位置（16位）、速度（12位）、扭矩（12位）、MOS温度、电机温度、故障码
+ */
 module_motor_status_t module_dm_motor_handle_feedback(module_dm_motor_t *const me,
                                                       const bsp_can_frame_t *const frame)
 {
@@ -453,25 +644,36 @@ module_motor_status_t module_dm_motor_handle_feedback(module_dm_motor_t *const m
     uint32_t torque_raw;
     uint8_t state_code;
 
+    // ---- 参数校验 ----
     if ((me == NULL) || (frame == NULL) || !me->super.is_registered ||
         (frame->id_type != BSP_CAN_ID_STANDARD) || (frame->frame_type != BSP_CAN_FRAME_DATA) ||
         (frame->identifier != me->feedback_identifier) || (frame->data_length != 8U))
     {
         return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
     }
-    state_code = (uint8_t)(frame->data[0] >> 4U);
-    position_raw = ((uint32_t)frame->data[1] << 8U) | frame->data[2];
-    velocity_raw = ((uint32_t)frame->data[3] << 4U) | (frame->data[4] >> 4U);
-    torque_raw = ((uint32_t)(frame->data[4] & 0x0FU) << 8U) | frame->data[5];
+
+    // ---- 解码反馈 ----
+    state_code = (uint8_t)(frame->data[0] >> 4U);                             // 状态码（高 4 位）
+    position_raw = ((uint32_t)frame->data[1] << 8U) | frame->data[2];         // 位置（16 位）
+    velocity_raw = ((uint32_t)frame->data[3] << 4U) | (frame->data[4] >> 4U); // 速度（12 位）
+    torque_raw = ((uint32_t)(frame->data[4] & 0x0FU) << 8U) | frame->data[5]; // 扭矩（12 位）
+
+    // ---- 反量化为浮点值 ----
     me->super.feedback.position_rad = module_dm_motor_unsigned_to_float(
         position_raw, me->limits.position_min_rad, me->limits.position_max_rad, 16U);
     me->super.feedback.velocity_rad_per_s = module_dm_motor_unsigned_to_float(
         velocity_raw, me->limits.velocity_min_rad_per_s, me->limits.velocity_max_rad_per_s, 12U);
     me->super.feedback.torque_nm = module_dm_motor_unsigned_to_float(
         torque_raw, me->limits.torque_min_nm, me->limits.torque_max_nm, 12U);
-    me->mos_temperature_c = (float)frame->data[6];
-    me->super.feedback.motor_temperature_c = (float)frame->data[7];
+
+    // ---- 温度 ----
+    me->mos_temperature_c = (float)frame->data[6];                  // MOS 管温度
+    me->super.feedback.motor_temperature_c = (float)frame->data[7]; // 电机温度
+
+    // ---- 通知反馈更新 ----
     (void)module_motor_notify_feedback(&me->super);
+
+    // ---- 故障检测 ----
     me->fault = (state_code >= 8U) ? (module_dm_fault_t)state_code : MODULE_DM_FAULT_NONE;
     if (me->fault != MODULE_DM_FAULT_NONE)
     {
@@ -480,11 +682,17 @@ module_motor_status_t module_dm_motor_handle_feedback(module_dm_motor_t *const m
     return MODULE_MOTOR_STATUS_OK;
 }
 
+/**
+ * @brief 获取当前故障码
+ */
 module_dm_fault_t module_dm_motor_get_fault(const module_dm_motor_t *const me)
 {
     return (me != NULL) ? me->fault : MODULE_DM_FAULT_COMMUNICATION_LOST;
 }
 
+/**
+ * @brief 获取 MOS 管温度
+ */
 float module_dm_motor_get_mos_temperature_c(const module_dm_motor_t *const me)
 {
     return (me != NULL) ? me->mos_temperature_c : 0.0F;
