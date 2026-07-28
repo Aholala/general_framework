@@ -1,95 +1,134 @@
-# alg_pid
+# alg_pid —— 通用 PID 控制器库 —— 完整使用指南
 
-`alg_pid` 是 Algorithm 层的通用 PID 控制算法库。源码与头文件直接位于模块目录，
-文件、类型和函数统一使用 `alg_pid_` 前缀，宏和枚举常量使用 `ALG_PID_` 前缀。
+## 1. 模块概述
 
-## 已实现功能
+`alg_pid` 是 Algorithm 层独立的高级 PID 控制算法库，提供位置式、增量式、串级、增益调度和模糊自适应等多种 PID 变体。所有算法使用纯 C11 实现，不依赖 HAL、CMSIS 或 RTOS，不使用动态内存，所有控制器实例状态独立，支持多路控制环并发。
 
-| 功能 | 对象或配置 |
-|---|---|
-| 高级位置式 PID | `alg_pid_t` |
-| 位置环语义类型 | `alg_pid_position_t` |
-| 速度环语义类型 | `alg_pid_velocity_t` |
-| 增量式 PID | `alg_pid_incremental_t` |
-| 位置—速度串级 PID | `alg_pid_cascade_t` |
-| 一维增益调度 PID | `alg_pid_gain_schedule_t` |
-| 二维模糊自适应 PID | `alg_pid_fuzzy_t` |
-| 二自由度比例项 | `setpoint_weight` |
-| 二自由度微分项 | `derivative_setpoint_weight` |
-| 对误差微分 | `ALG_PID_DERIVATIVE_ON_ERROR` |
-| 对测量值微分、微分先行 | `ALG_PID_DERIVATIVE_ON_MEASUREMENT` |
-| 微分一阶低通 | `derivative_filter_cutoff_hz` |
-| 积分限幅 | `integral_min/max` |
-| 输出限幅 | `output_min/max` |
-| 条件积分抗饱和 | `ALG_PID_ANTI_WINDUP_CLAMPING` |
-| 反算抗饱和 | `ALG_PID_ANTI_WINDUP_BACK_CALCULATION` |
-| 积分分离 | `integral_separation_threshold` |
-| 误差死区 | `error_deadband` |
-| 速度前馈 | `velocity_feedforward_gain` |
-| 加速度前馈 | `acceleration_feedforward_gain` |
-| 任意外部前馈 | `additional_feedforward` |
-| 无扰切换/输出跟踪 | `alg_pid_track_output()` |
-| 运行时参数更新 | `alg_pid_set_config()` |
-| P/I/D/FF 分项观测 | `alg_pid_terms_t` |
+**核心功能**：
 
-## 可移植性
+- **位置式 PID（`alg_pid_t`）**：二自由度比例/微分、微分先行、积分分离、死区、前馈（速度/加速度/外部）、多种抗积分饱和（条件积分/反算）、输出/积分限幅、微分滤波。
+- **增量式 PID（`alg_pid_incremental_t`）**：输出增量形式，适用于累加型执行器；支持增量限幅、总输出限幅、微分滤波、死区、外部前馈增量。
+- **串级 PID（`alg_pid_cascade_t`）**：位置环 + 速度环串级，支持外环降频、速度环设定值限幅、双环独立前馈。
+- **增益调度 PID（`alg_pid_gain_schedule_t`）**：根据工作点线性插值 Kp、Ki、Kd。
+- **模糊自适应 PID（`alg_pid_fuzzy_t`）**：基于归一化误差和误差变化率，通过二维规则表在线调整 Kp、Ki、Kd。
+- **无扰切换**：`alg_pid_track_output()` 实现手动/自动模式平滑切换。
+- **调试支持**：`alg_pid_terms_t` 提供 P/I/D/FF 各项分量观测。
 
-- 纯 C11。
-- 不依赖 HAL、CMSIS、RTOS 或系统时钟。
-- 不使用动态内存。
-- 不使用可变全局状态。
-- 采样周期由调用者使用秒显式传入。
-- 每个对象拥有独立状态，支持多个控制环实例。
-- 支持裸机循环、定时中断和 RTOS 周期任务。
+**设计哲学**：
 
-## 安全初始化
+- **零动态内存**：所有配置、状态、工作区均由调用者静态分配。
+- **纯标准库依赖**：仅依赖 `<stdbool.h>`、`stddef.h>`、`<stdint.h>`、`<math.h>`。
+- **连续时间增益**：`Ki`、`Kd` 为连续时间形式，内部根据实际 `delta_time_s` 离散化，采样周期变化无需重算增益。
+- **多实例支持**：每个控制器对象独立状态，可创建任意多个控制环。
+- **显式错误返回**：所有接口返回状态码，便于诊断。
 
-建议先获得默认配置，再修改需要的参数：
+---
+
+## 2. 功能清单
+
+| 功能特性                             | 支持情况                                         |
+| :----------------------------------- | :----------------------------------------------- |
+| 比例项（P）                          | ✅                                               |
+| 积分项（I）                          | ✅（连续时间增益）                               |
+| 微分项（D）                          | ✅（连续时间增益 + 一阶低通滤波）                |
+| 二自由度比例（设定值权重 β）         | ✅（0~1）                                        |
+| 二自由度微分（设定值权重 γ）         | ✅（0~1）                                        |
+| 微分模式选择                         | 对误差微分 / 对测量值微分（微分先行）            |
+| 积分分离（阈值）                     | ✅                                               |
+| 误差死区                             | ✅                                               |
+| 速度前馈（Kvff）                     | ✅                                               |
+| 加速度前馈（Kaff）                   | ✅                                               |
+| 外部前馈（`additional_feedforward`） | ✅                                               |
+| 输出限幅（min/max）                  | ✅                                               |
+| 积分限幅（min/max）                  | ✅                                               |
+| 抗积分饱和                           | 无 / 条件积分(Clamping) / 反算(Back-calculation) |
+| 微分滤波                             | ✅（一阶低通，截止频率可调）                     |
+| 无扰切换（输出跟踪）                 | ✅                                               |
+| 运行时参数更新                       | ✅（`alg_pid_set_config`）                       |
+| 调试分量观测                         | ✅（`alg_pid_terms_t`）                          |
+| **增量式 PID**                       | ✅（含增量限幅、总输出限幅、微分滤波）           |
+| **串级 PID**                         | ✅（位置环 + 速度环，外环降频）                  |
+| **增益调度 PID**                     | ✅（线性插值 Kp/Ki/Kd）                          |
+| **模糊自适应 PID**                   | ✅（二维规则表双线性插值）                       |
+
+---
+
+## 3. 配置与初始化
+
+### 3.1 位置式 PID 配置
+
+推荐先调用 `alg_pid_config_init()` 获取默认配置，再修改需要的参数：
 
 ```c
-static alg_pid_velocity_t s_velocity_controller;
+#include "alg_pid.h"
 
-void app_velocity_controller_init(void)
-{
-    alg_pid_config_t config;
+static alg_pid_velocity_t s_speed_controller;
 
-    (void)alg_pid_config_init(&config);
-    config.proportional_gain = 2.0F;
-    config.integral_gain = 10.0F;
-    config.derivative_gain = 0.01F;
-    config.output_min = -20.0F;
-    config.output_max = 20.0F;
-    config.integral_min = -5.0F;
-    config.integral_max = 5.0F;
-    config.derivative_filter_cutoff_hz = 50.0F;
+void init_speed_controller(void) {
+    alg_pid_config_t cfg;
+    alg_pid_config_init(&cfg);
 
-    (void)alg_pid_velocity_init(&s_velocity_controller, &config);
+    cfg.proportional_gain = 2.0f;           // Kp
+    cfg.integral_gain = 10.0f;              // Ki (连续时间)
+    cfg.derivative_gain = 0.01f;            // Kd (连续时间)
+    cfg.setpoint_weight = 1.0f;             // β (默认1)
+    cfg.derivative_setpoint_weight = 0.0f;  // γ (默认0，即微分先行)
+    cfg.derivative_filter_cutoff_hz = 50.0f; // 微分滤波
+    cfg.output_min = -20.0f;
+    cfg.output_max = 20.0f;
+    cfg.integral_min = -5.0f;
+    cfg.integral_max = 5.0f;
+    cfg.anti_windup_mode = ALG_PID_ANTI_WINDUP_CLAMPING;
+    cfg.derivative_mode = ALG_PID_DERIVATIVE_ON_MEASUREMENT;
+
+    alg_pid_velocity_init(&s_speed_controller, &cfg);
 }
 ```
 
-默认配置采用：
+**默认配置**：
 
-- 零增益。
-- 比例设定值权重为 1。
-- 对测量值微分，避免设定值阶跃产生微分冲击。
-- 条件积分抗饱和。
-- 未启用死区、积分分离和微分滤波。
+- 所有增益为 0
+- `setpoint_weight` = 1.0
+- `derivative_setpoint_weight` = 0.0（微分先行）
+- 微分滤波关闭（0 Hz）
+- 积分分离关闭（阈值 0）
+- 输出/积分限幅：±INF
+- 抗积分饱和：`CLAMPING`
+- 微分模式：`ON_MEASUREMENT`（对测量值微分）
 
-## 普通位置式 PID
+### 3.2 增量式 PID 配置
 
 ```c
-float actuator_command;
+static alg_pid_incremental_t s_inc_controller;
 
-alg_pid_status_t status = alg_pid_update(&controller,
-                                      target,
-                                      feedback,
-                                      delta_time_s,
-                                      &actuator_command);
+void init_incremental(void) {
+    alg_pid_incremental_config_t cfg;
+    alg_pid_incremental_config_init(&cfg);
+
+    cfg.proportional_gain = 1.0f;
+    cfg.integral_gain = 5.0f;
+    cfg.derivative_gain = 0.0f;
+    cfg.delta_output_min = -1.0f;
+    cfg.delta_output_max = 1.0f;
+    cfg.output_min = -100.0f;
+    cfg.output_max = 100.0f;
+
+    alg_pid_incremental_init(&s_inc_controller, &cfg);
+}
 ```
 
-库使用连续时间形式的增益并根据实际 `delta_time_s` 离散计算积分和微分，因此周期发生小幅变化时不需要重新换算 `Ki` 和 `Kd`。
+---
 
-## 高级输入和前馈
+## 4. 使用示例
+
+### 4.1 位置式 PID（简单更新）
+
+```c
+float output;
+alg_pid_update(&controller, setpoint, measurement, delta_time_s, &output);
+```
+
+### 4.2 位置式 PID（高级更新，含前馈）
 
 ```c
 alg_pid_input_t input = {
@@ -100,184 +139,156 @@ alg_pid_input_t input = {
     .additional_feedforward = gravity_compensation,
     .delta_time_s = control_period_s
 };
-
 alg_pid_update_advanced(&controller, &input, &output);
 ```
 
-最终前馈为：
+最终前馈 = `Kvff * setpoint_rate + Kaff * setpoint_accel + additional_feedforward`。
 
-```text
-FF = Kvff × setpoint_rate + Kaff × setpoint_acceleration + additional_feedforward
-```
-
-## 二自由度 PID
-
-比例项使用：
-
-```text
-P = Kp × (beta × setpoint - measurement)
-```
-
-其中 `beta = setpoint_weight`，范围为 0 到 1。减小 beta 可以减弱位置设定值阶跃造成的比例冲击，同时保留对扰动的响应。
-
-对误差微分时使用 `derivative_setpoint_weight` 控制设定值进入微分项的比例。设为 0 等效于微分先行，设为 1 是传统误差微分。
-
-## 抗积分饱和
-
-条件积分：
+### 4.3 无扰切换（手动→自动）
 
 ```c
-config.anti_windup_mode = ALG_PID_ANTI_WINDUP_CLAMPING;
-```
-
-输出已饱和并且误差继续把输出推向饱和方向时暂停积分。它参数少，适合作为默认方案。
-
-反算抗饱和：
-
-```c
-config.anti_windup_mode = ALG_PID_ANTI_WINDUP_BACK_CALCULATION;
-config.back_calculation_gain = 5.0F;
-```
-
-反算通过饱和输出与未饱和输出之间的差值回退积分，适合对退出饱和速度有明确要求的控制器。
-
-## 积分分离和死区
-
-```c
-config.integral_separation_threshold = 2.0F;
-config.error_deadband = 0.01F;
-```
-
-- 积分分离阈值为零表示始终允许积分。
-- 误差绝对值大于积分分离阈值时停止新增积分。
-- 误差绝对值小于等于死区时，控制误差按零处理。
-
-死区应谨慎使用，过大的死区会导致稳态位置误差和低速爬行。
-
-## 增量式 PID
-
-增量式 PID 计算每周期输出变化量：
-
-```text
-Δu = Kp(e-e1) + Ki·e·dt + Kd(e-2e1+e2)/dt
-```
-
-它同时支持：
-
-- 单周期增量限幅。
-- 总输出限幅。
-- 误差死区。
-- 微分增量低通。
-- 外部前馈增量。
-
-增量式控制器适合输出本身需要连续累加的执行器，但发生状态切换时必须调用 `alg_pid_incremental_reset()` 设置当前输出。
-
-## 位置环与速度环
-
-位置环和速度环采用相同数学内核，分别使用语义类型：
-
-```c
-alg_pid_position_t position_controller;
-alg_pid_velocity_t velocity_controller;
-```
-
-推荐配置倾向：
-
-- 位置环通常以 P 或 PD 为主，输出速度目标。
-- 速度环通常使用 PI，输出电流、转矩或占空比。
-- 速度反馈噪声较大时启用微分滤波或直接不使用 D 项。
-
-具体增益必须根据执行器、负载、采样周期和单位整定，库不会内置与某一电机相关的固定参数。
-
-## 位置—速度串级
-
-`alg_pid_cascade_t` 内含两个独立 PID 对象：
-
-```text
-位置误差 -> 位置 PID -> 速度目标 -> 速度 PID -> 执行器输出
-```
-
-`position_loop_divider` 指定位置环相对速度环的降频倍数。例如速度环为 1 kHz、位置环希望为 200 Hz，则设为 5。
-
-位置环实际使用累积后的真实时间，不会把降频后的周期错误地当作速度环周期。
-
-`velocity_feedforward` 直接叠加到位置环产生的速度目标；`actuator_feedforward` 直接叠加到速度环输出。
-
-## 增益调度
-
-增益调度根据工作点在线线性插值 Kp、Ki、Kd：
-
-```c
-static const alg_pid_gain_point_t gain_points[] = {
-    {0.0F,   1.0F, 0.5F, 0.01F},
-    {100.0F, 2.0F, 0.8F, 0.02F},
-    {300.0F, 3.0F, 1.0F, 0.03F}
-};
-```
-
-工作点必须严格递增。超出表格范围时使用最近端点，不进行外推。表格由调用者持有，生命周期必须覆盖控制器使用期。
-
-## 模糊自适应 PID
-
-`alg_pid_fuzzy_t` 根据归一化误差和误差变化率，在二维规则面上对 Kp、Ki、Kd 调整量进行双线性插值：
-
-```text
-Kp = base_Kp + fuzzy_delta_Kp(error, error_rate)
-Ki = base_Ki + fuzzy_delta_Ki(error, error_rate)
-Kd = base_Kd + fuzzy_delta_Kd(error, error_rate)
-```
-
-三个规则表均为行优先的正方形数组。行对应从负到正的归一化误差，列对应从负到正的归一化误差变化率。`axis_point_count` 可以使用 3、5、7 等任意不小于 2 的尺寸。
-
-库只实现规则推理和插值，不内置某一电机的经验规则。规则表由具体应用根据对象响应和安全边界提供，这样算法仍然可测试、可审查、可移植。
-
-继电反馈自整定会主动激励真实对象，专家规则也强依赖产品安全策略，因此不在通用运行时 PID 控制器中自动执行；需要时应作为独立的受控调试模块实现。
-
-## 无扰切换
-
-从手动输出切换到闭环前调用：
-
-```c
+// 在切换前，用当前手动输出反算积分项
 alg_pid_track_output(&controller,
-                   current_setpoint,
-                   current_measurement,
-                   current_feedforward,
-                   current_actuator_output);
+                     current_setpoint,
+                     current_measurement,
+                     current_ff,
+                     manual_output);
+// 然后切换到自动模式，输出将平滑过渡
+alg_pid_update(&controller, setpoint, measurement, dt, &output);
 ```
 
-函数会反算积分项，使切换后的 PID 输出尽量贴合当前执行器输出，降低模式切换冲击。
-
-## 调试信息
+### 4.4 增量式 PID
 
 ```c
-const alg_pid_terms_t *terms = alg_pid_get_terms(&controller);
+float output;
+alg_pid_incremental_reset(&inc_ctrl, current_output); // 初始化当前输出
+// 每周期：
+alg_pid_incremental_update(&inc_ctrl, setpoint, measurement,
+                            feedforward_delta, dt, &output);
 ```
 
-可以分别观察：
+### 4.5 串级 PID
 
-- `proportional`
-- `integral`
-- `derivative`
-- `feedforward`
-- `unsaturated_output`
-- `output`
+```c
+alg_pid_cascade_config_t cascade_cfg = {
+    .position_config = pos_cfg,
+    .velocity_config = vel_cfg,
+    .position_loop_divider = 5,    // 位置环 200Hz，速度环 1kHz
+    .velocity_setpoint_min = -10.0f,
+    .velocity_setpoint_max = 10.0f
+};
+alg_pid_cascade_t cascade;
+alg_pid_cascade_init(&cascade, &cascade_cfg);
 
-这些数据适合通过日志或上位机绘图，但算法库本身不负责通信。
+alg_pid_cascade_input_t input = {
+    .position_setpoint = pos_target,
+    .position_measurement = pos_measure,
+    .velocity_measurement = vel_measure,
+    .velocity_feedforward = vel_ff,      // 叠加到速度设定值
+    .actuator_feedforward = act_ff,      // 叠加到最终输出
+    .delta_time_s = 0.001f
+};
+float output;
+alg_pid_cascade_update(&cascade, &input, &output);
+```
 
-## 验证建议
+### 4.6 增益调度 PID
 
-集成到具体控制对象时至少验证：
+```c
+static const alg_pid_gain_point_t gains[] = {
+    {0.0f,   1.0f, 0.5f, 0.01f},
+    {50.0f,  2.0f, 0.8f, 0.02f},
+    {100.0f, 3.0f, 1.0f, 0.03f}
+};
+alg_pid_gain_schedule_t gs;
+alg_pid_gain_schedule_init(&gs, &base_config, gains, 3);
 
-- 位置环和速度环。
-- 积分累积与积分限幅。
-- 条件积分与反算抗饱和。
-- 二自由度比例项。
-- 对测量值微分和设定值阶跃。
-- 速度、加速度及外部前馈。
-- 积分分离和误差死区。
-- 无扰输出跟踪。
-- 增量式 PID。
-- 增益调度插值。
-- 二维模糊规则面插值。
-- 位置—速度串级和不同环路频率。
-- 非法参数与未初始化对象。
+// 每周期根据当前工作点更新
+alg_pid_gain_schedule_update(&gs, operating_point, &input, &output);
+```
+
+### 4.7 模糊自适应 PID
+
+```c
+// 规则表为 5x5（axis_point_count=5），行=误差，列=误差变化率
+static const float kp_table[5*5] = { ... };
+static const float ki_table[5*5] = { ... };
+static const float kd_table[5*5] = { ... };
+
+alg_pid_fuzzy_config_t fuzzy_cfg = {
+    .base_config = base_cfg,
+    .proportional_adjustment_table = kp_table,
+    .integral_adjustment_table = ki_table,
+    .derivative_adjustment_table = kd_table,
+    .axis_point_count = 5,
+    .error_normalization = 10.0f,
+    .error_rate_normalization = 20.0f
+};
+alg_pid_fuzzy_t fuzzy;
+alg_pid_fuzzy_init(&fuzzy, &fuzzy_cfg);
+alg_pid_fuzzy_update(&fuzzy, &input, &output);
+```
+
+---
+
+## 5. 参数调优建议
+
+- **位置环**：通常以 P 或 PD 为主，输出速度目标；积分项视稳态精度需求。
+- **速度环**：通常使用 PI，输出力矩/电流；D 项在速度反馈噪声大时慎用。
+- **微分先行**：`derivative_setpoint_weight = 0` 避免设定值阶跃冲击。
+- **设定值权重 β**：减小 β 可降低超调，但会减弱对扰动的快速响应。
+- **抗积分饱和**：条件积分（`CLAMPING`）参数少，适合多数场景；反算（`BACK_CALCULATION`）需调 `back_calculation_gain`，通常设为 `sqrt(Kp)` 量级。
+- **积分分离阈值**：设为期望误差范围，当误差较大时暂停积分，防止积分过冲。
+- **死区**：仅用于消除测量噪声导致的微小抖动，过大会引入静态误差。
+
+---
+
+## 6. 数值实现细节
+
+- **增益离散化**：积分项 = `Ki * error * dt`，微分项 = `Kd * (Δerror / dt)`，均为连续时间增益，适应变周期。
+- **微分滤波**：一阶低通，截止频率 `fc`，时间常数 `τ = 1/(2π·fc)`，采用后向欧拉离散。
+- **抗积分饱和**：
+  - `CLAMPING`：输出饱和且误差同向时暂停积分累加。
+  - `BACK_CALCULATION`：`integral += Kb * (saturated - unsaturated) * dt`，将饱和误差反馈回积分。
+- **对称化**：积分限幅与输出限幅独立。
+- **数值检查**：所有输入、中间变量和输出均检查 `isfinite()`，防止 NaN/Inf 传播。
+
+---
+
+## 7. 实时性建议
+
+- **位置式/增量式 PID**：纯算术运算（+ - \* /），O(1)，适合高频率中断（kHz 级）。
+- **串级 PID**：每个周期执行速度环，位置环按降频执行，计算量等效于两个 PID。
+- **增益调度 PID**：每次需查找区间 + 线性插值，O(log N)（N 为增益点数），适合数 kHz 调用。
+- **模糊自适应 PID**：每次需双线性插值查表，O(1)（表尺寸固定），计算量略高于普通 PID，但仍适合 kHz 级。
+
+---
+
+## 8. 并发约束
+
+- 每个控制器对象（`alg_pid_t`、`alg_pid_incremental_t` 等）**不能**被多个执行上下文同时修改。
+- 若需多任务共享，使用互斥锁或通过消息传递（如将更新操作放入同一任务）。
+
+---
+
+## 9. 建议验证测试项
+
+- [ ] 位置环阶跃响应（超调、稳态误差、调节时间）
+- [ ] 速度环正弦跟踪（幅频/相频特性）
+- [ ] 积分限幅与输出限幅行为
+- [ ] 条件积分与反算抗饱和（含饱和退出）
+- [ ] 二自由度比例项（β 调参）
+- [ ] 微分先行（设定值阶跃时微分冲击）
+- [ ] 速度前馈与加速度前馈
+- [ ] 积分分离与死区
+- [ ] 无扰切换（跟踪输出）
+- [ ] 增量式 PID（累积输出、增量限幅）
+- [ ] 串级 PID（外环降频、速度限幅）
+- [ ] 增益调度（插值连续性）
+- [ ] 模糊自适应（规则表插值）
+- [ ] 运行中动态改参
+- [ ] 非法参数与未初始化对象防护
+
+---
+
+**总结**：`alg_pid` 提供了工业级、高度可配置的 PID 控制解决方案，覆盖从简单速度环到复杂串级、增益调度和模糊自适应等高级场景。其零动态内存、纯 C11、连续时间增益和丰富的前馈/抗饱和机制，使其非常适合嵌入式实时控制系统。配合 BSP/Module 层的传感器/执行器接口，可快速构建高精度、高可靠性的闭环控制系统。
