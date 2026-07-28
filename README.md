@@ -533,7 +533,6 @@ Debug 和 Release 使用同一固件输出路径，后执行的构建会覆盖�
 ## 进一步文档
 
 - [架构与依赖规则](ARCHITECTURE.md)
-- [RoboMaster 能力路线图](ROBOMASTER_ROADMAP.md)
 - [Algorithm 层说明](User/Algorithm/README.md)
 - [App 层说明](User/App/README.md)
 - [BSP 层说明](User/Bsp/README.md)
