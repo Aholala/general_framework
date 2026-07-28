@@ -6,12 +6,8 @@ Algorithm 只处理数值、状态和几何关系，不访问设备、寄存器�
 ## 数学、运动与轨迹
 
 - [alg_math](alg_math/README.md)：标量、统计、向量、矩阵和四元数；
-- [alg_motion](alg_motion/README.md)：速率限制与周期量连续化；
 - [alg_trajectory](alg_trajectory/README.md)：梯形速度、S 曲线和在线目标切换。
 - [alg_attitude](alg_attitude/README.md)：Mahony/Madgwick 六轴姿态备份与外部 yaw 修正；
-- [alg_power_limit](alg_power_limit/README.md)：裁判功率、缓冲能量和多执行器优先级分配；
-- [alg_chassis_estimator](alg_chassis_estimator/README.md)：任意轮布局加权最小二乘里程计；
-- [alg_ballistic](alg_ballistic/README.md)：带空气阻力的弹道补偿和目标提前量；
 
 ## 滤波与状态估计
 
@@ -23,17 +19,14 @@ Algorithm 只处理数值、状态和几何关系，不访问设备、寄存器�
 
 - [alg_pid](alg_pid/README.md)：位置式、增量式、串级、模糊和增益调度 PID；
 - [alg_lqr](alg_lqr/README.md)：LQR、LQI、Riccati 与常用模型；
-- [alg_axis_controller](alg_axis_controller/README.md)：PID/LQR 多态单轴接口。
+- [alg_angle_controller](alg_angle_controller/README.md)：PID/LQR 多态单轴接口。
 
 ## 底盘运动学
 
-- [alg_chassis](alg_chassis/README.md)：公共约束求解、坐标变换、旋转中心和里程计；
-- [alg_chassis_fault](alg_chassis_fault/README.md)：轮速残差故障确认与恢复；
-- [alg_differential](alg_differential/README.md)：二轮、四轮与多轮差速；
+- [alg_chassis](alg_chassis/README.md)：底盘运动计算和车轮状态监测；
 - [alg_mecanum](alg_mecanum/README.md)：X/O 型四麦克纳姆轮；
 - [alg_omni](alg_omni/README.md)：三轮、四轮和任意非对称全向轮；
-- [alg_swerve](alg_swerve/README.md)：任意舵轮布局；
-- [alg_ackermann](alg_ackermann/README.md)：前轮转向四轮 Ackermann。
+- [alg_swerve](alg_swerve/README.md)：任意舵轮布局。
 
 ## 单位规范
 

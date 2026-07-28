@@ -1,174 +1,182 @@
-# alg_kalman
+# 通用卡尔曼滤波库 (alg_kalman) —— 完整使用指南
 
-`alg_kalman` 是 Algorithm 层独立的卡尔曼滤波库。源码和头文件直接位于模块目录，不再划分 `Inc` 和 `Src`。
+## 1. 模块概述
 
-## 提供的算法
+`alg_kalman` 是 Algorithm 层独立的卡尔曼滤波库，提供三种卡尔曼滤波算法：标量卡尔曼、线性卡尔曼和扩展卡尔曼（EKF）。所有算法均使用纯 C11 实现，不依赖 HAL、CMSIS 或 RTOS，不使用动态内存，所有矩阵由调用者提供。
 
-| 算法 | 对象 | 适用场景 |
-|---|---|---|
-| 标量卡尔曼 | `alg_kalman_scalar_t` | 单个传感器量的低成本递推估计 |
-| 任意维线性卡尔曼 | `alg_kalman_linear_t` | 状态模型和观测模型均为线性系统 |
-| 扩展卡尔曼 EKF | `alg_kalman_extended_t` | 非线性状态模型或非线性观测模型 |
+**核心功能**：
 
-线性 KF 与 EKF 都没有固定维度上限。状态维数、测量维数和控制维数由初始化配置决定。
+- 标量卡尔曼滤波（单变量）
+- 任意维线性卡尔曼滤波
+- 扩展卡尔曼滤波（EKF，非线性模型）
 
-## 可移植性
+**设计哲学**：
 
-- 纯 C11。
-- 不依赖 HAL、CMSIS 或 RTOS。
-- 不使用动态内存。
-- 不读取系统时钟。
-- 不使用可变全局状态。
-- 所有矩阵均为调用者持有的连续 `float` 数组。
-- 工作区由调用者静态提供。
-- 支持多个互不干扰的滤波器实例。
-- 只依赖 `<stdbool.h>`、`<stddef.h>` 和 `<math.h>`。
+- **零动态内存**：所有内存由调用者静态分配
+- **纯标准库依赖**：只依赖 `<stdbool.h>`、`<stddef.h>`、`<math.h>`
+- **多实例支持**：每个对象独立状态，可创建任意多个实例
+- **时变模型支持**：可在运行中修改矩阵，无需重新初始化
+- **数值稳定**：Joseph 形式协方差更新 + 部分主元 Gauss-Jordan 求逆
 
-## 矩阵存储规则
+## 2. 矩阵存储规则
 
-所有矩阵均使用行优先连续存储：
+所有矩阵使用**行优先连续存储**：
 
 ```text
 A(row, column) = A[row * column_count + column]
 ```
 
-线性卡尔曼模型为：
+## 3. 三种滤波器对比
 
-```text
-x(k) = F x(k-1) + B u(k)
-P(k) = F P(k-1) F^T + Q
-z(k) = H x(k) + v(k)
-```
+| 特性     | 标量卡尔曼 | 线性卡尔曼   | 扩展卡尔曼 |
+| :------- | :--------- | :----------- | :--------- |
+| 状态维度 | 1          | 任意 n       | 任意 n     |
+| 测量维度 | 1          | 任意 m       | 任意 m     |
+| 控制输入 | 状态增量   | 任意 c       | 任意 c     |
+| 模型类型 | 线性       | 线性         | 非线性     |
+| 模型定义 | 内置       | 矩阵 F, H, B | 回调函数   |
+| 适用场景 | 单变量估计 | 线性系统     | 非线性系统 |
 
-对应关系：
+## 4. 使用示例
 
-| 配置成员 | 矩阵 | 尺寸 |
-|---|---|---|
-| `state` | x | `n × 1` |
-| `covariance` | P | `n × n` |
-| `transition_matrix` | F | `n × n` |
-| `control_matrix` | B | `n × c` |
-| `process_noise` | Q | `n × n` |
-| `measurement_matrix` | H | `m × n` |
-| `measurement_noise` | R | `m × m` |
-
-其中 `n` 是状态维数，`m` 是测量维数，`c` 是控制输入维数。
-
-## 静态工作区
-
-使用宏计算所需的 `float` 元素数量：
+### 4.1 标量卡尔曼（温度估计）
 
 ```c
-enum
-{
-    STATE_DIMENSION = 2,
-    MEASUREMENT_DIMENSION = 1
+static alg_kalman_scalar_t s_temp_filter;
+
+void init_temp_filter(void) {
+    alg_kalman_scalar_init(&s_temp_filter, 0.01F, 0.5F, 25.0F, 1.0F);
+}
+
+float filter_temperature(float measurement) {
+    float filtered;
+    alg_kalman_scalar_update(&s_temp_filter, measurement, &filtered);
+    return filtered;
+}
+```
+
+### 4.2 线性卡尔曼（恒加速度模型）
+
+```c
+#define STATE_DIM 2
+#define MEAS_DIM 1
+#define CONTROL_DIM 0
+
+static float s_state[STATE_DIM];
+static float s_cov[STATE_DIM * STATE_DIM];
+static float s_F[STATE_DIM * STATE_DIM] = {{1.0F, 0.01F}, {0.0F, 1.0F}};
+static float s_Q[STATE_DIM * STATE_DIM] = {{0.01F, 0.0F}, {0.0F, 0.01F}};
+static float s_H[MEAS_DIM * STATE_DIM] = {{1.0F, 0.0F}};
+static float s_R[MEAS_DIM * MEAS_DIM] = {{0.1F}};
+static float s_workspace[ALG_KALMAN_WORKSPACE_SIZE(STATE_DIM, MEAS_DIM)];
+
+alg_kalman_linear_t s_kf;
+
+void init_kf(void) {
+    alg_kalman_linear_config_t config = {
+        .state_dimension = STATE_DIM,
+        .measurement_dimension = MEAS_DIM,
+        .control_dimension = 0,
+        .state = s_state,
+        .covariance = s_cov,
+        .transition_matrix = s_F,
+        .control_matrix = NULL,
+        .process_noise = s_Q,
+        .measurement_matrix = s_H,
+        .measurement_noise = s_R,
+        .workspace = s_workspace,
+        .workspace_size = sizeof(s_workspace) / sizeof(s_workspace[0]),
+    };
+    // 初始状态
+    float init_state[STATE_DIM] = {0.0F, 1.0F};
+    float init_cov[STATE_DIM * STATE_DIM] = {{1.0F, 0.0F}, {0.0F, 1.0F}};
+    alg_kalman_linear_init(&s_kf, &config);
+    alg_kalman_linear_reset(&s_kf, init_state, init_cov);
+}
+
+void predict_and_correct(float measurement) {
+    alg_kalman_linear_predict(&s_kf, NULL);
+    alg_kalman_linear_correct(&s_kf, &measurement);
+    const float *state = alg_kalman_linear_get_state(&s_kf);
+}
+```
+
+### 4.3 扩展卡尔曼（IMU 姿态）
+
+```c
+#define STATE_DIM 6
+#define MEAS_DIM 3
+#define CONTROL_DIM 3
+
+// 状态转移函数
+static alg_kalman_status_t state_function(const float *state, ...) {
+    // 四元数积分...
+    return ALG_KALMAN_STATUS_OK;
+}
+
+// 测量函数
+static alg_kalman_status_t measurement_function(const float *state, ...) {
+    // 重力方向预测...
+    return ALG_KALMAN_STATUS_OK;
+}
+
+alg_kalman_extended_config_t config = {
+    .state_dimension = STATE_DIM,
+    .measurement_dimension = MEAS_DIM,
+    .control_dimension = CONTROL_DIM,
+    .state = s_state,
+    .covariance = s_cov,
+    .process_noise = s_Q,
+    .measurement_noise = s_R,
+    .workspace = s_workspace,
+    .workspace_size = sizeof(s_workspace) / sizeof(s_workspace[0]),
+    .state_function = state_function,
+    .state_jacobian_function = state_jacobian,
+    .measurement_function = measurement_function,
+    .measurement_jacobian_function = measurement_jacobian,
+    .user_context = &imu_data,
 };
 
+alg_kalman_extended_init(&s_ekf, &config);
+alg_kalman_extended_predict(&s_ekf, gyro_input, 0.01F);
+alg_kalman_extended_correct(&s_ekf, accel_input);
+```
+
+## 5. 工作区大小计算
+
+使用 `ALG_KALMAN_WORKSPACE_SIZE` 宏计算所需浮点元素数：
+
+```c
 static float s_workspace[
     ALG_KALMAN_WORKSPACE_SIZE(STATE_DIMENSION, MEASUREMENT_DIMENSION)];
+
+config.workspace_size = sizeof(s_workspace) / sizeof(s_workspace[0]);
 ```
 
-传入 `workspace_size` 的是元素数量，不是字节数量：
+## 6. 数值稳定性
 
-```c
-.workspace_size = sizeof(s_workspace) / sizeof(s_workspace[0])
-```
+- **协方差更新**：使用 Joseph 形式 `P = (I-KH)P(I-KH)^T + KRK^T`，比直接形式更稳定
+- **对称化**：每次更新后主动对称化协方差矩阵
+- **矩阵求逆**：使用部分主元 Gauss-Jordan 消元法
+- **检查机制**：所有输入检查有限数、对角线非负
 
-工作区会在每次预测或校正中被覆盖，不能用于保存其他长期数据。
+## 7. 并发约束
 
-## 标量卡尔曼
+- 同一滤波器对象不能多线程并发访问
+- 推荐一个对象只由一个执行上下文持有
+- 跨上下文数据通过消息队列或双缓冲传递
 
-```c
-static alg_kalman_scalar_t s_temperature_filter;
+## 8. 建议验证测试项
 
-void app_temperature_filter_init(void)
-{
-    (void)alg_kalman_scalar_init(&s_temperature_filter,
-                               0.01F,
-                               0.50F,
-                               25.0F,
-                               1.0F);
-}
+- [ ] 标量卡尔曼收敛性和复位
+- [ ] 二维恒加速度线性模型
+- [ ] 多维测量和矩阵求逆
+- [ ] 非线性平方观测 EKF
+- [ ] Joseph 协方差更新后的对称性
+- [ ] 空指针、未初始化对象和非法参数
+- [ ] 工作区不足返回 `INSUFFICIENT_WORKSPACE`
+- [ ] 奇异创新协方差返回 `SINGULAR_MATRIX`
 
-alg_kalman_status_t app_temperature_filter_update(float measurement,
-                                                  float *filtered_temperature)
-{
-    return alg_kalman_scalar_update(&s_temperature_filter,
-                                  measurement,
-                                  filtered_temperature);
-}
-```
+---
 
-如果系统存在已知状态增量，可分开调用：
-
-```c
-alg_kalman_scalar_predict(&filter, known_state_delta);
-alg_kalman_scalar_correct(&filter, measurement, &output);
-```
-
-## 线性卡尔曼
-
-`alg_kalman_linear_config_t` 保存矩阵地址，不复制矩阵。所有数组必须在滤波器整个生命周期内持续有效。
-
-时间变化的模型可以在每次预测前更新调用者持有的 `F`、`B`、`Q`、`H` 或 `R` 数组，无需重新初始化对象。
-
-当 `control_dimension` 为零时：
-
-- `control_matrix` 可以为 `NULL`。
-- `alg_kalman_linear_predict()` 的控制输入可以为 `NULL`。
-
-当 `control_dimension` 大于零时，控制矩阵和控制输入都不能为空。
-
-## 扩展卡尔曼
-
-EKF 通过四个回调注入具体模型：
-
-- `state_function`：计算非线性状态预测 `f(x, u, dt)`。
-- `state_jacobian_function`：计算状态雅可比 `F = ∂f/∂x`。
-- `measurement_function`：计算预测测量 `h(x)`。
-- `measurement_jacobian_function`：计算观测雅可比 `H = ∂h/∂x`。
-
-回调收到 `user_context`，可访问只读模型参数，不需要依赖全局变量。回调必须填满输出数组，并确保所有结果为有限浮点数。
-
-## 数值稳定性
-
-- 测量校正使用 Joseph 形式更新协方差：
-
-```text
-P = (I-KH)P(I-KH)^T + KRK^T
-```
-
-- 每次更新后主动恢复协方差矩阵的对称性。
-- 创新协方差使用带部分主元选择的 Gauss-Jordan 方法求逆。
-- 奇异创新矩阵返回 `ALG_KALMAN_STATUS_SINGULAR_MATRIX`。
-- 数值错误不会提交新的状态和协方差。
-- 初始化检查所有输入的有限性以及协方差、Q、R 的非负对角线。
-
-调用者仍必须保证初始协方差、Q 和 R 是合理的对称半正定矩阵。只检查对角线不能完整证明矩阵半正定。
-
-## 单位规则
-
-卡尔曼库无法替调用者判断单位。构造模型时必须保证：
-
-- 状态、控制量和测量量的单位一致。
-- F、B、H、Q、R 使用同一离散采样周期。
-- EKF 的 `delta_time_s` 单位固定为秒。
-- 角度状态统一采用弧度或角度，不在同一模型中混用。
-
-## 并发规则
-
-同一个对象不能同时在任务和中断中无保护调用。推荐一个滤波对象只由一个执行上下文持有；跨上下文数据通过消息队列或双缓冲传递。
-
-## 验证建议
-
-集成到具体模型时至少验证：
-
-- 标量卡尔曼收敛、复位及独立预测/校正。
-- 二维恒加速度线性模型。
-- 多维测量和矩阵求逆。
-- 非线性平方观测 EKF。
-- Joseph 协方差更新后的对称性。
-- 空指针、未初始化对象和非法参数。
-- 工作区不足。
-- 奇异创新协方差。
+**总结**：`alg_kalman` 提供了完整的卡尔曼滤波解决方案，从标量到任意维度线性、再到扩展卡尔曼，覆盖了绝大多数状态估计场景。其无动态内存、纯 C11 的实现使其非常适合嵌入式实时系统。配合 BSP/Module 层的传感器数据，可构建完整的传感器融合系统。

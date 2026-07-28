@@ -162,11 +162,6 @@ target_include_directories(alg_math PUBLIC User/Algorithm/alg_math)
 target_link_libraries(alg_math PUBLIC m)
 framework_configure_library(alg_math)
 
-add_library(alg_motion OBJECT User/Algorithm/alg_motion/alg_motion.c)
-target_include_directories(alg_motion PUBLIC User/Algorithm/alg_motion)
-target_link_libraries(alg_motion PUBLIC m)
-framework_configure_library(alg_motion)
-
 add_library(alg_trajectory OBJECT
     User/Algorithm/alg_trajectory/alg_trajectory.c
     User/Algorithm/alg_trajectory/alg_trajectory_group.c
@@ -174,29 +169,15 @@ add_library(alg_trajectory OBJECT
 target_include_directories(alg_trajectory PUBLIC User/Algorithm/alg_trajectory)
 framework_configure_library(alg_trajectory)
 
-add_library(alg_attitude OBJECT User/Algorithm/alg_attitude/alg_attitude.c)
+add_library(alg_attitude OBJECT
+    User/Algorithm/alg_attitude/alg_attitude_core.c
+    User/Algorithm/alg_attitude/alg_attitude_mahony.c
+    User/Algorithm/alg_attitude/alg_attitude_madgwick.c
+    User/Algorithm/alg_attitude/alg_attitude_output.c
+)
 target_include_directories(alg_attitude PUBLIC User/Algorithm/alg_attitude)
 target_link_libraries(alg_attitude PUBLIC m)
 framework_configure_library(alg_attitude)
-
-add_library(alg_power_limit OBJECT User/Algorithm/alg_power_limit/alg_power_limit.c)
-target_include_directories(alg_power_limit PUBLIC User/Algorithm/alg_power_limit)
-target_link_libraries(alg_power_limit PUBLIC m)
-framework_configure_library(alg_power_limit)
-
-add_library(alg_chassis_estimator OBJECT
-    User/Algorithm/alg_chassis_estimator/alg_chassis_estimator.c
-)
-target_include_directories(alg_chassis_estimator
-    PUBLIC User/Algorithm/alg_chassis_estimator
-)
-target_link_libraries(alg_chassis_estimator PUBLIC m)
-framework_configure_library(alg_chassis_estimator)
-
-add_library(alg_ballistic OBJECT User/Algorithm/alg_ballistic/alg_ballistic.c)
-target_include_directories(alg_ballistic PUBLIC User/Algorithm/alg_ballistic)
-target_link_libraries(alg_ballistic PUBLIC m)
-framework_configure_library(alg_ballistic)
 
 add_library(alg_filter OBJECT
     User/Algorithm/alg_filter/alg_filter_basic.c
@@ -250,32 +231,32 @@ target_include_directories(alg_lqr PUBLIC User/Algorithm/alg_lqr)
 target_link_libraries(alg_lqr PUBLIC m)
 framework_configure_library(alg_lqr)
 
-add_library(alg_axis_controller OBJECT
-    User/Algorithm/alg_axis_controller/alg_axis_controller.c
+add_library(alg_angle_controller OBJECT
+    User/Algorithm/alg_angle_controller/alg_angle_controller.c
 )
-target_include_directories(alg_axis_controller PUBLIC User/Algorithm/alg_axis_controller)
-target_link_libraries(alg_axis_controller PUBLIC alg_pid alg_lqr)
-framework_configure_library(alg_axis_controller)
+target_include_directories(alg_angle_controller PUBLIC User/Algorithm/alg_angle_controller)
+target_link_libraries(alg_angle_controller PUBLIC alg_pid alg_lqr)
+framework_configure_library(alg_angle_controller)
 
-add_library(alg_chassis OBJECT User/Algorithm/alg_chassis/alg_chassis.c)
-target_include_directories(alg_chassis PUBLIC User/Algorithm/alg_chassis)
-framework_configure_library(alg_chassis)
+add_library(alg_chassis_motion OBJECT User/Algorithm/alg_chassis/alg_chassis_motion.c)
+target_include_directories(alg_chassis_motion PUBLIC User/Algorithm/alg_chassis)
+framework_configure_library(alg_chassis_motion)
 
-add_library(alg_chassis_fault OBJECT
-    User/Algorithm/alg_chassis_fault/alg_chassis_fault.c
+add_library(alg_chassis_wheel_monitor OBJECT
+    User/Algorithm/alg_chassis/alg_chassis_wheel_monitor.c
 )
-target_include_directories(alg_chassis_fault PUBLIC User/Algorithm/alg_chassis_fault)
-target_link_libraries(alg_chassis_fault PUBLIC alg_chassis)
-framework_configure_library(alg_chassis_fault)
+target_include_directories(alg_chassis_wheel_monitor PUBLIC User/Algorithm/alg_chassis)
+target_link_libraries(alg_chassis_wheel_monitor PUBLIC alg_chassis_motion)
+framework_configure_library(alg_chassis_wheel_monitor)
 
-foreach(chassis_algorithm IN ITEMS ackermann differential mecanum omni swerve)
+foreach(chassis_algorithm IN ITEMS mecanum omni swerve)
     add_library(alg_${chassis_algorithm} OBJECT
         User/Algorithm/alg_${chassis_algorithm}/alg_${chassis_algorithm}.c
     )
     target_include_directories(alg_${chassis_algorithm}
         PUBLIC User/Algorithm/alg_${chassis_algorithm}
     )
-    target_link_libraries(alg_${chassis_algorithm} PUBLIC alg_chassis)
+    target_link_libraries(alg_${chassis_algorithm} PUBLIC alg_chassis_motion)
     framework_configure_library(alg_${chassis_algorithm})
 endforeach()
 
@@ -410,22 +391,15 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     stm32_usb_device
     bsp
     alg_math
-    alg_motion
     alg_trajectory
     alg_attitude
-    alg_power_limit
-    alg_chassis_estimator
-    alg_ballistic
     alg_filter
     alg_kalman
     alg_imu_ekf
     alg_pid
     alg_lqr
-    alg_axis_controller
-    alg_chassis
-    alg_chassis_fault
-    alg_ackermann
-    alg_differential
+    alg_angle_controller
+    alg_chassis_wheel_monitor
     alg_mecanum
     alg_omni
     alg_swerve

@@ -6,8 +6,7 @@
  * @date 2026-07-28
  * @copyright Copyright (c) 2026
  *
- * @note 固定电机型号为 GM6020（减速比 1.0，直驱），
- *       防止调用者误填 M2006/M3508 型号或错误减速比。
+ * @note GM6020 电机的控制模式为 VOLTAGE、VELOCITY、POSITION，分别对应大疆通用电机的 DIRECT、VELOCITY、POSITION。
  *       所有功能通过转发到 module_dji_motor 实现。
  */
 
