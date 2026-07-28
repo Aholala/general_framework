@@ -1,3 +1,14 @@
+/**
+ * @file module_device.c
+ * @author Ahola邱泽钦 (aholace0328@gmail.com)
+ * @brief 
+ * @version 1.0
+ * @date 2026-07-28
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
+
 #include "module_device.h"
 
 module_device_status_t module_device_init_base(module_device_t *const me,

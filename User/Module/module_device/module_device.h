@@ -1,3 +1,14 @@
+/**
+ * @file module_device.h
+ * @author Ahola邱泽钦 (aholace0328@gmail.com)
+ * @brief 
+ * @version 1.0
+ * @date 2026-07-28
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
+
 #ifndef MODULE_DEVICE_H
 #define MODULE_DEVICE_H
 

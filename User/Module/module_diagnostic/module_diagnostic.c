@@ -1,3 +1,14 @@
+/**
+ * @file module_diagnostic.c
+ * @author Ahola邱泽钦 (aholace0328@gmail.com)
+ * @brief 
+ * @version 1.0
+ * @date 2026-07-28
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
+
 #include "module_diagnostic.h"
 
 static module_device_status_t module_diagnostic_start_device(module_device_t *device);

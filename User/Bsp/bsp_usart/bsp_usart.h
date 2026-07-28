@@ -25,6 +25,10 @@ extern "C"
     typedef struct bsp_usart bsp_usart_t;
     typedef struct bsp_usart_device bsp_usart_device_t;
 
+    typedef void (*bsp_usart_double_buffer_callback_t)(uint8_t completed_buffer_index,
+                                                       size_t received_size,
+                                                       void *user_context);
+
     /* ---------- 高层虚表（面向应用层） ---------- */
     /**
      * @brief USART 操作虚表，继承自 bsp_device_ops_t
@@ -73,6 +77,11 @@ extern "C"
         bsp_status_t (*receive_to_idle)(bsp_usart_t *const me, uint8_t *data, size_t capacity,
                                         bsp_transfer_mode_t mode, uint32_t timeout_ms);
 
+        bsp_status_t (*receive_to_idle_double_buffer)(
+            bsp_usart_t *const me, uint8_t *first_buffer, uint8_t *second_buffer,
+            size_t buffer_capacity, bsp_usart_double_buffer_callback_t callback,
+            void *user_context);
+
         /**
          * @brief 中止当前事务
          * @param me 基类指针
@@ -99,6 +108,8 @@ extern "C"
         bsp_device_t super;            // 设备基类
         bsp_event_callback_t callback; // 事件回调函数
         void *user_context;            // 回调用户上下文
+        bsp_usart_double_buffer_callback_t double_buffer_callback;
+        void *double_buffer_user_context;
     };
 
     /* ---------- 底层驱动操作表（平台实现） ---------- */
@@ -118,6 +129,10 @@ extern "C"
         bsp_status_t (*receive_to_idle)(void *device_handle, uint8_t *data, size_t capacity,
                                         bsp_transfer_mode_t mode,
                                         uint32_t timeout_ms);               // 空闲线接收（可选）
+        bsp_status_t (*receive_to_idle_double_buffer)(void *device_handle,
+                                                       uint8_t *first_buffer,
+                                                       uint8_t *second_buffer,
+                                                       size_t buffer_capacity);
         bsp_status_t (*abort)(void *device_handle);                         // 中止（可选）
         bsp_status_t (*get_busy)(const void *device_handle, bool *is_busy); // 忙查询（可选）
     } bsp_usart_driver_ops_t;
@@ -206,6 +221,10 @@ extern "C"
     bsp_status_t bsp_usart_receive_to_idle(bsp_usart_t *const me, uint8_t *data, size_t capacity,
                                            bsp_transfer_mode_t mode, uint32_t timeout_ms);
 
+    bsp_status_t bsp_usart_receive_to_idle_double_buffer(
+        bsp_usart_t *const me, uint8_t *first_buffer, uint8_t *second_buffer,
+        size_t buffer_capacity, bsp_usart_double_buffer_callback_t callback, void *user_context);
+
     /**
      * @brief 中止当前事务
      * @param me 基类指针
@@ -230,6 +249,9 @@ extern "C"
      */
     void bsp_usart_notify(bsp_usart_t *const me, bsp_event_t event, bsp_status_t status,
                           size_t transferred_size);
+
+    void bsp_usart_notify_double_buffer(bsp_usart_t *const me, uint8_t completed_buffer_index,
+                                        size_t received_size);
 
 #ifdef __cplusplus
 }

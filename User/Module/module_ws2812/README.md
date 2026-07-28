@@ -1,65 +1,68 @@
-# module_ws2812
+# WS2812 灯带驱动模块 (module_ws2812) —— 简要使用指南
 
-基于 SPI 编码波形的 WS2812 灯带模块，支持像素缓冲、全局亮度、异步刷新以及闪烁、流水、
-呼吸、彩虹和剧院追逐效果。
+## 1. 模块概述
 
-## 内存计算
+`module_ws2812` 通过 SPI 以编码波形驱动 WS2812 智能 LED 灯带，支持像素缓冲、全局亮度、异步刷新以及多种灯光效果。它基于 `bsp_spi` 抽象层，与具体 MCU 解耦。
 
-调用者提供：
+## 2. 内存与配置
 
-- `module_ws2812_color_t pixels[led_count]`；
-- 编码发送缓冲区；
-- SPI 基类。
+调用者需提供：
 
-缓冲区最小容量使用：
+- `pixels`：`module_ws2812_color_t` 数组，长度为 `led_count`
+- `transmit_buffer`：编码后的 SPI 发送缓冲区，最小大小通过 `MODULE_WS2812_REQUIRED_BUFFER_SIZE` 计算
 
 ```c
 MODULE_WS2812_REQUIRED_BUFFER_SIZE(led_count, reset_byte_count)
 ```
 
-当前编码每颗 LED 使用 9 字节，尾部增加复位低电平字节。两块缓冲均由调用者长期持有。
-
-## SPI 条件
-
-平台 SPI 频率必须与编码比特模式匹配，使每个 WS2812 bit 的高低时间落入芯片容差。不同
-SPI 时钟不能直接复用同一编码常量，移植时必须用逻辑分析仪确认波形。
-
-## 基本使用
+## 3. 基本用法
 
 ```c
-module_ws2812_init(&strip, &config);
+static module_ws2812_t strip;
+static module_ws2812_color_t pixel_buf[16];
+static uint8_t tx_buf[MODULE_WS2812_REQUIRED_BUFFER_SIZE(16, 1)];
+
+const module_ws2812_config_t cfg = {
+    .spi = spi_ptr,
+    .pixels = pixel_buf,
+    .led_count = 16,
+    .transmit_buffer = tx_buf,
+    .transmit_buffer_size = sizeof(tx_buf),
+    .reset_byte_count = 1,
+    .transmit_timeout_ms = 100,
+    .transfer_mode = BSP_TRANSFER_MODE_DMA,
+    .logical_name = "led_strip",
+    .registration_key = 0,
+};
+
+module_ws2812_init(&strip, &cfg);
 module_ws2812_start(&strip);
-module_ws2812_fill(&strip, module_ws2812_make_color(0U, 32U, 0U));
+module_ws2812_fill(&strip, module_ws2812_make_color(0, 32, 0));
 module_ws2812_show(&strip);
 ```
 
-`set_pixel` 和 `fill` 只修改像素数组，`show` 编码并启动传输。
+## 4. 效果引擎
 
-## 异步发送
+通过 `start_blink`、`start_color_wipe`、`start_breath`、`start_rainbow` 或 `start_theater_chase` 启用效果，然后在主循环中周期调用 `module_ws2812_update(me, dt_ms)`。
 
-`is_busy` 在发送期间保持真，禁止再次编码覆盖发送缓冲。平台 SPI 完成回调必须调用
-`module_ws2812_notify_transmit_complete`。DMA 模式下需处理缓存一致性。
+```c
+module_ws2812_start_breath(&strip, module_ws2812_make_color(255, 0, 0), 20);
+// 在任务中：
+module_ws2812_update(&strip, elapsed_ms);
+```
 
-## 效果引擎
+## 5. SPI 注意事项
 
-通过 `start_blink`、`start_color_wipe`、`start_breath`、`start_rainbow` 或
-`start_theater_chase` 选择效果，周期调用 `module_ws2812_update(elapsed_time_ms)`。
-效果状态保存在对象内，无阻塞延时。
+- SPI 频率需配合 WS2812 时序，每个 SPI bit 对应 WS2812 的一个 bit 周期。
+- 异步发送时，SPI 完成回调必须调用 `module_ws2812_notify_transmit_complete` 清除忙标志。
+- DMA 模式下需处理缓存一致性。
 
-`set_brightness` 是软件全局缩放，不改变原始像素颜色。频繁浮点缩放已避免，适合低优先级
-状态灯任务。
+## 6. 建议验证
 
-## 赛场策略
-
-灯带是非关键负载。SPI 忙或错误不应阻塞控制任务；效果刷新率应受限，避免抢占传感器 SPI
-和 DMA 带宽。故障状态颜色优先级由 App 决定。
-
-## 建议验证
-
-- 1 颗、最大配置数量和缓冲边界；
-- RGB 顺序和亮度 0/255；
-- SPI 波形时序和 reset 时间；
-- 同步/异步发送忙保护；
-- 五种效果及大时间步；
-- 发送错误恢复；
-- 与其他 SPI 设备的总线仲裁。
+- 单颗 LED 和最大数量下的缓冲区边界
+- RGB 顺序和亮度 0/255
+- SPI 波形时序和复位低电平时间
+- 同步/异步发送忙保护
+- 五种效果及大步进时间
+- 发送错误恢复
+- 与其他 SPI 设备的总线仲裁

@@ -413,6 +413,47 @@ static bsp_status_t bsp_stm32h723_usart_receive_to_idle(void *handle, uint8_t *d
         HAL_UARTEx_ReceiveToIdle_DMA((UART_HandleTypeDef *)handle, data, (uint16_t)capacity));
 }
 
+static bsp_status_t bsp_stm32h723_usart_receive_to_idle_double_buffer(
+    void *handle, uint8_t *first_buffer, uint8_t *second_buffer, size_t buffer_capacity)
+{
+    UART_HandleTypeDef *const uart = (UART_HandleTypeDef *)handle;
+    HAL_StatusTypeDef hal_status;
+
+    if ((uart == NULL) || (uart->hdmarx == NULL) || (first_buffer == NULL) ||
+        (second_buffer == NULL) || (first_buffer == second_buffer) || (buffer_capacity == 0U) ||
+        (buffer_capacity > UINT16_MAX))
+    {
+        return BSP_STATUS_INVALID_ARGUMENT;
+    }
+    if (uart->RxState != HAL_UART_STATE_READY)
+    {
+        return BSP_STATUS_BUSY;
+    }
+
+    uart->ReceptionType = HAL_UART_RECEPTION_TOIDLE;
+    uart->RxEventType = HAL_UART_RXEVENT_IDLE;
+    uart->pRxBuffPtr = first_buffer;
+    uart->RxXferSize = (uint16_t)buffer_capacity;
+    uart->RxXferCount = (uint16_t)buffer_capacity;
+    uart->ErrorCode = HAL_UART_ERROR_NONE;
+    uart->RxState = HAL_UART_STATE_BUSY_RX;
+
+    __HAL_UART_CLEAR_FLAG(uart, UART_CLEAR_IDLEF);
+    __HAL_UART_ENABLE_IT(uart, UART_IT_IDLE);
+    hal_status = HAL_DMAEx_MultiBufferStart(
+        uart->hdmarx, (uint32_t)(uintptr_t)&uart->Instance->RDR,
+        (uint32_t)(uintptr_t)first_buffer, (uint32_t)(uintptr_t)second_buffer,
+        (uint32_t)buffer_capacity);
+    if (hal_status != HAL_OK)
+    {
+        __HAL_UART_DISABLE_IT(uart, UART_IT_IDLE);
+        uart->RxState = HAL_UART_STATE_READY;
+        return bsp_stm32h723_status(hal_status);
+    }
+    SET_BIT(uart->Instance->CR3, USART_CR3_DMAR);
+    return BSP_STATUS_OK;
+}
+
 /**
  * @brief USART 中止当前传输
  * @param handle UART_HandleTypeDef* 句柄
@@ -446,6 +487,7 @@ static const bsp_usart_driver_ops_t bsp_stm32h723_usart_driver_ops = {
     .transmit = bsp_stm32h723_usart_transmit,
     .receive = bsp_stm32h723_usart_receive,
     .receive_to_idle = bsp_stm32h723_usart_receive_to_idle,
+    .receive_to_idle_double_buffer = bsp_stm32h723_usart_receive_to_idle_double_buffer,
     .abort = bsp_stm32h723_usart_abort,
     .get_busy = bsp_stm32h723_usart_busy,
 };
@@ -1333,7 +1375,33 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *uart, uint16_t received_size
     bsp_usart_t *const usart = bsp_stm32h723_find_usart(uart);
     if (usart != NULL)
     {
-        bsp_usart_notify(usart, BSP_EVENT_RECEIVE_COMPLETE, BSP_STATUS_OK, received_size);
+        DMA_Stream_TypeDef *const dma_stream =
+            (uart->hdmarx != NULL) ? (DMA_Stream_TypeDef *)uart->hdmarx->Instance : NULL;
+        if ((dma_stream != NULL) && ((dma_stream->CR & DMA_SxCR_DBM) != 0U))
+        {
+            const uint8_t completed_buffer_index =
+                ((dma_stream->CR & DMA_SxCR_CT) != 0U) ? 1U : 0U;
+
+            __HAL_DMA_DISABLE(uart->hdmarx);
+            while ((dma_stream->CR & DMA_SxCR_EN) != 0U)
+            {
+            }
+            if (completed_buffer_index == 0U)
+            {
+                SET_BIT(dma_stream->CR, DMA_SxCR_CT);
+            }
+            else
+            {
+                CLEAR_BIT(dma_stream->CR, DMA_SxCR_CT);
+            }
+            __HAL_DMA_SET_COUNTER(uart->hdmarx, uart->RxXferSize);
+            __HAL_DMA_ENABLE(uart->hdmarx);
+            bsp_usart_notify_double_buffer(usart, completed_buffer_index, received_size);
+        }
+        else
+        {
+            bsp_usart_notify(usart, BSP_EVENT_RECEIVE_COMPLETE, BSP_STATUS_OK, received_size);
+        }
     }
 }
 

@@ -115,7 +115,7 @@
 #define BOARD_CONFIG_DR16_UART_BAUD_RATE (100000UL)     /* 100kbps */
 #define BOARD_CONFIG_DR16_UART_WORD_LENGTH_BITS (9U)    /* 9 位数据 */
 #define BOARD_CONFIG_DR16_UART_EVEN_PARITY_ENABLED (1U) /* 偶校验 */
-#define BOARD_CONFIG_DR16_UART_STOP_BITS (1U)           /* 1 停止位 */
+#define BOARD_CONFIG_DR16_UART_STOP_BITS (2U)           /* 2 停止位 */
 
 /* ------------------------------------------------------------------------- */
 /* FDCAN                                                                     */

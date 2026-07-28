@@ -1,13 +1,36 @@
+/**
+ * @file module_referee_ui.c
+ * @author Ahola邱泽钦 (aholace0328@gmail.com)
+ * @brief 裁判系统客户端图形 UI 模块实现
+ *        维护一个图形发送队列，按批次编码发送，支持发送限频
+ * @version 1.0
+ * @date 2026-07-28
+ * @copyright Copyright (c) 2026
+ */
+
 #include "module_referee_ui.h"
 
 #include <string.h>
 
+/** @brief 交互数据帧头大小（数据命令 ID + 发送端 ID + 接收端 ID）*/
 #define MODULE_REFEREE_UI_INTERACTION_HEADER_SIZE (6U)
+/** @brief 单图形编码大小 */
 #define MODULE_REFEREE_UI_GRAPHIC_SIZE (15U)
+/** @brief 字符串最大长度 */
 #define MODULE_REFEREE_UI_STRING_SIZE (30U)
 
+/**
+ * @brief 设备启动回调
+ */
 static module_device_status_t module_referee_ui_start_device(module_device_t *device);
+/**
+ * @brief 设备停止回调
+ */
 static module_device_status_t module_referee_ui_stop_device(module_device_t *device);
+/**
+ * @brief 设备更新回调
+ *        按限频间隔发送队列中的图形
+ */
 static module_device_status_t module_referee_ui_update_device(module_device_t *device,
                                                               uint32_t elapsed_time_ms);
 
@@ -17,12 +40,22 @@ static const module_device_ops_t module_referee_ui_device_ops = {
     .update = module_referee_ui_update_device,
 };
 
+/**
+ * @brief 小端序写入 uint16
+ * @param[out] data 输出缓冲区
+ * @param value 写入值
+ */
 static void module_referee_ui_write_uint16(uint8_t *data, uint16_t value)
 {
     data[0] = (uint8_t)value;
     data[1] = (uint8_t)(value >> 8U);
 }
 
+/**
+ * @brief 小端序写入 uint32
+ * @param[out] data 输出缓冲区
+ * @param value 写入值
+ */
 static void module_referee_ui_write_uint32(uint8_t *data, uint32_t value)
 {
     data[0] = (uint8_t)value;
@@ -31,6 +64,11 @@ static void module_referee_ui_write_uint32(uint8_t *data, uint32_t value)
     data[3] = (uint8_t)(value >> 24U);
 }
 
+/**
+ * @brief 校验图形参数合法性
+ * @param graphic 图形结构体
+ * @return true=合法
+ */
 static bool module_referee_ui_graphic_is_valid(const module_referee_ui_graphic_t *graphic)
 {
     return (graphic != NULL) && (graphic->operation <= MODULE_REFEREE_UI_OPERATION_DELETE) &&
@@ -41,6 +79,11 @@ static bool module_referee_ui_graphic_is_valid(const module_referee_ui_graphic_t
            (graphic->radius <= 1023U) && (graphic->end_x <= 2047U) && (graphic->end_y <= 2047U);
 }
 
+/**
+ * @brief 编码图形为 15 字节协议格式
+ * @param graphic 图形结构体
+ * @param[out] output 编码输出
+ */
 static void module_referee_ui_encode_graphic(const module_referee_ui_graphic_t *graphic,
                                              uint8_t output[MODULE_REFEREE_UI_GRAPHIC_SIZE])
 {
@@ -61,6 +104,12 @@ static void module_referee_ui_encode_graphic(const module_referee_ui_graphic_t *
     module_referee_ui_write_uint32(&output[11], end_word);
 }
 
+/**
+ * @brief 获取批次发送命令 ID
+ * @param graphic_count 图形数量
+ * @return 对应命令 ID，不支持的返回 0
+ * @note 支持 1/2/5/7 个图形的批量命令
+ */
 static uint16_t module_referee_ui_batch_command(size_t graphic_count)
 {
     switch (graphic_count)
@@ -78,11 +127,21 @@ static uint16_t module_referee_ui_batch_command(size_t graphic_count)
     }
 }
 
+/**
+ * @brief 选择本次发送的图形数量（适配协议支持的批次大小）
+ * @param queue_count 队列中待发图形数
+ * @return 本次发送数量 (1/2/5/7)
+ */
 static size_t module_referee_ui_select_batch(size_t queue_count)
 {
     return (queue_count >= 7U) ? 7U : ((queue_count >= 5U) ? 5U : ((queue_count >= 2U) ? 2U : 1U));
 }
 
+/**
+ * @brief 编码交互数据帧头
+ * @param me UI 对象
+ * @param data_command_id 数据命令 ID
+ */
 static void module_referee_ui_encode_interaction_header(module_referee_ui_t *me,
                                                         uint16_t data_command_id)
 {
@@ -140,6 +199,13 @@ module_device_status_t module_referee_ui_enqueue(module_referee_ui_t *me,
     return MODULE_DEVICE_STATUS_OK;
 }
 
+/**
+ * @brief 发送删除命令（清除图层或全部）
+ * @param me UI 对象
+ * @param operation 操作类型
+ * @param layer 图层号
+ * @return 执行状态
+ */
 static module_device_status_t module_referee_ui_send_delete(module_referee_ui_t *me,
                                                             uint8_t operation, uint8_t layer)
 {

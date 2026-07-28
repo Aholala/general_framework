@@ -116,6 +116,29 @@ static bsp_status_t bsp_usart_device_receive_to_idle(bsp_usart_t *const base, ui
                : BSP_STATUS_UNSUPPORTED;
 }
 
+static bsp_status_t bsp_usart_device_receive_to_idle_double_buffer(
+    bsp_usart_t *const base, uint8_t *first_buffer, uint8_t *second_buffer,
+    size_t buffer_capacity, bsp_usart_double_buffer_callback_t callback, void *user_context)
+{
+    bsp_usart_device_t *const me = bsp_usart_get_device(base);
+    bsp_status_t status;
+
+    if (me->driver_ops->receive_to_idle_double_buffer == NULL)
+    {
+        return BSP_STATUS_UNSUPPORTED;
+    }
+    base->double_buffer_callback = callback;
+    base->double_buffer_user_context = user_context;
+    status = me->driver_ops->receive_to_idle_double_buffer(
+        base->super.device_handle, first_buffer, second_buffer, buffer_capacity);
+    if (status != BSP_STATUS_OK)
+    {
+        base->double_buffer_callback = NULL;
+        base->double_buffer_user_context = NULL;
+    }
+    return status;
+}
+
 /**
  * @brief 中止当前事务（转发至底层驱动，可选）
  * @param base 基类指针
@@ -148,6 +171,7 @@ static const bsp_usart_ops_t s_bsp_usart_device_ops = {
     .transmit = bsp_usart_device_transmit,               // 发送转发
     .receive = bsp_usart_device_receive,                 // 接收转发
     .receive_to_idle = bsp_usart_device_receive_to_idle, // 空闲线接收转发（可选）
+    .receive_to_idle_double_buffer = bsp_usart_device_receive_to_idle_double_buffer,
     .abort = bsp_usart_device_abort,                     // 中止转发（可选）
     .get_busy = bsp_usart_device_get_busy,               // 忙状态查询转发（可选）
 };
@@ -185,6 +209,8 @@ bsp_status_t bsp_usart_init(bsp_usart_device_t *const me, const bsp_usart_config
     // 设置回调函数和用户上下文
     me->super.callback = config->callback;
     me->super.user_context = config->user_context;
+    me->super.double_buffer_callback = NULL;
+    me->super.double_buffer_user_context = NULL;
     // 调用 device 基类初始化，注册虚表并保存设备句柄
     return bsp_device_init(&me->super.super, &s_bsp_usart_device_ops.super, config->device_handle);
 }
@@ -313,6 +339,24 @@ bsp_status_t bsp_usart_receive_to_idle(bsp_usart_t *const me, uint8_t *data, siz
     return bsp_usart_get_ops(me)->receive_to_idle(me, data, capacity, mode, timeout_ms);
 }
 
+bsp_status_t bsp_usart_receive_to_idle_double_buffer(
+    bsp_usart_t *const me, uint8_t *first_buffer, uint8_t *second_buffer,
+    size_t buffer_capacity, bsp_usart_double_buffer_callback_t callback, void *user_context)
+{
+    const bsp_status_t status = bsp_usart_validate(me);
+    if (status != BSP_STATUS_OK)
+    {
+        return status;
+    }
+    if ((first_buffer == NULL) || (second_buffer == NULL) || (first_buffer == second_buffer) ||
+        (buffer_capacity == 0U) || (callback == NULL))
+    {
+        return BSP_STATUS_INVALID_ARGUMENT;
+    }
+    return bsp_usart_get_ops(me)->receive_to_idle_double_buffer(
+        me, first_buffer, second_buffer, buffer_capacity, callback, user_context);
+}
+
 /**
  * @brief 中止当前事务（公共接口）
  * @param me 基类指针
@@ -360,5 +404,16 @@ void bsp_usart_notify(bsp_usart_t *const me, bsp_event_t event, bsp_status_t sta
     if ((me != NULL) && bsp_device_is_initialized(&me->super) && (me->callback != NULL))
     {
         me->callback(event, status, transferred_size, me->user_context);
+    }
+}
+
+void bsp_usart_notify_double_buffer(bsp_usart_t *const me, uint8_t completed_buffer_index,
+                                    size_t received_size)
+{
+    if ((me != NULL) && bsp_device_is_initialized(&me->super) &&
+        (me->double_buffer_callback != NULL) && (completed_buffer_index < 2U))
+    {
+        me->double_buffer_callback(completed_buffer_index, received_size,
+                                   me->double_buffer_user_context);
     }
 }
