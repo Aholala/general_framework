@@ -56,6 +56,105 @@ alg_math_status_t alg_math_lerp(float start, float end, float ratio, float *resu
 }
 
 /**
+ * @brief 一维线性查表插值
+ */
+alg_math_status_t alg_math_interpolate_linear1_d(const float *x_values, const float *y_values,
+                                                 size_t point_count, float input,
+                                                 bool clamp_to_table, float *output)
+{
+    size_t index;
+    size_t lower_index;
+    float ratio;
+
+    if ((x_values == NULL) || (y_values == NULL) || (output == NULL) || (point_count < 2U))
+    {
+        return ALG_MATH_STATUS_INVALID_ARGUMENT;
+    }
+    if (!isfinite(input))
+    {
+        return ALG_MATH_STATUS_OUT_OF_RANGE;
+    }
+
+    for (index = 0U; index < point_count; ++index)
+    {
+        if (!isfinite(x_values[index]) || !isfinite(y_values[index]))
+        {
+            return ALG_MATH_STATUS_OUT_OF_RANGE;
+        }
+        if ((index > 0U) && (x_values[index] <= x_values[index - 1U]))
+        {
+            return ALG_MATH_STATUS_OUT_OF_RANGE;
+        }
+    }
+
+    if (clamp_to_table && (input <= x_values[0]))
+    {
+        *output = y_values[0];
+        return ALG_MATH_STATUS_OK;
+    }
+    if (clamp_to_table && (input >= x_values[point_count - 1U]))
+    {
+        *output = y_values[point_count - 1U];
+        return ALG_MATH_STATUS_OK;
+    }
+
+    if (input <= x_values[0])
+    {
+        lower_index = 0U;
+    }
+    else if (input >= x_values[point_count - 1U])
+    {
+        lower_index = point_count - 2U;
+    }
+    else
+    {
+        lower_index = 0U;
+        while ((lower_index + 1U < point_count) &&
+               (input > x_values[lower_index + 1U]))
+        {
+            ++lower_index;
+        }
+    }
+
+    ratio = (input - x_values[lower_index]) /
+            (x_values[lower_index + 1U] - x_values[lower_index]);
+    *output = y_values[lower_index] +
+              (ratio * (y_values[lower_index + 1U] - y_values[lower_index]));
+
+    return isfinite(*output) ? ALG_MATH_STATUS_OK : ALG_MATH_STATUS_NUMERICAL_ERROR;
+}
+
+/**
+ * @brief 单位正方形内的双线性插值
+ */
+alg_math_status_t alg_math_interpolate_bilinear(float x_ratio, float y_ratio, float value_00,
+                                                float value_10, float value_01, float value_11,
+                                                float *output)
+{
+    float lower_value;
+    float upper_value;
+
+    if (output == NULL)
+    {
+        return ALG_MATH_STATUS_INVALID_ARGUMENT;
+    }
+    if (!isfinite(x_ratio) || !isfinite(y_ratio) ||
+        !isfinite(value_00) || !isfinite(value_10) ||
+        !isfinite(value_01) || !isfinite(value_11) ||
+        (x_ratio < 0.0F) || (x_ratio > 1.0F) ||
+        (y_ratio < 0.0F) || (y_ratio > 1.0F))
+    {
+        return ALG_MATH_STATUS_OUT_OF_RANGE;
+    }
+
+    lower_value = value_00 + (x_ratio * (value_10 - value_00));
+    upper_value = value_01 + (x_ratio * (value_11 - value_01));
+    *output = lower_value + (y_ratio * (upper_value - lower_value));
+
+    return isfinite(*output) ? ALG_MATH_STATUS_OK : ALG_MATH_STATUS_NUMERICAL_ERROR;
+}
+
+/**
  * @brief 区间映射
  */
 alg_math_status_t alg_math_map_range(float value, float input_minimum, float input_maximum,

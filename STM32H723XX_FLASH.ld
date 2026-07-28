@@ -213,6 +213,17 @@ SECTIONS
   PROVIDE( __arm32_tls_tcb_offset = MAX(8, __tls_align) );
   PROVIDE( __arm64_tls_tcb_offset = MAX(16, __tls_align) );
 
+  /* DMA1/DMA2 cannot access DTCM. Keep explicitly tagged DMA buffers in SRAM1. */
+  .dma_buffer (NOLOAD) :
+  {
+    . = ALIGN(32);
+    __dma_buffer_start__ = .;
+    *(.dma_buffer)
+    *(.dma_buffer*)
+    . = ALIGN(32);
+    __dma_buffer_end__ = .;
+  } >RAM_D2
+
   .bss (NOLOAD) : ALIGN(4)
   {
     *(.bss)
