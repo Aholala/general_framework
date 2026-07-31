@@ -488,6 +488,55 @@ extern "C"
      */
     float alg_pid_cascade_get_velocity_setpoint(const alg_pid_cascade_t *me);
 
+    /* ======================== 角度串级 PID 封装 ======================== */
+
+    /**
+     * @brief 角度串级 PID 配置
+     * @note 内部使用 alg_pid_cascade_t，外环控制角度，内环控制角速度。
+     */
+    typedef struct
+    {
+        alg_pid_cascade_config_t cascade_config; // 串级 PID 配置
+    } alg_pid_angle_config_t;
+
+    /**
+     * @brief 角度串级 PID 单次更新输入
+     */
+    typedef struct
+    {
+        float target_position_rad;         // 目标角度（rad）
+        float target_velocity_rad_per_s;   // 目标角速度前馈（rad/s）
+        float measured_position_rad;       // 测量角度（rad）
+        float measured_velocity_rad_per_s; // 测量角速度（rad/s）
+        float actuator_feedforward;        // 执行器附加前馈
+        float delta_time_s;                // 控制周期（s，必须 > 0）
+    } alg_pid_angle_input_t;
+
+    /**
+     * @brief 角度串级 PID 对象
+     */
+    typedef struct
+    {
+        alg_pid_cascade_t cascade; // 位置外环和速度内环
+    } alg_pid_angle_t;
+
+    /** @brief 初始化角度串级 PID */
+    alg_pid_status_t alg_pid_angle_init(alg_pid_angle_t *me,
+                                        const alg_pid_angle_config_t *config);
+
+    /** @brief 用当前角度、角速度和执行器输出重置控制器 */
+    alg_pid_status_t alg_pid_angle_reset(alg_pid_angle_t *me, float measured_position_rad,
+                                         float measured_velocity_rad_per_s,
+                                         float initial_output);
+
+    /** @brief 更新角度串级 PID 输出 */
+    alg_pid_status_t alg_pid_angle_update(alg_pid_angle_t *me,
+                                          const alg_pid_angle_input_t *input,
+                                          float *control_output);
+
+    /** @brief 获取角度外环生成的当前角速度设定值 */
+    float alg_pid_angle_get_velocity_setpoint(const alg_pid_angle_t *me);
+
 #ifdef __cplusplus
 }
 #endif

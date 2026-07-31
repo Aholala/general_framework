@@ -39,6 +39,7 @@ A(row, column) = A[row * column_count + column]
 | 功能模块          | 接口 / 类型                           | 适用场景                                         |
 | :---------------- | :------------------------------------ | :----------------------------------------------- |
 | **LQR 控制器**    | `alg_lqr_controller_t`                | 实时控制环，执行 `u = u_eq + u_ff - K*(x-x_ref)` |
+| **角度 LQR**      | `alg_lqr_angle_t`                     | 二状态角度/角速度控制的专用封装                  |
 | **无限时域 LQR**  | `alg_lqr_dare_solve()`                | 稳态最优控制，模型固定，需离线或低频率在线求解   |
 | **有限时域 LQR**  | `alg_lqr_finite_solve()`              | 短时域最优轨迹、起停过程、终端约束问题           |
 | **Tustin 离散化** | `alg_lqr_discretize_tustin()`         | 将连续时间模型转换为离散时间模型                 |
@@ -192,6 +193,36 @@ void control_loop(void) {
     // 输出 s_control_output 到执行器
 }
 ```
+
+#### 5.3.1 二维角度 LQR 封装
+
+角度与角速度二状态控制直接使用 `alg_lqr` 内的专用封装：
+
+```c
+static const float angle_gain[2] = {12.0F, 0.8F};
+alg_lqr_angle_config_t angle_config = {
+    .gain_matrix = angle_gain,
+    .control_min = -10.0F,
+    .control_max = 10.0F,
+    .equilibrium_control = 0.0F,
+};
+alg_lqr_angle_t angle_controller;
+alg_lqr_angle_init(&angle_controller, &angle_config);
+alg_lqr_angle_reset(&angle_controller, current_angle_rad,
+                    current_velocity_rad_per_s, current_output);
+
+alg_lqr_angle_input_t angle_input = {
+    .target_position_rad = target_angle_rad,
+    .target_velocity_rad_per_s = target_velocity_rad_per_s,
+    .measured_position_rad = current_angle_rad,
+    .measured_velocity_rad_per_s = current_velocity_rad_per_s,
+    .actuator_feedforward = feedforward,
+    .delta_time_s = 0.001F,
+};
+alg_lqr_angle_update(&angle_controller, &angle_input, &output);
+```
+
+`reset` 用于切换控制器前检查当前状态。LQR 没有积分状态，因此不会修改内部增益。
 
 ### 5.4 连续模型离散化（Tustin）
 

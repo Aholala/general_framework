@@ -99,10 +99,9 @@ flowchart TD
 | `alg_attitude`         | `alg_attitude_config_t`、`alg_attitude_quaternion_t`、`alg_attitude_rotation_matrix_t`、`alg_attitude_t`                                                                                                     | 三轴陀螺仪、三轴加速度计、`dt`               | 四元数、旋转矩阵、roll/pitch/yaw；支持 Mahony 与 Madgwick   |
 | `alg_imu_ekf`          | `alg_imu_ekf_config_t`、`alg_imu_ekf_quaternion_t`、`alg_imu_ekf_euler_t`、`alg_imu_ekf_diagnostics_t`、`alg_imu_ekf_t`                                                                                      | 六轴 IMU 数据、`dt`                          | 四元数、欧拉角、陀螺零偏、校正角速度、重力方向和 EKF 诊断量 |
 | `alg_pid`              | `alg_pid_config_t`、`alg_pid_input_t`、`alg_pid_terms_t`、`alg_pid_t`                                                                                                                                        | 目标、反馈、前馈、`dt`                       | P/I/D/FF 分量、限幅前输出和最终输出                         |
-| `alg_pid` 扩展         | `alg_pid_incremental_t`、`alg_pid_gain_schedule_t`、`alg_pid_fuzzy_t`、`alg_pid_cascade_t`                                                                                                                   | 增量误差、调度变量、模糊输入、位置与速度反馈 | 增量输出、调度增益、模糊修正、串级输出和速度设定值          |
-| `alg_lqr`              | `alg_lqr_controller_t`、`alg_lqr_dare_config_t`、`alg_lqr_finite_config_t`                                                                                                                                   | 状态、目标、系统矩阵、权重矩阵               | 控制量、DARE 或有限时域求解结果                             |
+| `alg_pid` 扩展         | `alg_pid_incremental_t`、`alg_pid_gain_schedule_t`、`alg_pid_fuzzy_t`、`alg_pid_cascade_t`、`alg_pid_angle_t`                                                                                                | 增量误差、调度变量、模糊输入、位置与速度反馈 | 增量输出、调度增益、模糊修正、串级输出和角度控制输出        |
+| `alg_lqr`              | `alg_lqr_controller_t`、`alg_lqr_dare_config_t`、`alg_lqr_finite_config_t`、`alg_lqr_angle_t`                                                                                                                | 状态、目标、系统矩阵、权重矩阵               | 控制量、DARE/有限时域结果和二维角度控制输出                 |
 | `alg_trajectory`       | `alg_trajectory_config_t`、`alg_trajectory_state_t`、`alg_trajectory_t`、`alg_trajectory_group_t`                                                                                                            | 位置/速度目标、约束、`dt`                    | 位置、速度、加速度轨迹；梯形速度与 S 曲线                   |
-| `alg_angle_controller` | `alg_angle_controller_input_t`、`alg_angle_pid_t`、`alg_angle_lqr_t`                                                                                                                                         | 目标/测量角度与角速度、前馈、`dt`            | 执行器控制量；PID 和 LQR 共享同一基类接口                   |
 | `alg_chassis`          | `alg_chassis_velocity_t`、`alg_chassis_pose_t`、`alg_chassis_constraint_t`、`alg_chassis_solution_t`                                                                                                         | 轮速约束或车体速度                           | 降级速度解、拟合残差、里程计位姿                            |
 | `alg_chassis` 轮状态   | `alg_chassis_wheel_monitor_config_t`、`alg_chassis_wheel_monitor_wheel_state_t`                                                                                                                              | 各轮残差                                     | 故障/恢复计数和每轮故障标志                                 |
 | `alg_mecanum`          | `alg_mecanum_config_t`、`alg_mecanum_t`                                                                                                                                                                      | `alg_chassis_velocity_t` 或四轮速度          | 四轮麦克纳姆逆解、正解和里程计                              |
@@ -523,7 +522,7 @@ Debug 和 Release 使用同一固件输出路径，后执行的构建会覆盖�
 
 ## 当前完整性
 
-- Algorithm：已包含数学、滤波、Kalman、Mahony/Madgwick、IMU EKF、PID、LQR、轨迹、角度控制器，以及麦轮、全向轮、舵轮解算。
+- Algorithm：已包含数学、滤波、Kalman、Mahony/Madgwick、IMU EKF、PID、LQR、轨迹，以及 PID/LQR 各自的角度控制封装和麦轮、全向轮、舵轮解算。
 - BSP：已包含常见控制器外设抽象和 STM32H723 平台端口。
 - Module：已包含主要 RoboMaster 电机、DM4310、BMI088、DR16、裁判系统、视觉、板间通信、NRF24、显示与执行功能模块。
 - App：有意不实现具体机器人逻辑，等待最终项目创建实例、分配引脚并进行编排。

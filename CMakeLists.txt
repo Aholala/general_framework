@@ -216,6 +216,7 @@ add_library(alg_pid OBJECT
     User/Algorithm/alg_pid/alg_pid_schedule.c
     User/Algorithm/alg_pid/alg_pid_fuzzy.c
     User/Algorithm/alg_pid/alg_pid_cascade.c
+    User/Algorithm/alg_pid/alg_pid_angle.c
 )
 target_include_directories(alg_pid PUBLIC User/Algorithm/alg_pid)
 target_link_libraries(alg_pid PUBLIC m)
@@ -226,17 +227,11 @@ add_library(alg_lqr OBJECT
     User/Algorithm/alg_lqr/alg_lqr_riccati.c
     User/Algorithm/alg_lqr/alg_lqr_controller.c
     User/Algorithm/alg_lqr/alg_lqr_model.c
+    User/Algorithm/alg_lqr/alg_lqr_angle.c
 )
 target_include_directories(alg_lqr PUBLIC User/Algorithm/alg_lqr)
 target_link_libraries(alg_lqr PUBLIC m)
 framework_configure_library(alg_lqr)
-
-add_library(alg_angle_controller OBJECT
-    User/Algorithm/alg_angle_controller/alg_angle_controller.c
-)
-target_include_directories(alg_angle_controller PUBLIC User/Algorithm/alg_angle_controller)
-target_link_libraries(alg_angle_controller PUBLIC alg_pid alg_lqr)
-framework_configure_library(alg_angle_controller)
 
 add_library(alg_chassis_motion OBJECT User/Algorithm/alg_chassis/alg_chassis_motion.c)
 target_include_directories(alg_chassis_motion PUBLIC User/Algorithm/alg_chassis)
@@ -398,7 +393,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     alg_imu_ekf
     alg_pid
     alg_lqr
-    alg_angle_controller
     alg_chassis_wheel_monitor
     alg_mecanum
     alg_omni

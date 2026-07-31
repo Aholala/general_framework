@@ -48,6 +48,7 @@
 | 调试分量观测                         | ✅（`alg_pid_terms_t`）                          |
 | **增量式 PID**                       | ✅（含增量限幅、总输出限幅、微分滤波）           |
 | **串级 PID**                         | ✅（位置环 + 速度环，外环降频）                  |
+| **角度串级 PID**                     | ✅（角度外环 + 角速度内环的专用封装）            |
 | **增益调度 PID**                     | ✅（线性插值 Kp/Ki/Kd）                          |
 | **模糊自适应 PID**                   | ✅（二维规则表双线性插值）                       |
 
@@ -191,6 +192,32 @@ alg_pid_cascade_input_t input = {
 float output;
 alg_pid_cascade_update(&cascade, &input, &output);
 ```
+
+#### 4.5.1 角度串级 PID 封装
+
+角度控制封装直接属于 `alg_pid`：
+
+```c
+alg_pid_angle_config_t angle_config = {
+    .cascade_config = cascade_cfg,
+};
+alg_pid_angle_t angle_controller;
+alg_pid_angle_init(&angle_controller, &angle_config);
+alg_pid_angle_reset(&angle_controller, current_angle_rad,
+                    current_velocity_rad_per_s, current_output);
+
+alg_pid_angle_input_t angle_input = {
+    .target_position_rad = target_angle_rad,
+    .target_velocity_rad_per_s = target_velocity_rad_per_s,
+    .measured_position_rad = current_angle_rad,
+    .measured_velocity_rad_per_s = current_velocity_rad_per_s,
+    .actuator_feedforward = feedforward,
+    .delta_time_s = 0.001F,
+};
+alg_pid_angle_update(&angle_controller, &angle_input, &output);
+```
+
+可通过 `alg_pid_angle_get_velocity_setpoint()` 观察角度外环生成的角速度目标。
 
 ### 4.6 增益调度 PID
 

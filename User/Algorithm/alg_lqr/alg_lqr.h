@@ -253,6 +253,62 @@ extern "C"
         size_t state_dimension, size_t control_dimension, size_t integral_dimension,
         float delta_time_s, float *augmented_state_matrix, float *augmented_control_matrix);
 
+    /* ======================== 二维角度 LQR 封装 ======================== */
+
+    /**
+     * @brief 二维角度 LQR 配置
+     * @note gain_matrix 为两个元素：[角度增益, 角速度增益]。
+     */
+    typedef struct
+    {
+        const float *gain_matrix;  // 两元素增益矩阵
+        float control_min;         // 输出下限
+        float control_max;         // 输出上限
+        float equilibrium_control; // 平衡控制量
+    } alg_lqr_angle_config_t;
+
+    /**
+     * @brief 二维角度 LQR 单次更新输入
+     */
+    typedef struct
+    {
+        float target_position_rad;         // 目标角度（rad）
+        float target_velocity_rad_per_s;   // 目标角速度（rad/s）
+        float measured_position_rad;       // 测量角度（rad）
+        float measured_velocity_rad_per_s; // 测量角速度（rad/s）
+        float actuator_feedforward;        // 执行器附加前馈
+        float delta_time_s;                // 控制周期（s，仅用于统一输入校验）
+    } alg_lqr_angle_input_t;
+
+    /**
+     * @brief 二维角度 LQR 对象
+     */
+    typedef struct
+    {
+        alg_lqr_controller_t controller; // 二状态、一输出 LQR 控制器
+        float gain_matrix[2];            // 从配置复制的增益
+        float control_min;               // 输出下限
+        float control_max;               // 输出上限
+        float equilibrium_control;       // 平衡控制量
+    } alg_lqr_angle_t;
+
+    /** @brief 初始化二维角度 LQR */
+    alg_lqr_status_t alg_lqr_angle_init(alg_lqr_angle_t *me,
+                                        const alg_lqr_angle_config_t *config);
+
+    /**
+     * @brief 校验当前状态并重置二维角度 LQR
+     * @note LQR 没有积分状态，此函数用于切换控制器前统一校验当前状态。
+     */
+    alg_lqr_status_t alg_lqr_angle_reset(alg_lqr_angle_t *me, float measured_position_rad,
+                                         float measured_velocity_rad_per_s,
+                                         float initial_output);
+
+    /** @brief 更新二维角度 LQR 输出 */
+    alg_lqr_status_t alg_lqr_angle_update(const alg_lqr_angle_t *me,
+                                          const alg_lqr_angle_input_t *input,
+                                          float *control_output);
+
 #ifdef __cplusplus
 }
 #endif
