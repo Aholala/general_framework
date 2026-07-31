@@ -322,18 +322,13 @@ framework_configure_library(bsp)
 set(module_include_directories
     User/Module/module_device
     User/Module/module_motor
-    User/Module/module_motor_health
     User/Module/module_dji_motor
-    User/Module/module_m2006
-    User/Module/module_m3508
-    User/Module/module_gm6020
     User/Module/module_dm_motor
-    User/Module/module_dm4310
     User/Module/module_bmi088
     User/Module/module_dr16
     User/Module/module_swerve
-    User/Module/module_robot_link
-    User/Module/module_vision
+    User/Module/module_board_comm
+    User/Module/module_vision_comm
     User/Module/module_shooter
     User/Module/module_buzzer
     User/Module/module_bluetooth
@@ -342,26 +337,25 @@ set(module_include_directories
     User/Module/module_nrf24l01
     User/Module/module_referee
     User/Module/module_servo
-    User/Module/module_diagnostic
-    User/Module/module_referee_ui
 )
 
 add_library(module OBJECT
     User/Module/module_device/module_device.c
+    User/Module/module_device/module_diagnostic.c
     User/Module/module_motor/module_motor.c
-    User/Module/module_motor_health/module_motor_health.c
+    User/Module/module_motor/module_motor_health.c
     User/Module/module_dji_motor/module_dji_motor.c
-    User/Module/module_m2006/module_m2006.c
-    User/Module/module_m3508/module_m3508.c
-    User/Module/module_gm6020/module_gm6020.c
+    User/Module/module_dji_motor/module_m2006.c
+    User/Module/module_dji_motor/module_m3508.c
+    User/Module/module_dji_motor/module_gm6020.c
     User/Module/module_dm_motor/module_dm_motor.c
     User/Module/module_dm_motor/module_dm_motor_bus.c
-    User/Module/module_dm4310/module_dm4310.c
+    User/Module/module_dm_motor/module_dm4310.c
     User/Module/module_bmi088/module_bmi088.c
     User/Module/module_dr16/module_dr16.c
     User/Module/module_swerve/module_swerve.c
-    User/Module/module_robot_link/module_robot_link.c
-    User/Module/module_vision/module_vision.c
+    User/Module/module_board_comm/module_board_comm.c
+    User/Module/module_vision_comm/module_vision_comm.c
     User/Module/module_shooter/module_shooter.c
     User/Module/module_buzzer/module_buzzer.c
     User/Module/module_bluetooth/module_bluetooth.c
@@ -371,9 +365,8 @@ add_library(module OBJECT
     User/Module/module_referee/module_referee.c
     User/Module/module_referee/module_referee_crc.c
     User/Module/module_referee/module_referee_data.c
+    User/Module/module_referee/module_referee_ui.c
     User/Module/module_servo/module_servo.c
-    User/Module/module_diagnostic/module_diagnostic.c
-    User/Module/module_referee_ui/module_referee_ui.c
 )
 target_include_directories(module PUBLIC ${module_include_directories})
 target_link_libraries(module PUBLIC bsp alg_pid alg_swerve)

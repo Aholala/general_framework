@@ -1,8 +1,8 @@
-# 云台-底盘 CAN 通信协议模块 (module_robot_link)
+# 板间通信模块 (module_board_comm)
 
 ## 1. 模块概述
 
-`module_robot_link` 是云台板与底盘板之间的 Classic CAN 数据协议模块，用于传输 DR16 遥控器数据、云台状态、底盘运动数据、发射机构状态和心跳信息。模块只负责协议编解码与在线状态快照，不决定 DR16 或拨弹盘的实际安装位置。
+`module_board_comm` 是云台板与底盘板之间的 Classic CAN 数据协议模块，用于传输 DR16 遥控器数据、云台状态、底盘运动数据、发射机构状态和心跳信息。模块只负责协议编解码与在线状态快照，不决定 DR16 或拨弹盘的实际安装位置。
 
 **核心功能**：
 
@@ -92,9 +92,9 @@ decoded = encoded / 1000.0
 ### 5.1 初始化
 
 ```c
-module_robot_link_status_t module_robot_link_init(
-    module_robot_link_t *me,
-    const module_robot_link_config_t *config);
+module_board_comm_status_t module_board_comm_init(
+    module_board_comm_t *me,
+    const module_board_comm_config_t *config);
 ```
 
 **配置参数**：
@@ -112,19 +112,19 @@ module_robot_link_status_t module_robot_link_init(
 
 | 函数                               | 说明             | 分片数 |
 | :--------------------------------- | :--------------- | :----- |
-| `module_robot_link_send_remote`    | 发送遥控器数据   | 3 帧   |
-| `module_robot_link_send_gimbal`    | 发送云台数据     | 2 帧   |
-| `module_robot_link_send_chassis`   | 发送底盘数据     | 1 帧   |
-| `module_robot_link_send_shooter`   | 发送发射机构数据 | 1 帧   |
-| `module_robot_link_send_heartbeat` | 发送心跳         | 1 帧   |
+| `module_board_comm_send_remote`    | 发送遥控器数据   | 3 帧   |
+| `module_board_comm_send_gimbal`    | 发送云台数据     | 2 帧   |
+| `module_board_comm_send_chassis`   | 发送底盘数据     | 1 帧   |
+| `module_board_comm_send_shooter`   | 发送发射机构数据 | 1 帧   |
+| `module_board_comm_send_heartbeat` | 发送心跳         | 1 帧   |
 
 所有发送函数同步执行（阻塞直到 CAN 发送完成或超时）。
 
 ### 5.3 接收接口
 
 ```c
-module_robot_link_status_t module_robot_link_handle_frame(
-    module_robot_link_t *me,
+module_board_comm_status_t module_board_comm_handle_frame(
+    module_board_comm_t *me,
     const bsp_can_frame_t *frame);
 ```
 
@@ -136,15 +136,15 @@ module_robot_link_status_t module_robot_link_handle_frame(
 
 | 函数                            | 返回类型                                   | 说明                   |
 | :------------------------------ | :----------------------------------------- | :--------------------- |
-| `module_robot_link_get_remote`  | `const module_dr16_data_t *`               | 遥控器数据（若在线）   |
-| `module_robot_link_get_gimbal`  | `const module_robot_link_gimbal_data_t *`  | 云台数据（若在线）     |
-| `module_robot_link_get_chassis` | `const module_robot_link_chassis_data_t *` | 底盘数据（若在线）     |
-| `module_robot_link_get_shooter` | `const module_robot_link_shooter_data_t *` | 发射机构数据（若在线） |
+| `module_board_comm_get_remote`  | `const module_dr16_data_t *`               | 遥控器数据（若在线）   |
+| `module_board_comm_get_gimbal`  | `const module_board_comm_gimbal_data_t *`  | 云台数据（若在线）     |
+| `module_board_comm_get_chassis` | `const module_board_comm_chassis_data_t *` | 底盘数据（若在线）     |
+| `module_board_comm_get_shooter` | `const module_board_comm_shooter_data_t *` | 发射机构数据（若在线） |
 
 ### 5.5 在线状态更新
 
 ```c
-void module_robot_link_update_time(module_robot_link_t *me, uint32_t elapsed_time_ms);
+void module_board_comm_update_time(module_board_comm_t *me, uint32_t elapsed_time_ms);
 ```
 
 - 必须在周期任务中调用（且只能有一个时间所有者）
@@ -152,7 +152,7 @@ void module_robot_link_update_time(module_robot_link_t *me, uint32_t elapsed_tim
 
 ## 6. 数据结构
 
-### 6.1 云台数据 (`module_robot_link_gimbal_data_t`)
+### 6.1 云台数据 (`module_board_comm_gimbal_data_t`)
 
 ```c
 typedef struct {
@@ -162,10 +162,10 @@ typedef struct {
     float pitch_velocity_rad_per_s; // 俯仰角速度（rad/s）
     bool imu_valid;                 // IMU 数据是否有效
     bool motors_online;             // 电机是否在线
-} module_robot_link_gimbal_data_t;
+} module_board_comm_gimbal_data_t;
 ```
 
-### 6.2 底盘数据 (`module_robot_link_chassis_data_t`)
+### 6.2 底盘数据 (`module_board_comm_chassis_data_t`)
 
 ```c
 typedef struct {
@@ -174,10 +174,10 @@ typedef struct {
     float angular_velocity_rad_per_s; // 角速度（rad/s）
     bool motors_online;              // 电机是否在线
     bool self_lock_active;           // 自锁是否激活
-} module_robot_link_chassis_data_t;
+} module_board_comm_chassis_data_t;
 ```
 
-### 6.3 发射机构数据 (`module_robot_link_shooter_data_t`)
+### 6.3 发射机构数据 (`module_board_comm_shooter_data_t`)
 
 ```c
 typedef struct {
@@ -185,7 +185,7 @@ typedef struct {
     float feeder_position_rad;         // 拨弹盘位置（弧度）
     uint8_t state;                     // 发射机构状态
     uint8_t jam_retry_count;           // 卡弹重试次数
-} module_robot_link_shooter_data_t;
+} module_board_comm_shooter_data_t;
 ```
 
 ## 7. 使用示例
@@ -193,16 +193,16 @@ typedef struct {
 ### 7.1 初始化（云台板）
 
 ```c
-static module_robot_link_t s_robot_link;
+static module_board_comm_t s_robot_link;
 
-const module_robot_link_config_t cfg = {
+const module_board_comm_config_t cfg = {
     .can = can_ptr,
     .base_identifier = 0x100,
     .transmit_timeout_ms = 10,
     .offline_timeout_ms = 100,
 };
 
-module_robot_link_init(&s_robot_link, &cfg);
+module_board_comm_init(&s_robot_link, &cfg);
 ```
 
 ### 7.2 注册 CAN 接收回调
@@ -211,7 +211,7 @@ module_robot_link_init(&s_robot_link, &cfg);
 // 在 CAN 接收回调中处理
 void can_rx_callback(const bsp_can_frame_t *frame) {
     if (frame->identifier >= 0x100 && frame->identifier < 0x108) {
-        module_robot_link_handle_frame(&s_robot_link, frame);
+        module_board_comm_handle_frame(&s_robot_link, frame);
     }
 }
 ```
@@ -221,11 +221,11 @@ void can_rx_callback(const bsp_can_frame_t *frame) {
 ```c
 const module_dr16_data_t *remote = module_dr16_get_data(&dr16);
 if (remote != NULL && remote->is_online) {
-    module_robot_link_send_remote(&s_robot_link, remote);
+    module_board_comm_send_remote(&s_robot_link, remote);
 }
 
 // 发送云台状态
-module_robot_link_gimbal_data_t gimbal = {
+module_board_comm_gimbal_data_t gimbal = {
     .yaw_rad = current_yaw,
     .pitch_rad = current_pitch,
     .yaw_velocity_rad_per_s = yaw_vel,
@@ -233,7 +233,7 @@ module_robot_link_gimbal_data_t gimbal = {
     .imu_valid = true,
     .motors_online = true,
 };
-module_robot_link_send_gimbal(&s_robot_link, &gimbal);
+module_board_comm_send_gimbal(&s_robot_link, &gimbal);
 ```
 
 ### 7.4 接收数据（底盘板接收云台板发来的数据）
@@ -241,10 +241,10 @@ module_robot_link_send_gimbal(&s_robot_link, &gimbal);
 ```c
 void control_loop(void) {
     // 1. 更新在线超时
-    module_robot_link_update_time(&s_robot_link, dt_ms);
+    module_board_comm_update_time(&s_robot_link, dt_ms);
 
     // 2. 获取遥控器数据
-    const module_dr16_data_t *remote = module_robot_link_get_remote(&s_robot_link);
+    const module_dr16_data_t *remote = module_board_comm_get_remote(&s_robot_link);
     if (remote != NULL) {
         // 使用遥控器数据控制底盘
         float forward = remote->normalized_channel[3];
@@ -253,7 +253,7 @@ void control_loop(void) {
     }
 
     // 3. 获取云台数据
-    const module_robot_link_gimbal_data_t *gimbal = module_robot_link_get_gimbal(&s_robot_link);
+    const module_board_comm_gimbal_data_t *gimbal = module_board_comm_get_gimbal(&s_robot_link);
     if (gimbal != NULL) {
         // 使用云台角度数据
     }
@@ -295,7 +295,7 @@ void control_loop(void) {
 
 - 每个数据组（遥控器、云台、底盘、发射机构）有**独立的**超时计数器
 - 每次收到有效帧时，对应计数器的 `elapsed_time_ms` 重置为 0
-- `module_robot_link_update_time()` 累加各计数器
+- `module_board_comm_update_time()` 累加各计数器
 - 超过 `offline_timeout_ms` 时，对应数据组置离线
 - **数据离线时，调用者应回退到本板本地安全状态，不能继续使用最后控制目标**
 
@@ -331,4 +331,4 @@ void control_loop(void) {
 
 ---
 
-**总结**：`module_robot_link` 提供了完整的云台-底盘 CAN 通信协议，支持多帧分片组装、独立在线超时和原子数据提交。其设计适合多板分布式控制系统，确保关键数据在 CAN 总线上可靠、实时地传输。配合 `module_dr16` 和 `bsp_can_dispatcher`，可快速构建双板通信方案。
+**总结**：`module_board_comm` 提供了完整的云台-底盘 CAN 通信协议，支持多帧分片组装、独立在线超时和原子数据提交。其设计适合多板分布式控制系统，确保关键数据在 CAN 总线上可靠、实时地传输。配合 `module_dr16` 和 `bsp_can_dispatcher`，可快速构建双板通信方案。

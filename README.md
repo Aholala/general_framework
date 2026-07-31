@@ -206,13 +206,13 @@ Module 目录为 `User/Module`。模块负责设备协议、状态机和业务�
 | `module_device`       | `module_device_t`、`module_device_ops_t`                                                                   | 模块统一基类                                | 初始化状态、注册键                               |
 | `module_motor`        | `module_motor_t`、`module_motor_feedback_t`、`module_motor_registry_t`                                     | 通用电机基类与注册表                        | 位置、速度、扭矩、电流、温度、在线状态           |
 | `module_dji_motor`    | `module_dji_motor_t`、`module_dji_motor_bus_t`                                                             | DJI 电机 CAN 协议公共实现                   | 通用反馈和当前命令原始值                         |
-| `module_m2006`        | `module_m2006_t`、`module_m2006_config_t`                                                                  | M2006 + C610                                | 通用反馈、电流命令                               |
-| `module_m3508`        | `module_m3508_t`、`module_m3508_config_t`                                                                  | M3508 + C620                                | 通用反馈、电流命令                               |
-| `module_gm6020`       | `module_gm6020_t`、`module_gm6020_config_t`                                                                | GM6020                                      | 通用反馈、电压命令                               |
+| `module_dji_motor / module_m2006`  | `module_m2006_t`、`module_m2006_config_t`                                                     | M2006 + C610                                | 通用反馈、电流命令                               |
+| `module_dji_motor / module_m3508`  | `module_m3508_t`、`module_m3508_config_t`                                                     | M3508 + C620                                | 通用反馈、电流命令                               |
+| `module_dji_motor / module_gm6020` | `module_gm6020_t`、`module_gm6020_config_t`                                                   | GM6020                                      | 通用反馈、电压命令                               |
 | `module_dm_motor`     | `module_dm_motor_t`、`module_dm_limits_t`、`module_dm_mit_command_t`、`module_dm_force_position_command_t` | 达妙电机 MIT、位置速度等控制                | 通用反馈、故障码、MOS 温度                       |
 | `module_dm_motor_bus` | `module_dm_motor_bus_t`                                                                                    | 达妙 CAN 总线分发                           | 反馈处理状态                                     |
-| `module_dm4310`       | `module_dm4310_t`、`module_dm4310_config_t`                                                                | DM-J4310-2EC 专用限制和默认值               | 通用反馈、故障码、MOS 温度                       |
-| `module_motor_health` | `module_motor_health_observation_t`、`module_motor_health_state_t`、`module_motor_health_t`                | 多电机在线、温度、堵转、跟踪和饱和诊断      | 每个电机的原因掩码、计时和可用性                 |
+| `module_dm_motor / module_dm4310` | `module_dm4310_t`、`module_dm4310_config_t`                                                  | DM-J4310-2EC 专用限制和默认值               | 通用反馈、故障码、MOS 温度                       |
+| `module_motor / module_motor_health` | `module_motor_health_observation_t`、`module_motor_health_state_t`、`module_motor_health_t`            | 多电机在线、温度、堵转、跟踪和饱和诊断      | 每个电机的原因掩码、计时和可用性                 |
 | `module_bmi088`       | `module_bmi088_raw_data_t`、`module_bmi088_data_t`、`module_bmi088_t`                                      | BMI088 初始化、读取、换算、轴映射和零偏标定 | 原始计数、加速度、角速度、温度、时间戳和有效性   |
 | `module_dr16`         | `module_dr16_data_t`、`module_dr16_t`                                                                      | DR16/DBUS 双 DMA 接收与解码                 | 摇杆、开关、鼠标、键盘、拨轮、统计和在线状态     |
 | `module_swerve`       | `module_swerve_t`、`module_swerve_config_t`                                                                | 单个舵轮的转向与驱动执行                    | 当前舵角；接收 `alg_swerve_module_target_t`      |
@@ -223,12 +223,12 @@ Module 目录为 `User/Module`。模块负责设备协议、状态机和业务�
 | `module_oled`         | `module_oled_t`、`module_oled_config_t`                                                                    | I2C 单色页式 OLED 帧缓冲                    | 对象内帧缓冲和初始化状态                         |
 | `module_bluetooth`    | `module_bluetooth_t`、`module_bluetooth_config_t`                                                          | 串口蓝牙收发、超时与回调                    | 在线状态                                         |
 | `module_nrf24l01`     | `module_nrf24l01_packet_t`、`module_nrf24l01_t`                                                            | nRF24L01 点对点收发和 ACE 协议封包          | 收到的数据包、管道号和重发/丢包统计寄存器        |
-| `module_vision`       | `module_vision_data_t`、`module_vision_t`                                                                  | USB VCP 固定帧视觉通信                      | 两个数据字节、更新计数和有效标志                 |
-| `module_robot_link`   | `module_robot_link_gimbal_data_t`、`module_robot_link_chassis_data_t`、`module_robot_link_shooter_data_t`  | 云台板与底盘板 CAN 通信                     | 遥控、云台、底盘、发射机构数据和各链路在线状态   |
+| `module_vision_comm`       | `module_vision_comm_data_t`、`module_vision_comm_t`                                                                  | USB VCP 固定帧视觉通信                      | 两个数据字节、更新计数和有效标志                 |
+| `module_board_comm`   | `module_board_comm_gimbal_data_t`、`module_board_comm_chassis_data_t`、`module_board_comm_shooter_data_t`  | 云台板与底盘板 CAN 通信                     | 遥控、云台、底盘、发射机构数据和各链路在线状态   |
 | `module_referee`      | `module_referee_t`、`module_referee_statistics_t`                                                          | 裁判系统流式接收、CRC 和命令路由            | 在线状态和解析统计                               |
 | `module_referee_data` | `module_referee_data_t` 及各子数据结构                                                                     | 裁判系统强类型数据仓库                      | 比赛、机器人、功率热量、位置、受击、射击、弹量等 |
-| `module_referee_ui`   | `module_referee_ui_graphic_t`、`module_referee_ui_t`                                                       | 裁判系统客户端图形打包                      | 图形配置及发送状态                               |
-| `module_diagnostic`   | `module_diagnostic_entry_t`、`module_diagnostic_state_t`、`module_diagnostic_t`                            | 通用探针注册、确认、恢复和锁存              | 故障详情、次数、活动状态和最高严重等级           |
+| `module_referee / module_referee_ui` | `module_referee_ui_graphic_t`、`module_referee_ui_t`                                         | 裁判系统客户端图形打包                      | 图形配置及发送状态                               |
+| `module_device / module_diagnostic` | `module_diagnostic_entry_t`、`module_diagnostic_state_t`、`module_diagnostic_t`                         | 通用探针注册、确认、恢复和锁存              | 故障详情、次数、活动状态和最高严重等级           |
 
 ## 主要可读数据
 
@@ -333,7 +333,7 @@ IMU EKF 通过 getter 提供：
 
 ### 视觉通信
 
-`module_vision_get_data()` 返回：
+`module_vision_comm_get_data()` 返回：
 
 | 字段           | 含义                     |
 | -------------- | ------------------------ |
@@ -344,12 +344,12 @@ IMU EKF 通过 getter 提供：
 
 ### 板间通信
 
-`module_robot_link` 提供以下只读数据：
+`module_board_comm` 提供以下只读数据：
 
-- `module_robot_link_get_remote()`：完整 `module_dr16_data_t`
-- `module_robot_link_get_gimbal()`：yaw、pitch、两轴角速度、IMU 有效性和电机在线状态
-- `module_robot_link_get_chassis()`：`vx`、`vy`、`wz`、电机在线状态和自锁状态
-- `module_robot_link_get_shooter()`：摩擦轮速度、拨弹位置、发射状态和卡弹次数
+- `module_board_comm_get_remote()`：完整 `module_dr16_data_t`
+- `module_board_comm_get_gimbal()`：yaw、pitch、两轴角速度、IMU 有效性和电机在线状态
+- `module_board_comm_get_chassis()`：`vx`、`vy`、`wz`、电机在线状态和自锁状态
+- `module_board_comm_get_shooter()`：摩擦轮速度、拨弹位置、发射状态和卡弹次数
 
 对象还保存各类数据的接收超时和在线标志。
 
@@ -444,57 +444,8 @@ static uint8_t remote_dma_buffer[2][MODULE_DR16_DMA_BUFFER_SIZE];
 
 - DJI M2006/M3508/GM6020 按官方反馈帧解析，命令由总线对象集中打包。
 - DM4310 使用达妙协议限制、状态命令和反馈格式。
-- `module_robot_link` 使用明确的消息类型在云台板与底盘板之间传输，不传输结构体内存镜像。
+- `module_board_comm` 使用明确的消息类型在云台板与底盘板之间传输，不传输结构体内存镜像。
 - CAN ID、设备 ID 和路由表由初始化配置决定；具体 CAN/FDCAN 实例由 App 注入。
-
-## 初始化与运行顺序
-
-推荐顺序：
-
-1. CubeMX/平台代码完成时钟、GPIO、DMA、USART、SPI、CAN/FDCAN、Timer 等底层初始化。
-2. 初始化 `bsp_stm32h723_port` 或目标平台端口。
-3. 获取或创建所需 BSP 对象。
-4. 静态创建 Module 对象、配置结构体、工作区和接收缓冲区。
-5. 按 BSP → Module → Algorithm → App 的顺序初始化。
-6. 设置所有执行器的安全初态。
-7. 注册接收路由和回调。
-8. 启动 DMA、中断和周期任务。
-9. 周期任务中执行 `process/update`，读取强类型数据并生成控制目标。
-10. 始终检查状态码、在线标志、数据有效标志和超时。
-
-通用对象形式：
-
-```c
-static some_module_t module;
-static const some_module_config_t module_config =
-{
-    .bus = NULL, /* 最终项目注入 BSP 对象 */
-    /* 其余协议参数和安全限制 */
-};
-
-void app_init(void)
-{
-    /* 先完成 BSP，再初始化模块；此处不在库中固定引脚。 */
-}
-```
-
-只读 getter 返回的对象内部指针不能释放，也不要由调用者修改；下一次 `update/read/process` 后内容可能更新。
-
-## 硬件配置边界
-
-这个仓库是一套库，因此以下内容不会在通用模块中写死：
-
-- NRF24L01 的 CE、CSN、IRQ 引脚和 SPI 实例
-- OLED 的 I2C 实例、地址以及可选复位引脚
-- WS2812 的 Timer/PWM/DMA 通道和输出引脚
-- BMI088 的 SPI 实例、两个 CS 引脚和中断引脚
-- DR16 使用的 UART 实例、RX 引脚和 DMA Stream
-- 电机使用的 CAN/FDCAN 实例
-- 板间角色、设备实例数量和 FreeRTOS 任务周期
-
-这些内容属于 `User/App`、板级配置或最终项目的 `.ioc`。库只规定接口、协议、缓冲区要求、单位和安全约束。
-
-当前 `general_framework.ioc` 用于验证 STM32H723 平台工程能编译，不代表所有模块已经分配实际硬件。移植到新工程时，应根据原理图重新选择引脚和外设。
 
 ## 构建
 

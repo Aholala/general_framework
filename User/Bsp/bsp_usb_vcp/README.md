@@ -222,9 +222,9 @@ USB 虚拟串口的发送是异步的，有以下关键点：
 typedef struct {
     uint8_t tx_buffer[256];
     bool tx_pending;
-} module_vision_t;
+} module_vision_comm_t;
 
-static void module_vision_send(module_vision_t *mod, const uint8_t *data, size_t len) {
+static void module_vision_comm_send(module_vision_comm_t *mod, const uint8_t *data, size_t len) {
     if (len > sizeof(mod->tx_buffer)) return;
     memcpy(mod->tx_buffer, data, len);
     if (bsp_usb_vcp_transmit(mod->usb_vcp, mod->tx_buffer, len, 0) != BSP_STATUS_OK) {

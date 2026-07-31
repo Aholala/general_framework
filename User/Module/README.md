@@ -12,9 +12,7 @@ Module 层位于 BSP 层之上，是业务逻辑与硬件抽象之间的桥梁�
 - 实现功能状态机（如发射机构堵转恢复、舵轮运动控制）
 - 管理设备生命周期（初始化、启动、停止、注册、注销）
 - 提供统一的数据接口（反馈、状态、统计）
-- 通过 `module_device` 基类实现多态调度
-
-**设计原则**：
+- 通过 `module_device` 基类实现多态调：
 
 - **硬件解耦**：通过 BSP 基类指针注入硬件依赖，不直接访问 HAL 或寄存器
 - **静态内存**：所有对象、缓冲区由调用者静态分配，不使用 `malloc`
@@ -58,19 +56,19 @@ Module 层位于 BSP 层之上，是业务逻辑与硬件抽象之间的桥梁�
 | :----------------------------------------------------- | :-------------------------------------------------------- |
 | [`module_device`](module_device/README.md)             | 设备基类：生命周期、虚表、两阶段构造、逻辑名称和注册键    |
 | [`module_motor`](module_motor/README.md)               | 电机基类：统一注册、使能/禁用、反馈超时、故障锁存和注册表 |
-| [`module_motor_health`](module_motor_health/README.md) | 电机健康聚合：可用性检测、原因位掩码、故障确认/恢复       |
+| [`module_motor_health`](module_motor/README_health.md) | 电机健康聚合：与电机基类共同位于 `module_motor/`          |
 
 ### 3.2 电机模块
 
-| 模块                                             | 说明                                                         |
-| :----------------------------------------------- | :----------------------------------------------------------- |
-| [`module_dji_motor`](module_dji_motor/README.md) | 大疆电机共享 CAN 协议：M2006/M3508/GM6020 统一基类，分组发送 |
-| [`module_m2006`](module_m2006/README.md)         | M2006 + C610 派生配置：36:1 减速比，电流命令 [-10000, 10000] |
-| [`module_m3508`](module_m3508/README.md)         | M3508 + C620 派生配置：19:1 减速比，电流命令 [-16000, 16000] |
-| [`module_gm6020`](module_gm6020/README.md)       | GM6020 派生配置：直驱，电压命令 [-30000, 30000]，ID 1~7      |
-| [`module_dm_motor`](module_dm_motor/README.md)   | 达妙电机通用协议：MIT/速度/位置速度三种模式，多态编码        |
-| [`module_dm4310`](module_dm4310/README.md)       | 达妙 DM4310 型号封装：协议范围可配置，保存零点和清除故障     |
-| [`module_swerve`](module_swerve/README.md)       | 舵轮执行组件：驱动电机速度 + 舵向电机位置，运动学目标转换    |
+| 模块                                                 | 说明                                                         |
+| :--------------------------------------------------- | :----------------------------------------------------------- |
+| [`module_dji_motor`](module_dji_motor/README.md)     | 大疆电机共享 CAN 协议：M2006/M3508/GM6020 统一基类，分组发送 |
+| [`module_m2006`](module_dji_motor/README_M2006.md)   | M2006 + C610，与 DJI 公共协议位于同一目录                    |
+| [`module_m3508`](module_dji_motor/README_M3508.md)   | M3508 + C620，与 DJI 公共协议位于同一目录                    |
+| [`module_gm6020`](module_dji_motor/README_GM6020.md) | GM6020，与 DJI 公共协议位于同一目录                          |
+| [`module_dm_motor`](module_dm_motor/README.md)       | 达妙电机通用协议：MIT/速度/位置速度三种模式，多态编码        |
+| [`module_dm4310`](module_dm_motor/README_DM4310.md)  | 达妙 DM4310 型号封装，与达妙公共协议位于同一目录             |
+| [`module_swerve`](module_swerve/README.md)           | 舵轮执行组件：驱动电机速度 + 舵向电机位置，运动学目标转换    |
 
 ### 3.3 传感器与输入
 
@@ -79,27 +77,27 @@ Module 层位于 BSP 层之上，是业务逻辑与硬件抽象之间的桥梁�
 | [`module_bmi088`](module_bmi088/README.md)         | BMI088 六轴 IMU：加速度/陀螺仪、轴映射、自检、零偏校准   |
 | [`module_dr16`](module_dr16/README.md)             | DR16 遥控器：18 字节帧解析、摇杆归一化、双缓冲、在线检测 |
 | [`module_referee`](module_referee/README.md)       | 裁判系统协议：帧同步、CRC8/16、命令路由、统计            |
-| [`module_referee_ui`](module_referee_ui/README.md) | 裁判系统 UI：客户端图形队列、批量编码、发送限频          |
+| [`module_referee_ui`](module_referee/README_UI.md) | 裁判系统 UI，与协议解析和数据仓库共同位于 `module_referee/` |
 
 ### 3.4 通信模块
 
-| 模块                                               | 说明                                                             |
-| :------------------------------------------------- | :--------------------------------------------------------------- |
-| [`module_robot_link`](module_robot_link/README.md) | 云台板/底盘板 CAN 数据协议：DR16/云台/底盘/发射机构/心跳         |
-| [`module_vision`](module_vision/README.md)         | 视觉通信协议：5 字节固定帧（0xA5 0x5A + 2 数据 + CRC8），USB VCP |
-| [`module_bluetooth`](module_bluetooth/README.md)   | 蓝牙串口透传：双缓冲接收、在线超时、AT 命令发送                  |
-| [`module_nrf24l01`](module_nrf24l01/README.md)     | nRF24L01+ 2.4GHz 收发器：点对点协议、CRC16-CCITT                 |
+| 模块                                                 | 说明                                                             |
+| :--------------------------------------------------- | :--------------------------------------------------------------- |
+| [`module_board_comm`](module_board_comm/README.md)   | 云台板/底盘板 CAN 数据协议：DR16/云台/底盘/发射机构/心跳         |
+| [`module_vision_comm`](module_vision_comm/README.md) | 视觉通信协议：5 字节固定帧（0xA5 0x5A + 2 数据 + CRC8），USB VCP |
+| [`module_bluetooth`](module_bluetooth/README.md)     | 蓝牙串口透传：双缓冲接收、在线超时、AT 命令发送                  |
+| [`module_nrf24l01`](module_nrf24l01/README.md)       | nRF24L01+ 2.4GHz 收发器：点对点协议、CRC16-CCITT                 |
 
 ### 3.5 功能设备
 
-| 模块                                               | 说明                                                            |
-| :------------------------------------------------- | :-------------------------------------------------------------- |
-| [`module_shooter`](module_shooter/README.md)       | 发射机构状态机：摩擦轮 + 拨弹电机、堵转检测、回退重试、故障锁存 |
-| [`module_servo`](module_servo/README.md)           | PWM 舵机：角度/脉宽映射、归一化控制                             |
-| [`module_buzzer`](module_buzzer/README.md)         | 蜂鸣器：非阻塞音调序列、循环播放                                |
-| [`module_oled`](module_oled/README.md)             | 单色 OLED：I2C 帧缓冲、像素/直线/矩形/位图绘制                  |
-| [`module_ws2812`](module_ws2812/README.md)         | RGB 灯带：SPI 编码、全局亮度、效果引擎（闪烁/流水/呼吸/彩虹）   |
-| [`module_diagnostic`](module_diagnostic/README.md) | 故障诊断：探针注册、防抖确认/恢复、严重度聚合、事件回调         |
+| 模块                                                      | 说明                                                            |
+| :-------------------------------------------------------- | :-------------------------------------------------------------- |
+| [`module_shooter`](module_shooter/README.md)              | 发射机构状态机：摩擦轮 + 拨弹电机、堵转检测、回退重试、故障锁存 |
+| [`module_servo`](module_servo/README.md)                  | PWM 舵机：角度/脉宽映射、归一化控制                             |
+| [`module_buzzer`](module_buzzer/README.md)                | 蜂鸣器：非阻塞音调序列、循环播放                                |
+| [`module_oled`](module_oled/README.md)                    | 单色 OLED：I2C 帧缓冲、像素/直线/矩形/位图绘制                  |
+| [`module_ws2812`](module_ws2812/README.md)                | RGB 灯带：SPI 编码、全局亮度、效果引擎（闪烁/流水/呼吸/彩虹）   |
+| [`module_diagnostic`](module_device/README_diagnostic.md) | 通用诊断基础设施，与设备基类共同位于 `module_device/`           |
 
 ## 4. 对象模型
 

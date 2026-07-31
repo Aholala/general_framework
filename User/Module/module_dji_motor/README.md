@@ -4,6 +4,15 @@
 
 `module_dji_motor` 是大疆 M2006、M3508 和 GM6020 电机的 CAN 协议驱动基类，负责总线注册、反馈解码、编码器多圈累计、控制模式和分组电流帧发送。具体型号派生模块（`module_m2006`、`module_m3508`、`module_gm6020`）只补充型号参数与专用语义。
 
+本目录按 DJI 电机领域组织，不再为每个型号单独创建目录：
+
+| 文件 | 型号 | 详细文档 |
+|---|---|---|
+| `module_dji_motor.c/.h` | DJI CAN 协议公共基类 | 本文档 |
+| `module_m2006.c/.h` | M2006 + C610 | [README_M2006.md](README_M2006.md) |
+| `module_m3508.c/.h` | M3508 + C620 | [README_M3508.md](README_M3508.md) |
+| `module_gm6020.c/.h` | GM6020 | [README_GM6020.md](README_GM6020.md) |
+
 **核心功能**：
 
 - CAN 总线管理（3 个发送组 × 4 个电机槽位）

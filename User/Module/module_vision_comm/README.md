@@ -1,8 +1,8 @@
-# 视觉通信模块 (module_vision)
+# 视觉通信模块 (module_vision_comm)
 
 ## 1. 模块概述
 
-`module_vision` 是视觉设备（如摄像头、AI 处理板）与主控之间通过 USB CDC 虚拟串口进行固定格式二进制帧通信的模块。它定义了 5 字节帧结构，包含双字节帧头、两个数据字节和 CRC8 校验，支持发送、接收流解析和帧同步。
+`module_vision_comm` 是视觉设备（如摄像头、AI 处理板）与主控之间通过 USB CDC 虚拟串口进行固定格式二进制帧通信的模块。它定义了 5 字节帧结构，包含双字节帧头、两个数据字节和 CRC8 校验，支持发送、接收流解析和帧同步。
 
 **核心功能**：
 
@@ -54,25 +54,25 @@
 
 | 函数                      | 说明                                 | 返回值                            |
 | :------------------------ | :----------------------------------- | :-------------------------------- |
-| `module_vision_init`      | 初始化模块，保存 USB VCP 句柄和超时  | `OK` / `INVALID_ARGUMENT`         |
-| `module_vision_send_data` | 发送两个数据字节（组帧+CRC+发送）    | `OK` / `BUSY` / `TRANSPORT_ERROR` |
-| `module_vision_feed_data` | 注入接收数据流，解析并更新最新有效帧 | `OK` / `INVALID_FRAME`            |
-| `module_vision_get_data`  | 获取最新有效帧的两个数据字节         | `OK` / `NO_DATA`                  |
-| `module_vision_crc8`      | 计算 CRC8（可单独使用）              | CRC 值                            |
+| `module_vision_comm_init`      | 初始化模块，保存 USB VCP 句柄和超时  | `OK` / `INVALID_ARGUMENT`         |
+| `module_vision_comm_send`      | 发送两个数据字节（组帧+CRC+发送）    | `OK` / `BUSY` / `TRANSPORT_ERROR` |
+| `module_vision_comm_feed_data` | 注入接收数据流，解析并更新最新有效帧 | `OK` / `INVALID_FRAME`            |
+| `module_vision_comm_get_data`  | 获取最新有效帧的两个数据字节         | `OK` / `NO_DATA`                  |
+| `module_vision_comm_crc8`      | 计算 CRC8（可单独使用）              | CRC 值                            |
 
 ## 6. 使用示例
 
 ### 6.1 初始化
 
 ```c
-static module_vision_t s_vision;
+static module_vision_comm_t s_vision;
 
-const module_vision_config_t cfg = {
+const module_vision_comm_config_t cfg = {
     .usb_vcp = board_usb_vcp_ptr,          // 已初始化的 USB VCP
     .transmit_timeout_ms = 10,
 };
 
-module_vision_init(&s_vision, &cfg);
+module_vision_comm_init(&s_vision, &cfg);
 ```
 
 ### 6.2 发送数据
@@ -81,11 +81,11 @@ module_vision_init(&s_vision, &cfg);
 // 发送两个字节（例如目标检测结果和置信度）
 uint8_t result = 0x01;
 uint8_t confidence = 0x64;
-module_vision_status_t st = module_vision_send_data(&s_vision, result, confidence);
-if (st == MODULE_VISION_STATUS_BUSY) {
+module_vision_comm_status_t st = module_vision_comm_send(&s_vision, result, confidence);
+if (st == MODULE_VISION_COMM_STATUS_BUSY) {
     // USB 发送忙，稍后重试
 }
-else if (st != MODULE_VISION_STATUS_OK) {
+else if (st != MODULE_VISION_COMM_STATUS_OK) {
     // 传输错误处理
 }
 ```
@@ -95,13 +95,13 @@ else if (st != MODULE_VISION_STATUS_OK) {
 ```c
 // USB 接收回调（通常由 bsp_usb_vcp 触发）
 void usb_vcp_receive_callback(const uint8_t *data, size_t size, void *ctx) {
-    module_vision_t *vision = (module_vision_t *)ctx;
-    module_vision_feed_data(vision, data, size);
+    module_vision_comm_t *vision = (module_vision_comm_t *)ctx;
+    module_vision_comm_feed_data(vision, data, size);
 }
 
 // 在任务中定期检查最新数据
-module_vision_data_t rx_data;
-if (module_vision_get_data(&s_vision, &rx_data) == MODULE_VISION_STATUS_OK) {
+module_vision_comm_data_t rx_data;
+if (module_vision_comm_get_data(&s_vision, &rx_data) == MODULE_VISION_COMM_STATUS_OK) {
     // 使用 rx_data.data_first, rx_data.data_second
     // rx_data.update_count 可用于检测是否更新
 }
@@ -111,7 +111,7 @@ if (module_vision_get_data(&s_vision, &rx_data) == MODULE_VISION_STATUS_OK) {
 
 ```c
 uint8_t test_frame[] = {0xA5, 0x5A, 0x01, 0x02, 0x??}; // CRC 需正确
-module_vision_feed_data(&s_vision, test_frame, sizeof(test_frame));
+module_vision_comm_feed_data(&s_vision, test_frame, sizeof(test_frame));
 ```
 
 ## 7. 解析状态机
@@ -124,9 +124,9 @@ module_vision_feed_data(&s_vision, test_frame, sizeof(test_frame));
 ## 8. 注意事项
 
 - **USB 发送忙**：调用 `send_data` 前模块会检查 USB 是否忙，若忙则返回 `BUSY`，**不会**阻塞或覆盖发送缓冲区。
-- **发送缓冲区**：`module_vision_t` 内部有一个 5 字节发送缓冲区，因此调用 `send_data` 后数据会被立即复制并发送，调用者可安全释放源数据。
-- **接收数据有效期**：`get_data` 返回的 `module_vision_data_t` 在下次有效帧到来前保持不变，`update_count` 可辅助判断是否更新。
-- **CRC 工具**：`module_vision_crc8` 是公开函数，可用于其他需要 CRC8 的场景。
+- **发送缓冲区**：`module_vision_comm_t` 内部有一个 5 字节发送缓冲区，因此调用 `send_data` 后数据会被立即复制并发送，调用者可安全释放源数据。
+- **接收数据有效期**：`get_data` 返回的 `module_vision_comm_data_t` 在下次有效帧到来前保持不变，`update_count` 可辅助判断是否更新。
+- **CRC 工具**：`module_vision_comm_crc8` 是公开函数，可用于其他需要 CRC8 的场景。
 - **帧头冲突**：数据字节若为 `0xA5` 或 `0x5A` 不影响解析，因为帧头是两个连续字节，解析器会正确区分。
 
 ## 9. 建议验证测试项
@@ -143,4 +143,4 @@ module_vision_feed_data(&s_vision, test_frame, sizeof(test_frame));
 
 ---
 
-**总结**：`module_vision` 提供了极简、可靠的视觉通信基础，适用于需要低延迟、高可靠性的实时视觉数据（如目标检测结果、舵机角度等）。固定帧格式和 CRC 校验确保了数据完整性，流式解析器能稳定处理实际通信中的各种异常情况。
+**总结**：`module_vision_comm` 提供了极简、可靠的视觉通信基础，适用于需要低延迟、高可靠性的实时视觉数据（如目标检测结果、舵机角度等）。固定帧格式和 CRC 校验确保了数据完整性，流式解析器能稳定处理实际通信中的各种异常情况。

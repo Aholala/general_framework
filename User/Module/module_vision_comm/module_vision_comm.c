@@ -1,5 +1,5 @@
 /**
- * @file module_vision.c
+ * @file module_vision_comm.c
  * @author Ahola邱泽钦 (aholace0328@gmail.com)
  * @brief 视觉通信模块实现
  * @version 1.0
@@ -11,7 +11,7 @@
  *       支持流式解析（分包、粘包、帧前噪声）。
  */
 
-#include "module_vision.h"
+#include "module_vision_comm.h"
 
 #include <stddef.h> // NULL, size_t
 #include <string.h> // memset, memcpy
@@ -24,7 +24,7 @@
  * @note 初值 0xFF，多项式 0x8C，LSB-first（右移）
  *       用于对帧头 + 两个数据字节（共 4 字节）计算校验
  */
-uint8_t module_vision_crc8(const uint8_t *frame_data, size_t data_size)
+uint8_t module_vision_comm_crc8(const uint8_t *frame_data, size_t data_size)
 {
     uint8_t crc = 0xFFU; // 初始值 0xFF
     size_t byte_index;   // 字节索引
@@ -55,14 +55,14 @@ uint8_t module_vision_crc8(const uint8_t *frame_data, size_t data_size)
  * @param data_second 第二个数据字节
  * @note 组装帧头 + 数据 + CRC8，CRC8 对前 4 字节计算
  */
-static void module_vision_build_frame(uint8_t frame[MODULE_VISION_FRAME_SIZE], uint8_t data_first,
+static void module_vision_comm_build_frame(uint8_t frame[MODULE_VISION_COMM_FRAME_SIZE], uint8_t data_first,
                                       uint8_t data_second)
 {
-    frame[0] = MODULE_VISION_FRAME_HEADER_FIRST;                        // 帧头 0xA5
-    frame[1] = MODULE_VISION_FRAME_HEADER_SECOND;                       // 帧头 0x5A
+    frame[0] = MODULE_VISION_COMM_FRAME_HEADER_FIRST;                        // 帧头 0xA5
+    frame[1] = MODULE_VISION_COMM_FRAME_HEADER_SECOND;                       // 帧头 0x5A
     frame[2] = data_first;                                              // 数据 1
     frame[3] = data_second;                                             // 数据 2
-    frame[4] = module_vision_crc8(frame, MODULE_VISION_CRC_INPUT_SIZE); // CRC8
+    frame[4] = module_vision_comm_crc8(frame, MODULE_VISION_COMM_CRC_INPUT_SIZE); // CRC8
 }
 
 /**
@@ -71,11 +71,11 @@ static void module_vision_build_frame(uint8_t frame[MODULE_VISION_FRAME_SIZE], u
  * @return true=有效，false=无效
  * @note 检查帧头是否匹配，CRC8 是否正确
  */
-static bool module_vision_frame_is_valid(const uint8_t frame[MODULE_VISION_FRAME_SIZE])
+static bool module_vision_comm_frame_is_valid(const uint8_t frame[MODULE_VISION_COMM_FRAME_SIZE])
 {
-    return (frame[0] == MODULE_VISION_FRAME_HEADER_FIRST) &&
-           (frame[1] == MODULE_VISION_FRAME_HEADER_SECOND) &&
-           (frame[4] == module_vision_crc8(frame, MODULE_VISION_CRC_INPUT_SIZE));
+    return (frame[0] == MODULE_VISION_COMM_FRAME_HEADER_FIRST) &&
+           (frame[1] == MODULE_VISION_COMM_FRAME_HEADER_SECOND) &&
+           (frame[4] == module_vision_comm_crc8(frame, MODULE_VISION_COMM_CRC_INPUT_SIZE));
 }
 
 /**
@@ -83,12 +83,12 @@ static bool module_vision_frame_is_valid(const uint8_t frame[MODULE_VISION_FRAME
  * @param me 视觉模块对象
  * @note 检查流缓冲区的最后一个字节是否为帧头 0xA5，若成立则保留，否则清空
  */
-static void module_vision_resynchronize(module_vision_t *const me)
+static void module_vision_comm_resynchronize(module_vision_comm_t *const me)
 {
     // 若最后一个字节是 0xA5，可能是下一帧的开始，保留它
-    if (me->stream_buffer[MODULE_VISION_FRAME_SIZE - 1U] == MODULE_VISION_FRAME_HEADER_FIRST)
+    if (me->stream_buffer[MODULE_VISION_COMM_FRAME_SIZE - 1U] == MODULE_VISION_COMM_FRAME_HEADER_FIRST)
     {
-        me->stream_buffer[0] = MODULE_VISION_FRAME_HEADER_FIRST;
+        me->stream_buffer[0] = MODULE_VISION_COMM_FRAME_HEADER_FIRST;
         me->stream_size = 1U;
     }
     else
@@ -103,8 +103,8 @@ static void module_vision_resynchronize(module_vision_t *const me)
  * @param config 配置参数
  * @return 执行状态
  */
-module_vision_status_t module_vision_init(module_vision_t *const me,
-                                          const module_vision_config_t *const config)
+module_vision_comm_status_t module_vision_comm_init(module_vision_comm_t *const me,
+                                          const module_vision_comm_config_t *const config)
 {
     bool is_busy;
 
@@ -112,12 +112,12 @@ module_vision_status_t module_vision_init(module_vision_t *const me,
     if ((me == NULL) || (config == NULL) || (config->usb_vcp == NULL) ||
         !bsp_device_is_initialized(&config->usb_vcp->super))
     {
-        return MODULE_VISION_STATUS_INVALID_ARGUMENT;
+        return MODULE_VISION_COMM_STATUS_INVALID_ARGUMENT;
     }
     // 检查 USB VCP 是否可访问（验证句柄有效性）
     if (bsp_usb_vcp_get_busy(config->usb_vcp, &is_busy) != BSP_STATUS_OK)
     {
-        return MODULE_VISION_STATUS_INVALID_ARGUMENT;
+        return MODULE_VISION_COMM_STATUS_INVALID_ARGUMENT;
     }
 
     // 清零对象
@@ -125,7 +125,7 @@ module_vision_status_t module_vision_init(module_vision_t *const me,
     me->usb_vcp = config->usb_vcp;
     me->transmit_timeout_ms = config->transmit_timeout_ms;
     me->is_initialized = true;
-    return MODULE_VISION_STATUS_OK;
+    return MODULE_VISION_COMM_STATUS_OK;
 }
 
 /**
@@ -137,37 +137,37 @@ module_vision_status_t module_vision_init(module_vision_t *const me,
  * @note USB 忙时返回 BUSY，不会覆盖正在发送的数据
  *       发送缓冲区在对象内部，调用后数据会被立即复制
  */
-module_vision_status_t module_vision_send_data(module_vision_t *const me, uint8_t data_first,
-                                               uint8_t data_second)
+module_vision_comm_status_t module_vision_comm_send(module_vision_comm_t *const me,
+                                                    uint8_t data_first, uint8_t data_second)
 {
     bool is_busy;
 
     // 状态检查
     if (me == NULL)
     {
-        return MODULE_VISION_STATUS_INVALID_ARGUMENT;
+        return MODULE_VISION_COMM_STATUS_INVALID_ARGUMENT;
     }
     if (!me->is_initialized)
     {
-        return MODULE_VISION_STATUS_NOT_INITIALIZED;
+        return MODULE_VISION_COMM_STATUS_NOT_INITIALIZED;
     }
 
     // 查询 USB 是否忙
     if (bsp_usb_vcp_get_busy(me->usb_vcp, &is_busy) != BSP_STATUS_OK)
     {
-        return MODULE_VISION_STATUS_TRANSPORT_ERROR;
+        return MODULE_VISION_COMM_STATUS_TRANSPORT_ERROR;
     }
     if (is_busy)
     {
-        return MODULE_VISION_STATUS_BUSY;
+        return MODULE_VISION_COMM_STATUS_BUSY;
     }
 
     // 构建帧并发送
-    module_vision_build_frame(me->transmit_buffer, data_first, data_second);
+    module_vision_comm_build_frame(me->transmit_buffer, data_first, data_second);
     return (bsp_usb_vcp_transmit(me->usb_vcp, me->transmit_buffer, sizeof(me->transmit_buffer),
                                  me->transmit_timeout_ms) == BSP_STATUS_OK)
-               ? MODULE_VISION_STATUS_OK
-               : MODULE_VISION_STATUS_TRANSPORT_ERROR;
+               ? MODULE_VISION_COMM_STATUS_OK
+               : MODULE_VISION_COMM_STATUS_TRANSPORT_ERROR;
 }
 
 /**
@@ -180,7 +180,7 @@ module_vision_status_t module_vision_send_data(module_vision_t *const me, uint8_
  *       收到有效帧时更新 received_data，并递增 update_count。
  *       若收到无效帧则尝试重新同步。
  */
-module_vision_status_t module_vision_feed_data(module_vision_t *const me,
+module_vision_comm_status_t module_vision_comm_feed_data(module_vision_comm_t *const me,
                                                const uint8_t *receive_data, size_t data_size)
 {
     size_t byte_index;
@@ -190,11 +190,11 @@ module_vision_status_t module_vision_feed_data(module_vision_t *const me,
     // 参数校验
     if ((me == NULL) || ((receive_data == NULL) && (data_size > 0U)))
     {
-        return MODULE_VISION_STATUS_INVALID_ARGUMENT;
+        return MODULE_VISION_COMM_STATUS_INVALID_ARGUMENT;
     }
     if (!me->is_initialized)
     {
-        return MODULE_VISION_STATUS_NOT_INITIALIZED;
+        return MODULE_VISION_COMM_STATUS_NOT_INITIALIZED;
     }
 
     // 逐字节处理接收数据流
@@ -205,7 +205,7 @@ module_vision_status_t module_vision_feed_data(module_vision_t *const me,
         /* -------- 状态 0：等待帧头 0xA5 -------- */
         if (me->stream_size == 0U)
         {
-            if (received_byte == MODULE_VISION_FRAME_HEADER_FIRST)
+            if (received_byte == MODULE_VISION_COMM_FRAME_HEADER_FIRST)
             {
                 me->stream_buffer[0] = received_byte;
                 me->stream_size = 1U;
@@ -216,19 +216,19 @@ module_vision_status_t module_vision_feed_data(module_vision_t *const me,
         /* -------- 状态 1：等待帧头 0x5A -------- */
         if (me->stream_size == 1U)
         {
-            if (received_byte == MODULE_VISION_FRAME_HEADER_SECOND)
+            if (received_byte == MODULE_VISION_COMM_FRAME_HEADER_SECOND)
             {
                 me->stream_buffer[1] = received_byte;
                 me->stream_size = 2U;
             }
-            else if (received_byte != MODULE_VISION_FRAME_HEADER_FIRST)
+            else if (received_byte != MODULE_VISION_COMM_FRAME_HEADER_FIRST)
             {
                 // 不是期望的第二个帧头，也不是 0xA5，重置
                 me->stream_size = 0U;
             }
             // 若收到 0xA5，保持流大小不变（等待第二个 0xA5 作为新帧开始？）
             // 实际上这里逻辑：如果收到 0xA5，不会进入 else if，也不会清空。
-            // 因为 received_byte == MODULE_VISION_FRAME_HEADER_FIRST 时，什么也不做，
+            // 因为 received_byte == MODULE_VISION_COMM_FRAME_HEADER_FIRST 时，什么也不做，
             // stream_size 仍为 1，stream_buffer[0] 已经是 0xA5。
             continue;
         }
@@ -238,9 +238,9 @@ module_vision_status_t module_vision_feed_data(module_vision_t *const me,
         ++me->stream_size;
 
         /* -------- 满 5 字节时校验帧 -------- */
-        if (me->stream_size == MODULE_VISION_FRAME_SIZE)
+        if (me->stream_size == MODULE_VISION_COMM_FRAME_SIZE)
         {
-            if (module_vision_frame_is_valid(me->stream_buffer))
+            if (module_vision_comm_frame_is_valid(me->stream_buffer))
             {
                 // 帧有效：更新接收数据
                 me->received_data.data_first = me->stream_buffer[2];
@@ -253,7 +253,7 @@ module_vision_status_t module_vision_feed_data(module_vision_t *const me,
             else
             {
                 // 帧无效：重新同步
-                module_vision_resynchronize(me);
+                module_vision_comm_resynchronize(me);
                 invalid_frame_received = true;
             }
         }
@@ -262,9 +262,9 @@ module_vision_status_t module_vision_feed_data(module_vision_t *const me,
     // 返回结果：有效帧优先，其次无效帧，最后 OK
     if (valid_frame_received)
     {
-        return MODULE_VISION_STATUS_OK;
+        return MODULE_VISION_COMM_STATUS_OK;
     }
-    return invalid_frame_received ? MODULE_VISION_STATUS_INVALID_FRAME : MODULE_VISION_STATUS_OK;
+    return invalid_frame_received ? MODULE_VISION_COMM_STATUS_INVALID_FRAME : MODULE_VISION_COMM_STATUS_OK;
 }
 
 /**
@@ -274,23 +274,23 @@ module_vision_status_t module_vision_feed_data(module_vision_t *const me,
  * @return 执行状态
  * @note 若从未收到有效帧，返回 NO_DATA
  */
-module_vision_status_t module_vision_get_data(const module_vision_t *const me,
-                                              module_vision_data_t *const received_data)
+module_vision_comm_status_t module_vision_comm_get_data(const module_vision_comm_t *const me,
+                                              module_vision_comm_data_t *const received_data)
 {
     // 参数校验
     if ((me == NULL) || (received_data == NULL))
     {
-        return MODULE_VISION_STATUS_INVALID_ARGUMENT;
+        return MODULE_VISION_COMM_STATUS_INVALID_ARGUMENT;
     }
     if (!me->is_initialized)
     {
-        return MODULE_VISION_STATUS_NOT_INITIALIZED;
+        return MODULE_VISION_COMM_STATUS_NOT_INITIALIZED;
     }
     if (!me->received_data.is_valid)
     {
-        return MODULE_VISION_STATUS_NO_DATA;
+        return MODULE_VISION_COMM_STATUS_NO_DATA;
     }
     // 拷贝数据
     *received_data = me->received_data;
-    return MODULE_VISION_STATUS_OK;
+    return MODULE_VISION_COMM_STATUS_OK;
 }
