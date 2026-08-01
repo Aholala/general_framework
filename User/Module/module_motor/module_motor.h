@@ -34,6 +34,13 @@ extern "C"
 #define MODULE_MOTOR_CONTAINER_OF(member_pointer, parent_type, member_name)                        \
     ((parent_type *)((uint8_t *)(member_pointer) - offsetof(parent_type, member_name)))
 
+/**
+ * @brief 编译期检查电机派生对象是否将 super 放在首成员
+ * @param derived_type 完整的派生对象类型
+ */
+#define MODULE_MOTOR_STATIC_ASSERT_SUPER_FIRST(derived_type)                                      \
+    _Static_assert(offsetof(derived_type, super) == 0U, #derived_type " must place super first")
+
     /* ======================== 前向声明 ======================== */
 
     typedef struct module_motor module_motor_t;

@@ -2,6 +2,8 @@
 #include <stddef.h>
 #include <string.h>
 
+MODULE_STATIC_ASSERT_SUPER_FIRST(module_dr16_t);
+
 /** @brief 摇杆最小值 */
 #define MODULE_DR16_CHANNEL_MINIMUM (364)
 /** @brief 摇杆中位值 */

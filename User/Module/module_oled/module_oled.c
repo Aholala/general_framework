@@ -15,6 +15,8 @@
 #include <stddef.h> // NULL
 #include <string.h> // memset, memcpy
 
+MODULE_STATIC_ASSERT_SUPER_FIRST(module_oled_t);
+
 /* ======================== 内部常量 ======================== */
 
 /** @brief I2C 控制字节：命令 */

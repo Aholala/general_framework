@@ -11,6 +11,8 @@
  */
 
 #include "bsp_watchdog.h" // 包含看门狗抽象层头文件
+
+BSP_STATIC_ASSERT_SUPER_FIRST(bsp_watchdog_device_t);
 #include <stddef.h>       // 提供 NULL
 
 /**

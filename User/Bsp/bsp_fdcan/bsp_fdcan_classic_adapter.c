@@ -5,6 +5,8 @@
  */
 
 #include "bsp_fdcan_classic_adapter.h"
+
+BSP_STATIC_ASSERT_SUPER_FIRST(bsp_fdcan_classic_adapter_t);
 #include <stddef.h>
 
 /**

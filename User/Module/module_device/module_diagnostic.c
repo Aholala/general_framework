@@ -12,6 +12,8 @@
 
 #include "module_diagnostic.h"
 
+MODULE_STATIC_ASSERT_SUPER_FIRST(module_diagnostic_t);
+
 /* ======================== 前向声明 ======================== */
 
 static module_device_status_t module_diagnostic_start_device(module_device_t *device);
@@ -25,7 +27,7 @@ static module_device_status_t module_diagnostic_update_device(module_device_t *d
  * @brief 诊断模块的设备虚表
  * @note start/stop/update 均实现
  */
-static const module_device_ops_t module_diagnostic_device_ops = {
+static const module_device_ops_t s_module_diagnostic_device_ops = {
     .start = module_diagnostic_start_device,
     .stop = module_diagnostic_stop_device,
     .update = module_diagnostic_update_device,
@@ -62,7 +64,7 @@ module_device_status_t module_diagnostic_init(module_diagnostic_t *me,
     }
 
     // ---- 第一阶段构造：初始化基类 ----
-    if (module_device_init_base(&me->super, &module_diagnostic_device_ops, config->logical_name,
+    if (module_device_init_base(&me->super, &s_module_diagnostic_device_ops, config->logical_name,
                                 config->registration_key) != MODULE_DEVICE_STATUS_OK)
     {
         return MODULE_DEVICE_STATUS_INVALID_ARGUMENT;

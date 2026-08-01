@@ -12,6 +12,8 @@
  */
 
 #include "bsp_usb_vcp.h" // 包含 USB VCP 抽象层头文件
+
+BSP_STATIC_ASSERT_SUPER_FIRST(bsp_usb_vcp_device_t);
 #include <stddef.h>      // 提供 NULL
 
 /**

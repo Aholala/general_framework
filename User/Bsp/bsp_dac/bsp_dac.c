@@ -11,6 +11,8 @@
  */
 
 #include "bsp_dac.h" // 包含 DAC 抽象层头文件
+
+BSP_STATIC_ASSERT_SUPER_FIRST(bsp_dac_device_t);
 #include <math.h>    // 提供 isfinite() 浮点检测
 #include <stddef.h>  // 提供 NULL 和 size_t
 

@@ -11,6 +11,8 @@
  */
 
 #include "bsp_gpio.h" // 包含 GPIO 抽象层头文件
+
+BSP_STATIC_ASSERT_SUPER_FIRST(bsp_gpio_device_t);
 #include <stddef.h>   // 提供 NULL
 
     /**

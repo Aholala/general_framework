@@ -15,6 +15,8 @@
 #include <math.h>   // isfinite()
 #include <stddef.h> // NULL, size_t
 
+MODULE_STATIC_ASSERT_SUPER_FIRST(module_buzzer_t);
+
 /**
  * @brief 应用静音（设置 PWM 占空比为 0）
  * @param me 蜂鸣器对象

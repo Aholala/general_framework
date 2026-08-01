@@ -15,6 +15,8 @@
 #include <stddef.h> // NULL
 #include <string.h> // memcpy, memset
 
+MODULE_STATIC_ASSERT_SUPER_FIRST(module_nrf24l01_t);
+
 /* ======================== nRF24L01 命令宏 ======================== */
 
 /** @brief 读寄存器命令（低 5 位为寄存器地址） */

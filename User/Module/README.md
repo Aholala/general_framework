@@ -12,7 +12,7 @@ Module 层位于 BSP 层之上，是业务逻辑与硬件抽象之间的桥梁�
 - 实现功能状态机（如发射机构堵转恢复、舵轮运动控制）
 - 管理设备生命周期（初始化、启动、停止、注册、注销）
 - 提供统一的数据接口（反馈、状态、统计）
-- 通过 `module_device` 基类实现多态调：
+- 对需要统一生命周期的设备，通过 `module_device` 基类实现多态调用
 
 - **硬件解耦**：通过 BSP 基类指针注入硬件依赖，不直接访问 HAL 或寄存器
 - **静态内存**：所有对象、缓冲区由调用者静态分配，不使用 `malloc`
@@ -72,11 +72,11 @@ Module 层位于 BSP 层之上，是业务逻辑与硬件抽象之间的桥梁�
 
 ### 3.3 传感器与输入
 
-| 模块                                               | 说明                                                     |
-| :------------------------------------------------- | :------------------------------------------------------- |
-| [`module_bmi088`](module_bmi088/README.md)         | BMI088 六轴 IMU：加速度/陀螺仪、轴映射、自检、零偏校准   |
-| [`module_dr16`](module_dr16/README.md)             | DR16 遥控器：18 字节帧解析、摇杆归一化、双缓冲、在线检测 |
-| [`module_referee`](module_referee/README.md)       | 裁判系统协议：帧同步、CRC8/16、命令路由、统计            |
+| 模块                                               | 说明                                                        |
+| :------------------------------------------------- | :---------------------------------------------------------- |
+| [`module_bmi088`](module_bmi088/README.md)         | BMI088 六轴 IMU：加速度/陀螺仪、轴映射、自检、零偏校准      |
+| [`module_dr16`](module_dr16/README.md)             | DR16 遥控器：18 字节帧解析、摇杆归一化、双缓冲、在线检测    |
+| [`module_referee`](module_referee/README.md)       | 裁判系统协议：帧同步、CRC8/16、命令路由、统计               |
 | [`module_referee_ui`](module_referee/README_UI.md) | 裁判系统 UI，与协议解析和数据仓库共同位于 `module_referee/` |
 
 ### 3.4 通信模块
@@ -104,32 +104,40 @@ Module 层位于 BSP 层之上，是业务逻辑与硬件抽象之间的桥梁�
 ### 4.1 继承层次
 
 ```text
-module_device_t                    (设备基类：vptr、logical_name、magic、is_initialized)
-    └── module_motor_t             (电机基类：状态、反馈、注册信息)
-            ├── module_dji_motor_t (大疆电机：CAN 协议基类)
-            │       ├── module_m2006_t
-            │       ├── module_m3508_t
-            │       └── module_gm6020_t
-            └── module_dm_motor_t  (达妙电机：MIT/速度/位置速度)
-                    └── module_dm4310_t
+module_device_t                    (通用设备生命周期基类)
+    ├── module_bmi088_t
+    ├── module_dr16_t
+    ├── module_referee_t
+    ├── module_nrf24l01_t
+    ├── module_oled_t
+    └── 其他需要统一 start/stop/update 的设备
 
-module_device_t
-    └── module_bmi088_t            (BMI088 IMU)
-    └── module_dr16_t              (DR16 遥控器)
-    └── module_shooter_t           (发射机构)
-    └── module_swerve_t            (舵轮)
-    └── module_oled_t              (OLED 显示)
-    └── ...
+module_motor_t                     (独立的电机基类，不继承 module_device_t)
+    ├── module_dji_motor_t
+    │       ├── module_m2006_t
+    │       ├── module_m3508_t
+    │       └── module_gm6020_t
+    └── module_dm_motor_t
+            └── module_dm4310_t
+
+普通组合对象（不使用虚表）
+    ├── module_shooter_t
+    └── module_swerve_t
 ```
 
 ### 4.2 设计规范
 
 - 派生对象首成员统一命名为 `super`
+- 使用 `MODULE_STATIC_ASSERT_SUPER_FIRST` 或
+  `MODULE_MOTOR_STATIC_ASSERT_SUPER_FIRST` 在编译期验证首成员布局
 - 基类保存只读虚表指针 `vptr`
 - 操作表使用 `static const`
 - 派生实现通过 `MODULE_CONTAINER_OF` 找回完整对象
 - 公共非虚接口负责状态与参数检查，再执行虚调用
 - 硬件访问通过 BSP 基类指针注入
+
+只有存在多种可替换实现或确实需要统一生命周期调度时才接入基类。纯算法、
+单一实现和固定组合组件使用普通结构体函数，不为形式上的“面向对象”增加虚表。
 
 ### 4.3 两阶段构造
 
@@ -169,14 +177,14 @@ status = module_device_complete_init(&me->super);
    ↓
 8. 故障时先归零和禁用输出，再停止通信
    ↓
-9. 注销设备并调用 module_device_deinit 虚析构
+9. 注销设备；停止异步操作后，按具体模块 API 释放注册或绑定关系
 ```
 
 ### 5.2 关键规则
 
 - 构造失败必须留下确定的未初始化对象（`is_initialized = false`）
-- 销毁后禁止继续使用旧基类指针
-- 反初始化前应确保所有异步操作已停止或中止
+- 停止或注销后禁止继续使用失效的注册关系
+- 解除回调或总线绑定前应确保所有异步操作已停止或中止
 - 未注册对象不能执行控制操作
 
 ## 6. ISR 与任务边界

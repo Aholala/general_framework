@@ -17,6 +17,8 @@
 #include <stddef.h> // NULL
 #include <string.h> // memcpy
 
+MODULE_STATIC_ASSERT_SUPER_FIRST(module_bmi088_t);
+
 /* ======================== 内部常量 ======================== */
 
 /** 标准重力加速度（m/s²） */

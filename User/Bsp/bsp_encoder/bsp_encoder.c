@@ -11,6 +11,8 @@
  */
 
 #include "bsp_encoder.h" // 包含编码器抽象层头文件
+
+BSP_STATIC_ASSERT_SUPER_FIRST(bsp_encoder_device_t);
 #include <limits.h>      // 提供 INT32_MAX / INT32_MIN
 #include <stddef.h>      // 提供 NULL
 

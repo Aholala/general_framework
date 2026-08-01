@@ -11,6 +11,8 @@
  */
 
 #include "bsp_timer.h" // 包含定时器抽象层头文件
+
+BSP_STATIC_ASSERT_SUPER_FIRST(bsp_timer_device_t);
 #include <stddef.h>    // 提供 NULL
 
 /**

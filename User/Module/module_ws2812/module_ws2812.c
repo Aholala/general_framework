@@ -15,6 +15,8 @@
 #include <stddef.h> // NULL, size_t
 #include <string.h> // memcpy, memset
 
+MODULE_STATIC_ASSERT_SUPER_FIRST(module_ws2812_t);
+
 /* ======================== 内部辅助函数 ======================== */
 
 /**

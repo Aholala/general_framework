@@ -15,6 +15,8 @@
 #include <math.h>   // isfinite
 #include <stddef.h> // NULL
 
+MODULE_MOTOR_STATIC_ASSERT_SUPER_FIRST(module_dji_motor_t);
+
 /** @brief 编码器每圈计数（13 位编码器，0~8191） */
 #define MODULE_DJI_ENCODER_COUNTS_PER_REVOLUTION (8192.0F)
 /** @brief 2π 常量 */

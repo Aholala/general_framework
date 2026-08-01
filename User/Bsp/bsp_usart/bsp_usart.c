@@ -11,6 +11,8 @@
  */
 
 #include "bsp_usart.h" // 包含 USART 抽象层头文件
+
+BSP_STATIC_ASSERT_SUPER_FIRST(bsp_usart_device_t);
 #include <stddef.h>    // 提供 NULL
 
 /**

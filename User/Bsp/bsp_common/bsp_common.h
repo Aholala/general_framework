@@ -100,6 +100,14 @@ extern "C"
 #define BSP_CONTAINER_OF_CONST(pointer, type, member)                                              \
     ((const type *)((const uint8_t *)(pointer) - offsetof(type, member)))
 
+    /**
+     * @brief 编译期检查派生对象是否将 super 放在首成员
+     * @param derived_type 完整的派生对象类型
+     * @note 每个 bsp_device_t 派生类都应在实现文件中调用一次。
+     */
+#define BSP_STATIC_ASSERT_SUPER_FIRST(derived_type)                                               \
+    _Static_assert(offsetof(derived_type, super) == 0U, #derived_type " must place super first")
+
     /* ---------- 设备基类 ---------- */
     /**
      * @brief 设备基类结构体（所有 BSP 外设对象的公共头）

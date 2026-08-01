@@ -15,6 +15,8 @@
 #include <stddef.h> // NULL, size_t
 #include <string.h> // memcpy, strlen
 
+MODULE_STATIC_ASSERT_SUPER_FIRST(module_bluetooth_t);
+
 /**
  * @brief USART 中断回调（ISR 上下文）
  *        将接收数据拷贝到 processing_buffer 并置位标志，立即重启 DMA

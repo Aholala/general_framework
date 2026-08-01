@@ -15,6 +15,8 @@
 #include <math.h>   // isfinite, isnan 检测
 #include <stddef.h> // NULL
 
+MODULE_STATIC_ASSERT_SUPER_FIRST(module_servo_t);
+
 /**
  * @brief 将数值钳位到指定范围内
  * @param value 要钳位的值

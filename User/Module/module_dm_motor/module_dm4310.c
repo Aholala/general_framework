@@ -13,6 +13,8 @@
 
 #include "module_dm4310.h"
 
+MODULE_MOTOR_STATIC_ASSERT_SUPER_FIRST(module_dm4310_t);
+
 /**
  * @brief 将 DM4310 控制模式映射到达妙通用控制模式
  * @param control_mode DM4310 控制模式

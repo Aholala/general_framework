@@ -12,6 +12,8 @@
 
 #include "module_gm6020.h"
 
+MODULE_MOTOR_STATIC_ASSERT_SUPER_FIRST(module_gm6020_t);
+
 /**
  * @brief 将 GM6020 控制模式映射到大疆通用控制模式
  * @param control_mode GM6020 控制模式
@@ -234,7 +236,7 @@ const module_motor_feedback_t *module_gm6020_get_feedback(const module_gm6020_t 
 /**
  * @brief 获取当前原始电压命令值
  * @param me 电机对象
- * @return 当前命令值（-30000~30000）
+ * @return 当前命令值（-25000~25000）
  */
 int16_t module_gm6020_get_voltage_command_raw(const module_gm6020_t *const me)
 {

@@ -13,6 +13,8 @@
 
 #include "module_m2006.h"
 
+MODULE_MOTOR_STATIC_ASSERT_SUPER_FIRST(module_m2006_t);
+
 /**
  * @brief 将 M2006 控制模式映射到大疆通用控制模式
  * @param control_mode M2006 控制模式

@@ -11,6 +11,8 @@
 
 #include "bsp_adc.h" // 包含 ADC 抽象层头文件
 
+BSP_STATIC_ASSERT_SUPER_FIRST(bsp_adc_device_t);
+
 #include <math.h>   // 用于 isfinite() 浮点检测
 #include <stddef.h> // 提供 NULL、size_t 等标准定义
 

@@ -16,6 +16,8 @@
 #include <stddef.h> // NULL
 #include <string.h> // memcpy, memset
 
+MODULE_MOTOR_STATIC_ASSERT_SUPER_FIRST(module_dm_motor_t);
+
 /**
  * @brief 从 module_motor_t 基类获取派生 module_dm_motor_t 对象
  */

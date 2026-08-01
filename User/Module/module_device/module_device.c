@@ -21,8 +21,9 @@ module_device_status_t module_device_init_base(module_device_t *const me,
                                                const char *const logical_name,
                                                uint32_t registration_key)
 {
-    // 参数校验：对象、虚表、逻辑名称均不能为空
-    if ((me == NULL) || (vptr == NULL) || (logical_name == NULL))
+    // 参数校验：对象、名称和统一生命周期契约必须完整
+    if ((me == NULL) || (vptr == NULL) || (logical_name == NULL) || (vptr->start == NULL) ||
+        (vptr->stop == NULL) || (vptr->update == NULL))
     {
         return MODULE_DEVICE_STATUS_INVALID_ARGUMENT;
     }

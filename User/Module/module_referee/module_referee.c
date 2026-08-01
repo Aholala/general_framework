@@ -17,6 +17,8 @@
 
 #include "module_referee_crc.h" // CRC 校验函数
 
+MODULE_STATIC_ASSERT_SUPER_FIRST(module_referee_t);
+
 #include <stddef.h> // NULL, size_t
 #include <string.h> // memcpy, memmove
 

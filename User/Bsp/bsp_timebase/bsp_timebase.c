@@ -12,6 +12,8 @@
  */
 
 #include "bsp_timebase.h" // 包含时间基准抽象层头文件
+
+BSP_STATIC_ASSERT_SUPER_FIRST(bsp_timebase_device_t);
 #include <stddef.h>       // 提供 NULL
 
 /** 每秒微秒数（用于周期与时间的换算） */

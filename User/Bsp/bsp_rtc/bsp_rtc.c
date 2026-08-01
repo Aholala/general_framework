@@ -12,6 +12,8 @@
 
 #include "bsp_rtc.h" // 包含 RTC 抽象层头文件
 
+BSP_STATIC_ASSERT_SUPER_FIRST(bsp_rtc_device_t);
+
 /**
  * @brief RTC 设备虚析构函数（作为 bsp_device_ops_t 的 deinit 回调）
  * @param device bsp_device_t 基类指针

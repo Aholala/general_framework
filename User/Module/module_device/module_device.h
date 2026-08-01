@@ -42,6 +42,14 @@ extern "C"
     ((const parent_type *)((const uint8_t *)(member_pointer) - offsetof(parent_type, member_name)))
 
 /**
+ * @brief 编译期检查派生对象是否将 super 放在首成员
+ * @param derived_type 完整的派生对象类型
+ * @note 每个 module_device_t 派生类都应在实现文件中调用一次。
+ */
+#define MODULE_STATIC_ASSERT_SUPER_FIRST(derived_type)                                            \
+    _Static_assert(offsetof(derived_type, super) == 0U, #derived_type " must place super first")
+
+/**
  * @brief 对象魔数（'MDEV' 的 ASCII 编码，用于识别有效对象）
  */
 #define MODULE_DEVICE_OBJECT_MAGIC (0x4D444556UL)
@@ -69,7 +77,8 @@ extern "C"
 
     /**
      * @brief 设备虚操作表（由派生类在 .c 中静态定义）
-     * @note start/stop/update 均为可选（可为 NULL），调用时会检查
+     * @note start/stop/update 构成 module_device_t 的统一生命周期契约，均为必须操作。
+     *       不需要实际动作的派生类应提供返回 OK 的空实现，而不是填写 NULL。
      */
     typedef struct
     {
@@ -103,6 +112,7 @@ extern "C"
      * @param registration_key 注册键值
      * @return 执行状态
      * @note 只填充基类字段，不标记为已初始化。
+     *       vptr 中 start/stop/update 任一缺失都会返回 INVALID_ARGUMENT。
      *       派生类完成自己的资源初始化后调用 module_device_complete_init 提交。
      */
     module_device_status_t module_device_init_base(module_device_t *const me,

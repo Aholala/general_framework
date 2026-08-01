@@ -12,6 +12,8 @@
 
 #include <string.h>
 
+MODULE_STATIC_ASSERT_SUPER_FIRST(module_referee_ui_t);
+
 /** @brief 交互数据帧头大小（数据命令 ID + 发送端 ID + 接收端 ID）*/
 #define MODULE_REFEREE_UI_INTERACTION_HEADER_SIZE (6U)
 /** @brief 单图形编码大小 */
@@ -34,7 +36,7 @@ static module_device_status_t module_referee_ui_stop_device(module_device_t *dev
 static module_device_status_t module_referee_ui_update_device(module_device_t *device,
                                                               uint32_t elapsed_time_ms);
 
-static const module_device_ops_t module_referee_ui_device_ops = {
+static const module_device_ops_t s_module_referee_ui_device_ops = {
     .start = module_referee_ui_start_device,
     .stop = module_referee_ui_stop_device,
     .update = module_referee_ui_update_device,
@@ -159,7 +161,7 @@ module_device_status_t module_referee_ui_init(module_referee_ui_t *me,
     {
         return MODULE_DEVICE_STATUS_INVALID_ARGUMENT;
     }
-    if (module_device_init_base(&me->super, &module_referee_ui_device_ops, config->logical_name,
+    if (module_device_init_base(&me->super, &s_module_referee_ui_device_ops, config->logical_name,
                                 config->registration_key) != MODULE_DEVICE_STATUS_OK)
     {
         return MODULE_DEVICE_STATUS_INVALID_ARGUMENT;

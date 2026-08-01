@@ -13,6 +13,8 @@
 
 #include "bsp_storage.h" // 包含存储抽象层头文件
 
+BSP_STATIC_ASSERT_SUPER_FIRST(bsp_storage_device_t);
+
 /**
  * @brief 从基类指针获取派生设备对象（非常量版本）
  * @param me bsp_storage_t 基类指针

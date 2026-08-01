@@ -13,6 +13,8 @@
 
 #include "module_m3508.h"
 
+MODULE_MOTOR_STATIC_ASSERT_SUPER_FIRST(module_m3508_t);
+
 /**
  * @brief 将 M3508 控制模式映射到大疆通用控制模式
  * @param control_mode M3508 控制模式
@@ -237,7 +239,7 @@ const module_motor_feedback_t *module_m3508_get_feedback(const module_m3508_t *c
 /**
  * @brief 获取当前原始电流命令值
  * @param me 电机对象
- * @return 当前命令值（-16000~16000）
+ * @return 当前命令值（-16384~16384）
  */
 int16_t module_m3508_get_current_command_raw(const module_m3508_t *const me)
 {
