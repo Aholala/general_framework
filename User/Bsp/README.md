@@ -35,29 +35,28 @@ bsp_fdcan/                        # CAN FD 外设
 
 ## 3. 外设索引
 
-| 模块                                                 | 说明                                             |
-| :--------------------------------------------------- | :----------------------------------------------- |
-| [`bsp_common`](bsp_common/README.md)                 | 设备基类、虚函数表、统一状态与事件               |
-| [`bsp_gpio`](bsp_gpio/README.md)                     | 数字输入输出和电平控制                           |
-| [`bsp_exti`](bsp_exti/README.md)                     | 外部中断及去抖通知                               |
-| [`bsp_usart`](bsp_usart/README.md)                   | 同步、异步和 DMA 串口                            |
-| [`bsp_spi`](bsp_spi/README.md)                       | 全双工、发送、接收和片选无关 SPI                 |
-| [`bsp_i2c`](bsp_i2c/README.md)                       | 主机收发和存储器寄存器访问                       |
-| [`bsp_can`](bsp_can/README.md)                       | Classic CAN 与任务上下文帧分发器                 |
-| [`bsp_fdcan`](bsp_fdcan/README.md)                   | CAN FD 与 Classic CAN 适配器                     |
-| [`bsp_timer`](bsp_timer/README.md)                   | 基本定时、计数器和周期通知                       |
-| [`bsp_pwm`](bsp_pwm/README.md)                       | PWM 启停、频率与占空比                           |
-| [`bsp_encoder`](bsp_encoder/README.md)               | 增量编码器计数和速度采样                         |
-| [`bsp_adc`](bsp_adc/README.md)                       | ADC 原始值、电压和序列采样                       |
-| [`bsp_dac`](bsp_dac/README.md)                       | DAC 原始码和电压输出                             |
-| [`bsp_usb_vcp`](bsp_usb_vcp/README.md)               | USB CDC 虚拟串口异步收发                         |
-| [`bsp_watchdog`](bsp_watchdog/README.md)             | 硬件看门狗刷新与复位来源                         |
-| [`bsp_timebase`](bsp_timebase/README.md)             | 单调时钟、周期计数和微秒时间基准                 |
-| [`bsp_storage`](bsp_storage/README.md)               | Flash、QSPI/OSPI、EEPROM 与 SDMMC 的统一存储基类 |
-| [`bsp_crc`](bsp_crc/README.md)                       | 硬件 CRC 计算接口                                |
-| [`bsp_rng`](bsp_rng/README.md)                       | 硬件随机数和缓冲区填充                           |
-| [`bsp_rtc`](bsp_rtc/README.md)                       | 结构化日期时间与 Unix 时间                       |
-| [`bsp_stm32h723_port`](bsp_stm32h723_port/README.md) | H723 HAL 句柄到通用 BSP 对象的适配层             |
+| 模块                                                 | 说明                                 |
+| :--------------------------------------------------- | :----------------------------------- |
+| [`bsp_common`](bsp_common/README.md)                 | 设备基类、虚函数表、统一状态与事件   |
+| [`bsp_gpio`](bsp_gpio/README.md)                     | 数字输入输出和电平控制               |
+| [`bsp_exti`](bsp_exti/README.md)                     | 外部中断及去抖通知                   |
+| [`bsp_usart`](bsp_usart/README.md)                   | 同步、异步和 DMA 串口                |
+| [`bsp_spi`](bsp_spi/README.md)                       | 全双工、发送、接收和片选无关 SPI     |
+| [`bsp_i2c`](bsp_i2c/README.md)                       | 主机收发和存储器寄存器访问           |
+| [`bsp_can`](bsp_can/README.md)                       | Classic CAN 与任务上下文帧分发器     |
+| [`bsp_fdcan`](bsp_fdcan/README.md)                   | CAN FD 与 Classic CAN 适配器         |
+| [`bsp_timer`](bsp_timer/README.md)                   | 基本定时、计数器和周期通知           |
+| [`bsp_pwm`](bsp_pwm/README.md)                       | PWM 启停、频率与占空比               |
+| [`bsp_encoder`](bsp_encoder/README.md)               | 增量编码器计数和速度采样             |
+| [`bsp_adc`](bsp_adc/README.md)                       | ADC 原始值、电压和序列采样           |
+| [`bsp_dac`](bsp_dac/README.md)                       | DAC 原始码和电压输出                 |
+| [`bsp_usb_vcp`](bsp_usb_vcp/README.md)               | USB CDC 虚拟串口异步收发             |
+| [`bsp_watchdog`](bsp_watchdog/README.md)             | 硬件看门狗刷新与复位来源             |
+| [`bsp_timebase`](bsp_timebase/README.md)             | 单调时钟、周期计数和微秒时间基准     |
+| [`bsp_crc`](bsp_crc/README.md)                       | 硬件 CRC 计算接口                    |
+| [`bsp_rng`](bsp_rng/README.md)                       | 硬件随机数和缓冲区填充               |
+| [`bsp_rtc`](bsp_rtc/README.md)                       | 结构化日期时间与 Unix 时间           |
+| [`bsp_stm32h723_port`](bsp_stm32h723_port/README.md) | H723 HAL 句柄到通用 BSP 对象的适配层 |
 
 > `bsp_stm32h723_port` 不修改 `Core` 生成的代码，也不替 CubeMX 创建 DMA、缓存或中断配置；它只使用项目已经生成的 HAL 句柄。
 
@@ -268,7 +267,6 @@ static bsp_status_t bsp_uart_send(bsp_uart_t *base, ...) {
 |                 | `bsp_can`            | Classic CAN + 帧分发器                 |
 |                 | `bsp_fdcan`          | CAN FD + Classic 适配器                |
 |                 | `bsp_usb_vcp`        | USB 虚拟串口                           |
-| **存储**        | `bsp_storage`        | Flash/QSPI/EEPROM/SDMMC 统一接口       |
 | **安全/可靠性** | `bsp_watchdog`       | 看门狗刷新、复位检测                   |
 |                 | `bsp_crc`            | 硬件 CRC 计算                          |
 |                 | `bsp_rng`            | 硬件随机数                             |

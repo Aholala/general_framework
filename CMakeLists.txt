@@ -278,7 +278,6 @@ set(bsp_include_directories
     User/Bsp/bsp_watchdog
     User/Bsp/bsp_timebase
     User/Bsp/bsp_stm32h723_port
-    User/Bsp/bsp_storage
     User/Bsp/bsp_crc
     User/Bsp/bsp_rng
     User/Bsp/bsp_rtc
@@ -305,7 +304,6 @@ add_library(bsp OBJECT
     User/Bsp/bsp_watchdog/bsp_watchdog.c
     User/Bsp/bsp_timebase/bsp_timebase.c
     User/Bsp/bsp_stm32h723_port/bsp_stm32h723_port.c
-    User/Bsp/bsp_storage/bsp_storage.c
     User/Bsp/bsp_crc/bsp_crc.c
     User/Bsp/bsp_rng/bsp_rng.c
     User/Bsp/bsp_rtc/bsp_rtc.c

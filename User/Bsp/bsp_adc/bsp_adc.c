@@ -58,12 +58,12 @@ static bsp_status_t bsp_adc_device_deinit(bsp_device_t *const device_base)
     return me->driver_ops->deinit(device_base->device_handle, me->channel);
 }
 
-/* 宏：为 ADC 操作函数生成标准转发函数（无额外参数） */
-#define BSP_ADC_FORWARD(name, member)                                                              \
-    static bsp_status_t name(bsp_adc_t *const adc_base)                                            \
-    {                                                                                              \
-        bsp_adc_device_t *const me = bsp_adc_get_device(adc_base);                                 \
-        return me->driver_ops->member(adc_base->super.device_handle, me->channel);                 \
+/* 为 ADC 操作函数生成标准转发函数（无额外参数） */
+#define BSP_ADC_FORWARD(name, member)                                                 \
+    static bsp_status_t name(bsp_adc_t *const adc_base)                               \
+    {                                                                                 \
+        bsp_adc_device_t *const me = bsp_adc_get_device(adc_base);                    \
+        return me->driver_ops->member(adc_base->super.device_handle, me->channel);    \
     }
 
 /* 生成启动、停止的转发函数 */
