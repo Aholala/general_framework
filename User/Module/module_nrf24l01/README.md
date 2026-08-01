@@ -202,3 +202,37 @@ module_nrf24l01_receive(&radio, rx_payload, 32, &pipe);
 ---
 
 **重要提醒**：nRF24L01 不应作为唯一的安全控制链路。应用层仍需实现序号、超时、数据校验和失联安全状态。本模块的应用层 CRC16 提供数据完整性校验，但**不替代**应用层的超时重传和故障安全逻辑。
+
+## 一页式双机接入顺序与可读信息
+
+```c
+/* 1. 两端分别初始化 SPI、CE GPIO、CSN GPIO，并提供微秒延时。 */
+static module_nrf24l01_t radio;
+
+/* 2. 两端必须使用相同频道、地址宽度、ACE 地址、载荷长度、速率和自动应答参数。 */
+module_nrf24l01_status_t status = module_nrf24l01_init(&radio, &radio_config);
+
+/* 3. start 写入并验证寄存器；接收端随后进入 RX 模式。 */
+status = module_nrf24l01_start(&radio);
+status = module_nrf24l01_start_receive(&radio);
+
+/* 4. 发送端打包 message_type + sequence + data + CRC16。 */
+status = module_nrf24l01_send_packet(&radio, message_type, payload, payload_size);
+
+/* 5. 非阻塞发送需要周期 poll_transmit；接收端周期 receive_packet。 */
+status = module_nrf24l01_poll_transmit(&radio);
+module_nrf24l01_packet_t packet;
+uint8_t receive_pipe_index;
+status = module_nrf24l01_receive_packet(&radio, &packet, &receive_pipe_index);
+
+/* 6. 退出前 stop；应用层还必须根据 sequence 和时间实现失联保护。 */
+```
+
+| 可读取信息 | 读取方式 | 说明 |
+| --- | --- | --- |
+| `module_nrf24l01_packet_t` | `module_nrf24l01_receive_packet()` | 消息类型、序号、有效数据长度和数据数组 |
+| 重发/丢包观察值 | `module_nrf24l01_get_observe_transmit()` | 芯片 `OBSERVE_TX` 寄存器，用于统计重发和丢包 |
+| 当前模式 | `module_nrf24l01_t.mode`，仅调试读取 | 关机、待机、发送或接收 |
+| 链路配置 | `module_nrf24l01_t`，仅调试读取 | 频道、地址、载荷长度、寄存器缓存和发送待完成标志 |
+
+`module_nrf24l01_receive_packet()` 会把数据复制到调用者的 packet，因此返回后可以保存该结构体。

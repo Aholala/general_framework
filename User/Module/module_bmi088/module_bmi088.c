@@ -406,7 +406,7 @@ module_bmi088_status_t module_bmi088_init(module_bmi088_t *const me,
     me->user_context = config->user_context;
     me->transfer_timeout_ms = config->transfer_timeout_ms;
     me->raw_data = (module_bmi088_raw_data_t){0};
-    me->data = (module_bmi088_data_t){0};
+    me->data = (module_bmi088_process_data_t){0};
     me->has_timestamp = false;
     for (axis_index = 0U; axis_index < 3U; ++axis_index)
     {
@@ -776,7 +776,7 @@ module_bmi088_set_gyroscope_bias(module_bmi088_t *const me,
 /**
  * @brief 获取物理量数据指针
  */
-const module_bmi088_data_t *module_bmi088_get_data(const module_bmi088_t *const me)
+const module_bmi088_process_data_t *module_bmi088_get_data(const module_bmi088_t *const me)
 {
     return ((me != NULL) && module_device_is_initialized(&me->super)) ? &me->data : NULL;
 }

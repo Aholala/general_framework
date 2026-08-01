@@ -61,8 +61,9 @@ static bsp_status_t bsp_fdcan_classic_adapter_transmit(void *const device_handle
         .data = {0U},
     };
     size_t data_index;
-    for (data_index = 0U; data_index < can_frame->data_length; ++data_index)
+    for (data_index = 0U; data_index < can_frame->data_length; ++data_index) {
         fdcan_frame.data[data_index] = can_frame->data[data_index];
+}
     return bsp_fdcan_transmit(me->fdcan, &fdcan_frame, timeout_ms);
 }
 
@@ -76,20 +77,23 @@ static bsp_status_t bsp_fdcan_classic_adapter_receive(void *const device_handle,
     size_t data_index;
 
     status = bsp_fdcan_receive(me->fdcan, receive_fifo, &fdcan_frame);
-    if (status != BSP_STATUS_OK)
+    if (status != BSP_STATUS_OK) {
         return status;
+}
     // 必须是 Classic 帧且长度不超过 8
     if ((fdcan_frame.format != BSP_FDCAN_FORMAT_CLASSIC) ||
-        (fdcan_frame.data_length > sizeof(can_frame->data)))
+        (fdcan_frame.data_length > sizeof(can_frame->data))) {
         return BSP_STATUS_UNSUPPORTED;
+}
 
     // 复制字段到 Classic CAN 帧
     can_frame->identifier = fdcan_frame.identifier;
     can_frame->id_type = fdcan_frame.id_type;
     can_frame->frame_type = fdcan_frame.frame_type;
     can_frame->data_length = fdcan_frame.data_length;
-    for (data_index = 0U; data_index < fdcan_frame.data_length; ++data_index)
+    for (data_index = 0U; data_index < fdcan_frame.data_length; ++data_index) {
         can_frame->data[data_index] = fdcan_frame.data[data_index];
+}
     return BSP_STATUS_OK;
 }
 
@@ -109,8 +113,9 @@ static void bsp_fdcan_classic_adapter_event_callback(bsp_event_t event, bsp_stat
                                                      size_t transferred_size, void *user_context)
 {
     bsp_fdcan_classic_adapter_t *const me = (bsp_fdcan_classic_adapter_t *)user_context;
-    if (me != NULL)
+    if (me != NULL) {
         bsp_can_notify(&me->super.super, event, status, transferred_size);
+}
 }
 
 /* 驱动操作表（适配器作为 Classic CAN 驱动） */
@@ -138,8 +143,9 @@ bsp_status_t bsp_fdcan_classic_adapter_init(bsp_fdcan_classic_adapter_t *const m
     bsp_status_t status;
 
     if ((me == NULL) || (config == NULL) || (config->fdcan == NULL) ||
-        !bsp_device_is_initialized(&config->fdcan->super))
+        !bsp_device_is_initialized(&config->fdcan->super)) {
         return BSP_STATUS_INVALID_ARGUMENT;
+}
 
     me->fdcan = config->fdcan;
     // 构造 Classic CAN 初始化配置，device_handle 指向适配器自身

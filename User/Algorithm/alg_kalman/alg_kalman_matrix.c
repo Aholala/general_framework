@@ -44,9 +44,11 @@ static alg_kalman_status_t alg_kalman_internal_invert(float *matrix, float *inve
     float temporary;
 
     // ---- 1. 初始化逆矩阵为单位矩阵 ----
-    for (row = 0U; row < dimension; ++row)
-        for (column = 0U; column < dimension; ++column)
+    for (row = 0U; row < dimension; ++row) {
+        for (column = 0U; column < dimension; ++column) {
             inverse[(row * dimension) + column] = (row == column) ? 1.0F : 0.0F;
+}
+}
 
     // ---- 2. 对每一列进行消元 ----
     for (column = 0U; column < dimension; ++column)
@@ -66,8 +68,9 @@ static alg_kalman_status_t alg_kalman_internal_invert(float *matrix, float *inve
         }
 
         // 检查主元是否有效
-        if (!isfinite(pivot_magnitude) || (pivot_magnitude <= ALG_KALMAN_SINGULAR_THRESHOLD))
+        if (!isfinite(pivot_magnitude) || (pivot_magnitude <= ALG_KALMAN_SINGULAR_THRESHOLD)) {
             return ALG_KALMAN_STATUS_SINGULAR_MATRIX;
+}
 
         // 2.2 交换主元行到当前行（如果需要）
         if (pivot_row != column)
@@ -96,8 +99,9 @@ static alg_kalman_status_t alg_kalman_internal_invert(float *matrix, float *inve
         // 2.4 消去其他行中的当前列（Gauss-Jordan）
         for (row = 0U; row < dimension; ++row)
         {
-            if (row == column)
+            if (row == column) {
                 continue;
+}
 
             scale = matrix[(row * dimension) + column];
             for (element = 0U; element < dimension; ++element)
@@ -128,13 +132,15 @@ bool alg_kalman_internal_is_finite_array(const float *values, size_t value_count
 {
     size_t index;
 
-    if (values == NULL)
+    if (values == NULL) {
         return false;
+}
 
     for (index = 0U; index < value_count; ++index)
     {
-        if (!isfinite(values[index]))
+        if (!isfinite(values[index])) {
             return false;
+}
     }
     return true;
 }
@@ -149,14 +155,16 @@ bool alg_kalman_internal_has_nonnegative_diagonal(const float *matrix, size_t di
 {
     size_t index;
 
-    if (matrix == NULL)
+    if (matrix == NULL) {
         return false;
+}
 
     for (index = 0U; index < dimension; ++index)
     {
         if (!isfinite(matrix[(index * dimension) + index]) ||
-            (matrix[(index * dimension) + index] < 0.0F))
+            (matrix[(index * dimension) + index] < 0.0F)) {
             return false;
+}
     }
     return true;
 }
@@ -172,8 +180,9 @@ bool alg_kalman_internal_has_nonnegative_diagonal(const float *matrix, size_t di
 void alg_kalman_internal_copy(float *destination, const float *source, size_t value_count)
 {
     size_t index;
-    for (index = 0U; index < value_count; ++index)
+    for (index = 0U; index < value_count; ++index) {
         destination[index] = source[index];
+}
 }
 
 /**
@@ -316,8 +325,9 @@ alg_kalman_internal_correct(float *state, float *covariance, size_t state_dimens
     alg_kalman_status_t status;
 
     // ---- 检查工作区是否足够 ----
-    if (workspace_size < required_size)
+    if (workspace_size < required_size) {
         return ALG_KALMAN_STATUS_INSUFFICIENT_WORKSPACE;
+}
 
     // ---- 分配工作区 ----
     new_state = workspace;
@@ -332,9 +342,10 @@ alg_kalman_internal_correct(float *state, float *covariance, size_t state_dimens
     new_covariance = temporary_state_square + state_square;
 
     // ---- 1. 计算创新残差 y = z - h(x) ----
-    for (measurement_index = 0U; measurement_index < measurement_dimension; ++measurement_index)
+    for (measurement_index = 0U; measurement_index < measurement_dimension; ++measurement_index) {
         innovation[measurement_index] =
             measurement[measurement_index] - predicted_measurement[measurement_index];
+}
 
     // ---- 2. 计算 H*P ----
     alg_kalman_internal_multiply(measurement_matrix, measurement_dimension, state_dimension,
@@ -344,8 +355,9 @@ alg_kalman_internal_correct(float *state, float *covariance, size_t state_dimens
     alg_kalman_internal_multiply_right_transpose(
         measurement_covariance_product, measurement_dimension, state_dimension, measurement_matrix,
         measurement_dimension, innovation_covariance);
-    for (index = 0U; index < measurement_square; ++index)
+    for (index = 0U; index < measurement_square; ++index) {
         innovation_covariance[index] += measurement_noise[index];
+}
 
     // ---- 4. 计算 P*H^T（转置） ----
     // 注意：由于 H*P 已知，P*H^T 是 H*P 的转置
@@ -363,8 +375,9 @@ alg_kalman_internal_correct(float *state, float *covariance, size_t state_dimens
     // ---- 5. 求 S 的逆矩阵 ----
     status = alg_kalman_internal_invert(innovation_covariance, innovation_covariance_inverse,
                                         measurement_dimension);
-    if (status != ALG_KALMAN_STATUS_OK)
+    if (status != ALG_KALMAN_STATUS_OK) {
         return status;
+}
 
     // ---- 6. 计算卡尔曼增益 K = P*H^T * S^-1 ----
     alg_kalman_internal_multiply(covariance_measurement_transpose, state_dimension,
@@ -387,10 +400,12 @@ alg_kalman_internal_correct(float *state, float *covariance, size_t state_dimens
     // 8.1 计算 I - K*H
     alg_kalman_internal_multiply(gain, state_dimension, measurement_dimension, measurement_matrix,
                                  state_dimension, identity_minus_gain_measurement);
-    for (index = 0U; index < state_square; ++index)
+    for (index = 0U; index < state_square; ++index) {
         identity_minus_gain_measurement[index] = -identity_minus_gain_measurement[index];
-    for (state_index = 0U; state_index < state_dimension; ++state_index)
+}
+    for (state_index = 0U; state_index < state_dimension; ++state_index) {
         identity_minus_gain_measurement[(state_index * state_dimension) + state_index] += 1.0F;
+}
 
     // 8.2 (I-KH)*P
     alg_kalman_internal_multiply(identity_minus_gain_measurement, state_dimension, state_dimension,
@@ -409,14 +424,16 @@ alg_kalman_internal_correct(float *state, float *covariance, size_t state_dimens
                                                  temporary_state_square);
 
     // 8.5 合并两项
-    for (index = 0U; index < state_square; ++index)
+    for (index = 0U; index < state_square; ++index) {
         new_covariance[index] += temporary_state_square[index];
+}
 
     // ---- 9. 对称化并检查结果 ----
     alg_kalman_internal_symmetrize(new_covariance, state_dimension);
     if (!alg_kalman_internal_is_finite_array(new_state, state_dimension) ||
-        !alg_kalman_internal_is_finite_array(new_covariance, state_square))
+        !alg_kalman_internal_is_finite_array(new_covariance, state_square)) {
         return ALG_KALMAN_STATUS_NUMERICAL_ERROR;
+}
 
     // ---- 10. 提交更新 ----
     alg_kalman_internal_copy(state, new_state, state_dimension);

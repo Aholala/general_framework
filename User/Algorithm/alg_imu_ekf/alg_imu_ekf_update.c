@@ -40,8 +40,9 @@ static void alg_imu_ekf_update_process_noise(alg_imu_ekf_t *me, float delta_time
     float accumulator;
 
     // ---- 清空过程噪声矩阵 ----
-    for (row = 0U; row < (ALG_IMU_EKF_STATE_DIMENSION * ALG_IMU_EKF_STATE_DIMENSION); ++row)
+    for (row = 0U; row < (ALG_IMU_EKF_STATE_DIMENSION * ALG_IMU_EKF_STATE_DIMENSION); ++row) {
         me->process_noise[row] = 0.0F;
+}
 
     // ---- 构建四元数对陀螺仪噪声的映射矩阵 G ----
     // G 将 3 维陀螺仪噪声映射到 4 维四元数状态
@@ -111,10 +112,12 @@ static void alg_imu_ekf_apply_bias_fading(alg_imu_ekf_t *me)
         {
             scale = 1.0F;
             // 若行或列涉及零偏状态（索引 4~5），应用渐消因子
-            if (row >= 4U)
+            if (row >= 4U) {
                 scale *= bias_scale;
-            if (column >= 4U)
+}
+            if (column >= 4U) {
                 scale *= bias_scale;
+}
             me->covariance[(row * ALG_IMU_EKF_STATE_DIMENSION) + column] *= scale;
         }
     }
@@ -139,8 +142,9 @@ static bool alg_imu_ekf_invert_symmetric3x3(const float matrix[9], float inverse
     const float determinant =
         (matrix[0] * cofactor_00) + (matrix[1] * cofactor_01) + (matrix[2] * cofactor_02);
 
-    if (!isfinite(determinant) || (fabsf(determinant) <= ALG_IMU_EKF_SINGULAR_THRESHOLD))
+    if (!isfinite(determinant) || (fabsf(determinant) <= ALG_IMU_EKF_SINGULAR_THRESHOLD)) {
         return false;
+}
 
     // 使用伴随矩阵法求逆
     inverse[0] = cofactor_00 / determinant;
@@ -188,19 +192,22 @@ alg_imu_ekf_compute_innovation_statistics(alg_imu_ekf_t *me, const float normali
     kalman_status = alg_imu_ekf_internal_measurement_function(
         me->state, ALG_IMU_EKF_STATE_DIMENSION, ALG_IMU_EKF_MEASUREMENT_DIMENSION,
         predicted_measurement, me);
-    if (kalman_status != ALG_KALMAN_STATUS_OK)
+    if (kalman_status != ALG_KALMAN_STATUS_OK) {
         return ALG_IMU_EKF_STATUS_KALMAN_ERROR;
+}
 
     // ---- 2. 计算测量雅可比 H ----
     kalman_status = alg_imu_ekf_internal_measurement_jacobian(
         me->state, ALG_IMU_EKF_STATE_DIMENSION, ALG_IMU_EKF_MEASUREMENT_DIMENSION,
         measurement_jacobian, me);
-    if (kalman_status != ALG_KALMAN_STATUS_OK)
+    if (kalman_status != ALG_KALMAN_STATUS_OK) {
         return ALG_IMU_EKF_STATUS_KALMAN_ERROR;
+}
 
     // ---- 3. 计算创新残差 y = z - h(x) ----
-    for (row = 0U; row < 3U; ++row)
+    for (row = 0U; row < 3U; ++row) {
         me->innovation[row] = normalized_measurement[row] - predicted_measurement[row];
+}
 
     // ---- 4. 计算 H*P ----
     for (row = 0U; row < 3U; ++row)
@@ -238,8 +245,9 @@ alg_imu_ekf_compute_innovation_statistics(alg_imu_ekf_t *me, const float normali
     }
 
     // ---- 6. 求创新协方差逆矩阵 ----
-    if (!alg_imu_ekf_invert_symmetric3x3(innovation_covariance, innovation_covariance_inverse))
+    if (!alg_imu_ekf_invert_symmetric3x3(innovation_covariance, innovation_covariance_inverse)) {
         return ALG_IMU_EKF_STATUS_NUMERICAL_ERROR;
+}
 
     // ---- 7. 计算 NIS = y^T * S^-1 * y ----
     // 先计算 S^-1 * y
@@ -275,13 +283,16 @@ alg_imu_ekf_status_t alg_imu_ekf_predict(alg_imu_ekf_t *me, const float gyroscop
     alg_kalman_status_t kalman_status;
     alg_imu_ekf_status_t status;
 
-    if ((me == NULL) || (gyroscope_rad_s == NULL))
+    if ((me == NULL) || (gyroscope_rad_s == NULL)) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_IMU_EKF_STATUS_NOT_INITIALIZED;
+}
     if (!alg_imu_ekf_internal_is_finite_array(gyroscope_rad_s, 3U) || !isfinite(delta_time_s) ||
-        (delta_time_s <= 0.0F))
+        (delta_time_s <= 0.0F)) {
         return ALG_IMU_EKF_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 1. 零偏协方差渐消 ----
     alg_imu_ekf_apply_bias_fading(me);
@@ -291,8 +302,9 @@ alg_imu_ekf_status_t alg_imu_ekf_predict(alg_imu_ekf_t *me, const float gyroscop
 
     // ---- 3. 执行通用 EKF 预测 ----
     kalman_status = alg_kalman_extended_predict(&me->kalman, gyroscope_rad_s, delta_time_s);
-    if (kalman_status != ALG_KALMAN_STATUS_OK)
+    if (kalman_status != ALG_KALMAN_STATUS_OK) {
         return alg_imu_ekf_internal_map_kalman_status(kalman_status);
+}
 
     // ---- 4. 四元数归一化与协方差投影 ----
     status = alg_imu_ekf_internal_normalize_and_project(me);
@@ -327,13 +339,16 @@ alg_imu_ekf_status_t alg_imu_ekf_correct_accelerometer(alg_imu_ekf_t *me,
     alg_kalman_status_t kalman_status;
     alg_imu_ekf_status_t status;
 
-    if ((me == NULL) || (accelerometer_m_s2 == NULL))
+    if ((me == NULL) || (accelerometer_m_s2 == NULL)) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_IMU_EKF_STATUS_NOT_INITIALIZED;
+}
     if (!alg_imu_ekf_internal_is_finite_array(accelerometer_m_s2, 3U) || !isfinite(delta_time_s) ||
-        (delta_time_s <= 0.0F))
+        (delta_time_s <= 0.0F)) {
         return ALG_IMU_EKF_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 1. 模长检查：硬拒绝 ----
     raw_norm = sqrtf((accelerometer_m_s2[0] * accelerometer_m_s2[0]) +
@@ -362,8 +377,9 @@ alg_imu_ekf_status_t alg_imu_ekf_correct_accelerometer(alg_imu_ekf_t *me,
         filter_status =
             alg_filter_low_pass_update(&me->accelerometer_filter[index], accelerometer_m_s2[index],
                                        delta_time_s, &me->filtered_accelerometer_m_s2[index]);
-        if (filter_status != ALG_FILTER_STATUS_OK)
+        if (filter_status != ALG_FILTER_STATUS_OK) {
             return ALG_IMU_EKF_STATUS_NUMERICAL_ERROR;
+}
     }
 
     // ---- 3. 归一化滤波后加速度（仅使用方向） ----
@@ -377,8 +393,9 @@ alg_imu_ekf_status_t alg_imu_ekf_correct_accelerometer(alg_imu_ekf_t *me,
         return ALG_IMU_EKF_STATUS_ACCELEROMETER_REJECTED;
     }
 
-    for (index = 0U; index < 3U; ++index)
+    for (index = 0U; index < 3U; ++index) {
         normalized_measurement[index] = me->filtered_accelerometer_m_s2[index] / filtered_norm;
+}
 
     // ---- 4. 计算创新统计（NIS） ----
     base_measurement_variance =
@@ -386,8 +403,9 @@ alg_imu_ekf_status_t alg_imu_ekf_correct_accelerometer(alg_imu_ekf_t *me,
 
     status = alg_imu_ekf_compute_innovation_statistics(me, normalized_measurement,
                                                        base_measurement_variance);
-    if (status != ALG_IMU_EKF_STATUS_OK)
+    if (status != ALG_IMU_EKF_STATUS_OK) {
         return status;
+}
 
     // ---- 5. 卡方检验：NIS 超过拒绝阈值 ----
     if (me->last_normalized_innovation_squared > me->config.chi_square_rejection_threshold)
@@ -412,10 +430,12 @@ alg_imu_ekf_status_t alg_imu_ekf_correct_accelerometer(alg_imu_ekf_t *me,
     me->last_measurement_noise_scale = noise_scale;
 
     // ---- 7. 更新测量噪声矩阵 ----
-    for (index = 0U; index < 9U; ++index)
+    for (index = 0U; index < 9U; ++index) {
         me->measurement_noise[index] = 0.0F;
-    for (index = 0U; index < 3U; ++index)
+}
+    for (index = 0U; index < 3U; ++index) {
         me->measurement_noise[(index * 3U) + index] = base_measurement_variance * noise_scale;
+}
 
     // ---- 8. 执行 EKF 校正 ----
     kalman_status = alg_kalman_extended_correct(&me->kalman, normalized_measurement);
@@ -448,13 +468,15 @@ alg_imu_ekf_status_t alg_imu_ekf_update(alg_imu_ekf_t *me, const float gyroscope
 {
     alg_imu_ekf_status_t status;
 
-    if ((me == NULL) || (gyroscope_rad_s == NULL) || (accelerometer_m_s2 == NULL))
+    if ((me == NULL) || (gyroscope_rad_s == NULL) || (accelerometer_m_s2 == NULL)) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
+}
 
     // ---- 1. 预测 ----
     status = alg_imu_ekf_predict(me, gyroscope_rad_s, delta_time_s);
-    if (status != ALG_IMU_EKF_STATUS_OK)
+    if (status != ALG_IMU_EKF_STATUS_OK) {
         return status;
+}
 
     // ---- 2. 校正 ----
     status = alg_imu_ekf_correct_accelerometer(me, accelerometer_m_s2, delta_time_s);
@@ -462,16 +484,19 @@ alg_imu_ekf_status_t alg_imu_ekf_update(alg_imu_ekf_t *me, const float gyroscope
     // 加速度被拒绝时返回 OK（预测结果仍然有效）
     if (status == ALG_IMU_EKF_STATUS_ACCELEROMETER_REJECTED)
     {
-        if (accelerometer_used != NULL)
+        if (accelerometer_used != NULL) {
             *accelerometer_used = false;
+}
         return ALG_IMU_EKF_STATUS_OK;
     }
 
-    if (status != ALG_IMU_EKF_STATUS_OK)
+    if (status != ALG_IMU_EKF_STATUS_OK) {
         return status;
+}
 
-    if (accelerometer_used != NULL)
+    if (accelerometer_used != NULL) {
         *accelerometer_used = true;
+}
 
     return ALG_IMU_EKF_STATUS_OK;
 }

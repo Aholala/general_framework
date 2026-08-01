@@ -13,6 +13,8 @@
 #ifndef MODULE_MOTOR_H
 #define MODULE_MOTOR_H
 
+#include "alg_pid.h"
+
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t, offsetof
 #include <stdint.h>  // uint32_t
@@ -78,6 +80,36 @@ extern "C"
         MODULE_MOTOR_STATE_FAULT         // 故障（输出被禁止）
     } module_motor_state_t;
 
+    /**
+     * @brief PID 算法形式
+     * @note POSITIONAL 指位置式算法，不代表电机位置环。
+     */
+    typedef enum
+    {
+        MODULE_MOTOR_PID_POSITIONAL = 0,
+        MODULE_MOTOR_PID_INCREMENTAL
+    } module_motor_pid_form_t;
+
+    /** @brief 单个电机控制环的 PID 配置 */
+    typedef struct
+    {
+        module_motor_pid_form_t form;
+        alg_pid_config_t positional_config;
+        alg_pid_incremental_config_t incremental_config;
+    } module_motor_pid_config_t;
+
+    /** @brief 可选择位置式或增量式算法的 PID 控制环 */
+    typedef struct
+    {
+        module_motor_pid_form_t form;
+        union
+        {
+            alg_pid_t positional;
+            alg_pid_incremental_t incremental;
+        } controller;
+        bool is_initialized;
+    } module_motor_pid_t;
+
     /* ======================== 反馈数据结构 ======================== */
 
     /**
@@ -123,11 +155,17 @@ extern "C"
     struct module_motor
     {
         const module_motor_ops_t *vptr;   // 虚表指针（只读）
-        const char *logical_name;         // 逻辑名称
+        const char *motor_name;           // 调试可见的电机名称（调用者长期持有字符串）
         uint32_t registration_key;        // 注册键值（唯一标识）
+        uint32_t motor_identifier;        // 电机协议 ID 或主机 ID
         size_t registry_index;            // 在注册表中的索引
         module_motor_state_t state;       // 当前运行状态
         module_motor_feedback_t feedback; // 反馈数据
+        float delta_time_s;               // 最近一次成功控制更新的时间步长
+        uint64_t total_runtime_us;         // 累计成功更新时间（微秒，包含失能状态）
+        uint64_t enabled_runtime_us;       // 累计使能运行时间（微秒）
+        uint32_t control_update_count;     // 成功控制更新次数
+        module_motor_status_t last_update_status; // 最近一次 update 状态
         uint32_t feedback_timeout_ms;     // 反馈超时时间（0 表示禁用）
         bool is_initialized;              // 是否已初始化
         bool is_registered;               // 是否已注册到注册表
@@ -149,18 +187,32 @@ extern "C"
 
     /* ======================== 公共 API ======================== */
 
+    module_motor_status_t module_motor_pid_init(module_motor_pid_t *const me,
+                                                const module_motor_pid_config_t *const config);
+    module_motor_status_t module_motor_pid_reset(module_motor_pid_t *const me,
+                                                 float measurement,
+                                                 float initial_output);
+    module_motor_status_t module_motor_pid_update(module_motor_pid_t *const me,
+                                                  float setpoint,
+                                                  float measurement,
+                                                  float delta_time_s,
+                                                  float *const output);
+    const alg_pid_terms_t *module_motor_pid_get_terms(const module_motor_pid_t *const me);
+
     /**
      * @brief 初始化电机基类
      * @param me 电机对象
      * @param vptr 虚表指针
-     * @param logical_name 逻辑名称
+     * @param motor_name 调试可见的电机名称
      * @param registration_key 注册键值
+     * @param motor_identifier 电机协议 ID 或主机 ID
      * @return 执行状态
      */
     module_motor_status_t module_motor_init_base(module_motor_t *const me,
                                                  const module_motor_ops_t *const vptr,
-                                                 const char *const logical_name,
-                                                 uint32_t registration_key);
+                                                 const char *const motor_name,
+                                                 uint32_t registration_key,
+                                                 uint32_t motor_identifier);
 
     /**
      * @brief 初始化电机注册表

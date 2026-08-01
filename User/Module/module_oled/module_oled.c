@@ -307,8 +307,9 @@ module_oled_status_t module_oled_draw_line(module_oled_t *me, int32_t start_x, i
     for (;;)
     {
         (void)module_oled_set_pixel(me, start_x, start_y, is_on);
-        if ((start_x == end_x) && (start_y == end_y))
+        if ((start_x == end_x) && (start_y == end_y)) {
             break;
+}
         if ((2 * error) >= delta_y)
         {
             error += delta_y;

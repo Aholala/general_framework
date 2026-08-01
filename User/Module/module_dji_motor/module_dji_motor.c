@@ -60,6 +60,37 @@ static int16_t module_dji_motor_clamp_command(float command_value, int16_t comma
  */
 static module_motor_status_t module_dji_motor_enable_virtual(module_motor_t *const motor_base)
 {
+    module_dji_motor_t *const me = module_dji_motor_get_device(motor_base);
+    module_motor_status_t status;
+
+    if (me->control_mode >= MODULE_DJI_CONTROL_CURRENT)
+    {
+        status = module_motor_pid_reset(&me->current_pid, motor_base->feedback.current_a, 0.0F);
+        if (status != MODULE_MOTOR_STATUS_OK)
+        {
+            return status;
+        }
+    }
+    if (me->control_mode >= MODULE_DJI_CONTROL_VELOCITY)
+    {
+        status = module_motor_pid_reset(&me->velocity_pid,
+                                        motor_base->feedback.velocity_rad_per_s,
+                                        motor_base->feedback.current_a);
+        if (status != MODULE_MOTOR_STATUS_OK)
+        {
+            return status;
+        }
+    }
+    if (me->control_mode >= MODULE_DJI_CONTROL_ANGLE)
+    {
+        status = module_motor_pid_reset(&me->angle_pid, motor_base->feedback.position_rad,
+                                        motor_base->feedback.velocity_rad_per_s);
+        if (status != MODULE_MOTOR_STATUS_OK)
+        {
+            return status;
+        }
+    }
+
     motor_base->state = MODULE_MOTOR_STATE_ENABLED;
     return MODULE_MOTOR_STATUS_OK;
 }
@@ -91,7 +122,22 @@ static module_motor_status_t module_dji_motor_set_target_virtual(module_motor_t 
     {
         return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
     }
-    me->target_value = target_value;
+    if (me->control_mode == MODULE_DJI_CONTROL_DIRECT)
+    {
+        me->direct_command_value = target_value;
+    }
+    else if (me->control_mode == MODULE_DJI_CONTROL_CURRENT)
+    {
+        me->target_current_a = target_value;
+    }
+    else if (me->control_mode == MODULE_DJI_CONTROL_VELOCITY)
+    {
+        me->target_velocity_rad_per_s = target_value;
+    }
+    else
+    {
+        me->target_angle_rad = target_value;
+    }
     return MODULE_MOTOR_STATUS_OK;
 }
 
@@ -106,7 +152,10 @@ static module_motor_status_t module_dji_motor_update_virtual(module_motor_t *con
                                                              float delta_time_s)
 {
     module_dji_motor_t *const me = module_dji_motor_get_device(motor_base);
-    float controller_output = 0.0F;
+    float current_setpoint_a;
+    float velocity_setpoint_rad_per_s;
+    float command_output = 0.0F;
+    module_motor_status_t status;
 
     // 禁用状态：命令清零
     if (motor_base->state != MODULE_MOTOR_STATE_ENABLED)
@@ -119,37 +168,50 @@ static module_motor_status_t module_dji_motor_update_virtual(module_motor_t *con
     if (me->control_mode == MODULE_DJI_CONTROL_DIRECT)
     {
         // 直通模式：目标值直接作为控制器输出
-        controller_output = me->target_value;
+        command_output = me->direct_command_value;
     }
-    else if (me->control_mode == MODULE_DJI_CONTROL_VELOCITY)
+    else
     {
-        // 速度控制：速度 PID
-        if (alg_pid_update(&me->velocity_controller, me->target_value,
-                           motor_base->feedback.velocity_rad_per_s, delta_time_s,
-                           &controller_output) != ALG_PID_STATUS_OK)
+        if (!motor_base->feedback.is_online || !motor_base->feedback.is_current_a_valid)
         {
-            return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
+            return MODULE_MOTOR_STATUS_FEEDBACK_UNAVAILABLE;
         }
-    }
-    else // MODULE_DJI_CONTROL_POSITION
-    {
-        // 位置控制：位置/速度串级 PID
-        const alg_pid_cascade_input_t controller_input = {
-            .position_setpoint = me->target_value,
-            .position_measurement = motor_base->feedback.position_rad,
-            .velocity_measurement = motor_base->feedback.velocity_rad_per_s,
-            .velocity_feedforward = 0.0F,
-            .actuator_feedforward = 0.0F,
-            .delta_time_s = delta_time_s};
-        if (alg_pid_cascade_update(&me->position_controller, &controller_input,
-                                   &controller_output) != ALG_PID_STATUS_OK)
+
+        current_setpoint_a = me->target_current_a;
+        if (me->control_mode >= MODULE_DJI_CONTROL_VELOCITY)
         {
-            return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
+            velocity_setpoint_rad_per_s = me->target_velocity_rad_per_s;
+            if (me->control_mode == MODULE_DJI_CONTROL_ANGLE)
+            {
+                status = module_motor_pid_update(&me->angle_pid, me->target_angle_rad,
+                                                 motor_base->feedback.position_rad,
+                                                 delta_time_s, &velocity_setpoint_rad_per_s);
+                if (status != MODULE_MOTOR_STATUS_OK)
+                {
+                    return status;
+                }
+            }
+
+            status = module_motor_pid_update(&me->velocity_pid, velocity_setpoint_rad_per_s,
+                                             motor_base->feedback.velocity_rad_per_s,
+                                             delta_time_s, &current_setpoint_a);
+            if (status != MODULE_MOTOR_STATUS_OK)
+            {
+                return status;
+            }
+        }
+
+        status = module_motor_pid_update(&me->current_pid, current_setpoint_a,
+                                         motor_base->feedback.current_a,
+                                         delta_time_s, &command_output);
+        if (status != MODULE_MOTOR_STATUS_OK)
+        {
+            return status;
         }
     }
 
     // 钳位并应用方向符号
-    me->command_value = module_dji_motor_clamp_command(controller_output * me->direction_sign,
+    me->command_value = module_dji_motor_clamp_command(command_output * me->direction_sign,
                                                        me->maximum_command_value);
     return MODULE_MOTOR_STATUS_OK;
 }
@@ -254,13 +316,15 @@ module_motor_status_t module_dji_motor_init(module_dji_motor_t *const me,
     module_motor_status_t status;
 
     // ---- 参数校验 ----
-    if ((me == NULL) || (config == NULL) || (config->logical_name == NULL) ||
+    if ((me == NULL) || (config == NULL) || (config->motor_name == NULL) ||
         (config->motor_bus == NULL) || !config->motor_bus->is_initialized ||
         (config->motor_model > MODULE_DJI_MOTOR_GM6020) ||
-        (config->control_mode > MODULE_DJI_CONTROL_POSITION) ||
+        (config->control_mode > MODULE_DJI_CONTROL_ANGLE) ||
         ((config->direction_sign != 1.0F) && (config->direction_sign != -1.0F)) ||
         !isfinite(config->maximum_temperature_c) || (config->maximum_temperature_c <= 0.0F) ||
-        !isfinite(config->current_scale_a_per_count) || (config->current_scale_a_per_count < 0.0F))
+        !isfinite(config->current_scale_a_per_count) ||
+        ((config->control_mode != MODULE_DJI_CONTROL_DIRECT) &&
+         (config->current_scale_a_per_count <= 0.0F)))
     {
         return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
     }
@@ -277,6 +341,7 @@ module_motor_status_t module_dji_motor_init(module_dji_motor_t *const me,
     me->motor_bus = config->motor_bus;
     me->motor_model = config->motor_model;
     me->control_mode = config->control_mode;
+    me->motor_identifier = config->motor_identifier;
     me->direction_sign = config->direction_sign;
     me->maximum_temperature_c = config->maximum_temperature_c;
     me->current_scale_a_per_count = config->current_scale_a_per_count;
@@ -301,28 +366,41 @@ module_motor_status_t module_dji_motor_init(module_dji_motor_t *const me,
     }
 
     // ---- 初始化状态 ----
-    me->target_value = 0.0F;
+    me->direct_command_value = 0.0F;
+    me->target_current_a = 0.0F;
+    me->target_velocity_rad_per_s = 0.0F;
+    me->target_angle_rad = 0.0F;
+    me->current_pid = (module_motor_pid_t){0};
+    me->velocity_pid = (module_motor_pid_t){0};
+    me->angle_pid = (module_motor_pid_t){0};
     me->command_value = 0;
     me->previous_encoder_count = 0U;
     me->accumulated_encoder_count = 0;
     me->has_previous_encoder_count = false;
 
-    // ---- 初始化 PID 控制器 ----
-    if ((config->control_mode == MODULE_DJI_CONTROL_VELOCITY) &&
-        (alg_pid_init(&me->velocity_controller, &config->velocity_pid_config) != ALG_PID_STATUS_OK))
+    // ---- 按控制链初始化电流、速度和角度 PID ----
+    if ((config->control_mode >= MODULE_DJI_CONTROL_CURRENT) &&
+        (module_motor_pid_init(&me->current_pid, &config->current_pid_config) !=
+         MODULE_MOTOR_STATUS_OK))
     {
         return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
     }
-    if ((config->control_mode == MODULE_DJI_CONTROL_POSITION) &&
-        (alg_pid_cascade_init(&me->position_controller, &config->position_pid_config) !=
-         ALG_PID_STATUS_OK))
+    if ((config->control_mode >= MODULE_DJI_CONTROL_VELOCITY) &&
+        (module_motor_pid_init(&me->velocity_pid, &config->velocity_pid_config) !=
+         MODULE_MOTOR_STATUS_OK))
+    {
+        return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    }
+    if ((config->control_mode == MODULE_DJI_CONTROL_ANGLE) &&
+        (module_motor_pid_init(&me->angle_pid, &config->angle_pid_config) !=
+         MODULE_MOTOR_STATUS_OK))
     {
         return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
     }
 
     // ---- 初始化基类 ----
-    return module_motor_init_base(&me->super, &s_module_dji_motor_ops, config->logical_name,
-                                  config->registration_key);
+    return module_motor_init_base(&me->super, &s_module_dji_motor_ops, config->motor_name,
+                                  config->registration_key, config->motor_identifier);
 }
 
 /**
@@ -448,6 +526,21 @@ module_motor_t *module_dji_motor_as_base(module_dji_motor_t *const me)
     return (me != NULL) ? &me->super : NULL;
 }
 
+const module_motor_pid_t *module_dji_motor_get_current_pid(const module_dji_motor_t *const me)
+{
+    return ((me != NULL) && me->current_pid.is_initialized) ? &me->current_pid : NULL;
+}
+
+const module_motor_pid_t *module_dji_motor_get_velocity_pid(const module_dji_motor_t *const me)
+{
+    return ((me != NULL) && me->velocity_pid.is_initialized) ? &me->velocity_pid : NULL;
+}
+
+const module_motor_pid_t *module_dji_motor_get_angle_pid(const module_dji_motor_t *const me)
+{
+    return ((me != NULL) && me->angle_pid.is_initialized) ? &me->angle_pid : NULL;
+}
+
 /**
  * @brief 处理 CAN 反馈帧
  * @param me 总线对象
@@ -537,7 +630,8 @@ module_motor_status_t module_dji_motor_bus_handle_feedback(module_dji_motor_bus_
     motor->super.feedback.current_raw = current_raw;
     motor->super.feedback.is_current_a_valid = motor->current_scale_a_per_count > 0.0F;
     motor->super.feedback.current_a = motor->super.feedback.is_current_a_valid
-                                          ? (float)current_raw * motor->current_scale_a_per_count
+                                          ? (float)current_raw * motor->current_scale_a_per_count *
+                                                motor->direction_sign
                                           : 0.0F;
 
     // 温度

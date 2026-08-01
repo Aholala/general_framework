@@ -22,10 +22,12 @@
  */
 static float alg_imu_ekf_clamp_unit(float value)
 {
-    if (value > 1.0F)
+    if (value > 1.0F) {
         return 1.0F;
-    if (value < -1.0F)
+}
+    if (value < -1.0F) {
         return -1.0F;
+}
     return value;
 }
 
@@ -38,10 +40,12 @@ static float alg_imu_ekf_clamp_unit(float value)
 alg_imu_ekf_status_t alg_imu_ekf_get_quaternion(const alg_imu_ekf_t *me,
                                                 alg_imu_ekf_quaternion_t *quaternion)
 {
-    if ((me == NULL) || (quaternion == NULL))
+    if ((me == NULL) || (quaternion == NULL)) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_IMU_EKF_STATUS_NOT_INITIALIZED;
+}
 
     quaternion->w = me->state[0];
     quaternion->x = me->state[1];
@@ -60,10 +64,12 @@ alg_imu_ekf_status_t alg_imu_ekf_get_euler(const alg_imu_ekf_t *me, alg_imu_ekf_
 {
     float sine_pitch;
 
-    if ((me == NULL) || (euler == NULL))
+    if ((me == NULL) || (euler == NULL)) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_IMU_EKF_STATUS_NOT_INITIALIZED;
+}
 
     // Roll：atan2(2(q0*q1 + q2*q3), 1 - 2(q1² + q2²))
     euler->roll_rad =
@@ -92,10 +98,12 @@ alg_imu_ekf_status_t alg_imu_ekf_get_euler(const alg_imu_ekf_t *me, alg_imu_ekf_
  */
 alg_imu_ekf_status_t alg_imu_ekf_get_gyro_bias(const alg_imu_ekf_t *me, float gyro_bias_rad_s[3])
 {
-    if ((me == NULL) || (gyro_bias_rad_s == NULL))
+    if ((me == NULL) || (gyro_bias_rad_s == NULL)) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_IMU_EKF_STATUS_NOT_INITIALIZED;
+}
 
     gyro_bias_rad_s[0] = me->state[4];
     gyro_bias_rad_s[1] = me->state[5];
@@ -116,16 +124,20 @@ alg_imu_ekf_status_t alg_imu_ekf_get_corrected_gyroscope(const alg_imu_ekf_t *me
 {
     size_t axis;
 
-    if ((me == NULL) || (gyroscope_rad_s == NULL) || (corrected_gyroscope_rad_s == NULL))
+    if ((me == NULL) || (gyroscope_rad_s == NULL) || (corrected_gyroscope_rad_s == NULL)) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_IMU_EKF_STATUS_NOT_INITIALIZED;
-    if (!alg_imu_ekf_internal_is_finite_array(gyroscope_rad_s, 3U))
+}
+    if (!alg_imu_ekf_internal_is_finite_array(gyroscope_rad_s, 3U)) {
         return ALG_IMU_EKF_STATUS_OUT_OF_RANGE;
+}
 
     // X/Y 轴减去零偏
-    for (axis = 0U; axis < 2U; ++axis)
+    for (axis = 0U; axis < 2U; ++axis) {
         corrected_gyroscope_rad_s[axis] = gyroscope_rad_s[axis] - me->state[4U + axis];
+}
 
     // Z 轴不变（无零偏估计）
     corrected_gyroscope_rad_s[2] = gyroscope_rad_s[2];
@@ -144,10 +156,12 @@ alg_imu_ekf_status_t alg_imu_ekf_get_diagnostics(const alg_imu_ekf_t *me,
 {
     size_t index;
 
-    if ((me == NULL) || (diagnostics == NULL))
+    if ((me == NULL) || (diagnostics == NULL)) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_IMU_EKF_STATUS_NOT_INITIALIZED;
+}
 
     for (index = 0U; index < 3U; ++index)
     {
@@ -173,10 +187,12 @@ alg_imu_ekf_status_t alg_imu_ekf_get_diagnostics(const alg_imu_ekf_t *me,
 alg_imu_ekf_status_t alg_imu_ekf_get_gravity_body(const alg_imu_ekf_t *me,
                                                   float gravity_body_m_s2[3])
 {
-    if ((me == NULL) || (gravity_body_m_s2 == NULL))
+    if ((me == NULL) || (gravity_body_m_s2 == NULL)) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_IMU_EKF_STATUS_NOT_INITIALIZED;
+}
 
     // 将世界系重力 [0, 0, g] 旋转到机体系
     gravity_body_m_s2[0] = me->config.gravity_m_s2 * 2.0F *
@@ -205,18 +221,22 @@ alg_imu_ekf_get_linear_acceleration_body(const alg_imu_ekf_t *me, const float ac
     size_t axis;
     alg_imu_ekf_status_t status;
 
-    if ((me == NULL) || (accelerometer_m_s2 == NULL) || (linear_acceleration_body_m_s2 == NULL))
+    if ((me == NULL) || (accelerometer_m_s2 == NULL) || (linear_acceleration_body_m_s2 == NULL)) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
-    if (!alg_imu_ekf_internal_is_finite_array(accelerometer_m_s2, 3U))
+}
+    if (!alg_imu_ekf_internal_is_finite_array(accelerometer_m_s2, 3U)) {
         return ALG_IMU_EKF_STATUS_OUT_OF_RANGE;
+}
 
     status = alg_imu_ekf_get_gravity_body(me, gravity_body);
-    if (status != ALG_IMU_EKF_STATUS_OK)
+    if (status != ALG_IMU_EKF_STATUS_OK) {
         return status;
+}
 
     // 线性加速度 = 测量值 - 重力
-    for (axis = 0U; axis < 3U; ++axis)
+    for (axis = 0U; axis < 3U; ++axis) {
         linear_acceleration_body_m_s2[axis] = accelerometer_m_s2[axis] - gravity_body[axis];
+}
 
     return ALG_IMU_EKF_STATUS_OK;
 }
@@ -235,12 +255,15 @@ alg_imu_ekf_get_linear_acceleration_world(const alg_imu_ekf_t *me,
 {
     float rotation[9]; // 机体系到世界系的旋转矩阵
 
-    if ((me == NULL) || (accelerometer_m_s2 == NULL) || (linear_acceleration_world_m_s2 == NULL))
+    if ((me == NULL) || (accelerometer_m_s2 == NULL) || (linear_acceleration_world_m_s2 == NULL)) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_IMU_EKF_STATUS_NOT_INITIALIZED;
-    if (!alg_imu_ekf_internal_is_finite_array(accelerometer_m_s2, 3U))
+}
+    if (!alg_imu_ekf_internal_is_finite_array(accelerometer_m_s2, 3U)) {
         return ALG_IMU_EKF_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 构建从机体系到世界系的旋转矩阵 ----
     rotation[0] = 1.0F - (2.0F * ((me->state[2] * me->state[2]) + (me->state[3] * me->state[3])));

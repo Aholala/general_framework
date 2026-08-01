@@ -41,10 +41,12 @@ static bool alg_math_matrix_has_same_size(const alg_math_matrix_t *left,
 alg_math_status_t alg_math_matrix_init(alg_math_matrix_t *matrix, float *data, size_t rows,
                                        size_t columns)
 {
-    if ((matrix == NULL) || (data == NULL))
+    if ((matrix == NULL) || (data == NULL)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if ((rows == 0U) || (columns == 0U) || (rows > (SIZE_MAX / columns)))
+}
+    if ((rows == 0U) || (columns == 0U) || (rows > (SIZE_MAX / columns))) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
     matrix->rows = rows;
     matrix->columns = columns;
     matrix->data = data;
@@ -57,10 +59,12 @@ alg_math_status_t alg_math_matrix_init(alg_math_matrix_t *matrix, float *data, s
 alg_math_status_t alg_math_matrix_zero(alg_math_matrix_t *matrix)
 {
     size_t index;
-    if (!alg_math_matrix_is_valid(matrix))
+    if (!alg_math_matrix_is_valid(matrix)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    for (index = 0U; index < (matrix->rows * matrix->columns); ++index)
+}
+    for (index = 0U; index < (matrix->rows * matrix->columns); ++index) {
         matrix->data[index] = 0.0F;
+}
     return ALG_MATH_STATUS_OK;
 }
 
@@ -70,13 +74,16 @@ alg_math_status_t alg_math_matrix_zero(alg_math_matrix_t *matrix)
 alg_math_status_t alg_math_matrix_identity(alg_math_matrix_t *matrix)
 {
     size_t index;
-    if (!alg_math_matrix_is_valid(matrix))
+    if (!alg_math_matrix_is_valid(matrix)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if (matrix->rows != matrix->columns)
+}
+    if (matrix->rows != matrix->columns) {
         return ALG_MATH_STATUS_SIZE_MISMATCH;
+}
     (void)alg_math_matrix_zero(matrix);
-    for (index = 0U; index < matrix->rows; ++index)
+    for (index = 0U; index < matrix->rows; ++index) {
         matrix->data[(index * matrix->columns) + index] = 1.0F;
+}
     return ALG_MATH_STATUS_OK;
 }
 
@@ -87,14 +94,18 @@ alg_math_status_t alg_math_matrix_copy(const alg_math_matrix_t *source,
                                        alg_math_matrix_t *destination)
 {
     size_t index;
-    if (!alg_math_matrix_is_valid(source) || !alg_math_matrix_is_valid(destination))
+    if (!alg_math_matrix_is_valid(source) || !alg_math_matrix_is_valid(destination)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if (!alg_math_matrix_has_same_size(source, destination))
+}
+    if (!alg_math_matrix_has_same_size(source, destination)) {
         return ALG_MATH_STATUS_SIZE_MISMATCH;
-    if (!alg_math_is_finite_array(source->data, source->rows * source->columns))
+}
+    if (!alg_math_is_finite_array(source->data, source->rows * source->columns)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
-    for (index = 0U; index < (source->rows * source->columns); ++index)
+}
+    for (index = 0U; index < (source->rows * source->columns); ++index) {
         destination->data[index] = source->data[index];
+}
     return ALG_MATH_STATUS_OK;
 }
 
@@ -108,18 +119,22 @@ static alg_math_status_t alg_math_matrix_elementwise(const alg_math_matrix_t *le
     size_t index;
     float value;
     if (!alg_math_matrix_is_valid(left) || !alg_math_matrix_is_valid(right) ||
-        !alg_math_matrix_is_valid(result))
+        !alg_math_matrix_is_valid(result)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if (!alg_math_matrix_has_same_size(left, right) || !alg_math_matrix_has_same_size(left, result))
+}
+    if (!alg_math_matrix_has_same_size(left, right) || !alg_math_matrix_has_same_size(left, result)) {
         return ALG_MATH_STATUS_SIZE_MISMATCH;
+}
     if (!alg_math_is_finite_array(left->data, left->rows * left->columns) ||
-        !alg_math_is_finite_array(right->data, right->rows * right->columns))
+        !alg_math_is_finite_array(right->data, right->rows * right->columns)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
     for (index = 0U; index < (left->rows * left->columns); ++index)
     {
         value = left->data[index] + (right_scale * right->data[index]);
-        if (!isfinite(value))
+        if (!isfinite(value)) {
             return ALG_MATH_STATUS_NUMERICAL_ERROR;
+}
         result->data[index] = value;
     }
     return ALG_MATH_STATUS_OK;
@@ -146,17 +161,21 @@ alg_math_status_t alg_math_matrix_scale(const alg_math_matrix_t *input, float sc
 {
     size_t index;
     float value;
-    if (!alg_math_matrix_is_valid(input) || !alg_math_matrix_is_valid(result))
+    if (!alg_math_matrix_is_valid(input) || !alg_math_matrix_is_valid(result)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if (!alg_math_matrix_has_same_size(input, result))
+}
+    if (!alg_math_matrix_has_same_size(input, result)) {
         return ALG_MATH_STATUS_SIZE_MISMATCH;
-    if (!isfinite(scale) || !alg_math_is_finite_array(input->data, input->rows * input->columns))
+}
+    if (!isfinite(scale) || !alg_math_is_finite_array(input->data, input->rows * input->columns)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
     for (index = 0U; index < (input->rows * input->columns); ++index)
     {
         value = input->data[index] * scale;
-        if (!isfinite(value))
+        if (!isfinite(value)) {
             return ALG_MATH_STATUS_NUMERICAL_ERROR;
+}
         result->data[index] = value;
     }
     return ALG_MATH_STATUS_OK;
@@ -172,27 +191,33 @@ alg_math_status_t alg_math_matrix_multiply(const alg_math_matrix_t *left,
     size_t row, column, shared_index;
     float acc;
     if (!alg_math_matrix_is_valid(left) || !alg_math_matrix_is_valid(right) ||
-        !alg_math_matrix_is_valid(result))
+        !alg_math_matrix_is_valid(result)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
+}
     if ((left->columns != right->rows) || (result->rows != left->rows) ||
-        (result->columns != right->columns))
+        (result->columns != right->columns)) {
         return ALG_MATH_STATUS_SIZE_MISMATCH;
-    if ((result->data == left->data) || (result->data == right->data))
+}
+    if ((result->data == left->data) || (result->data == right->data)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
+}
     if (!alg_math_is_finite_array(left->data, left->rows * left->columns) ||
-        !alg_math_is_finite_array(right->data, right->rows * right->columns))
+        !alg_math_is_finite_array(right->data, right->rows * right->columns)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
 
     for (row = 0U; row < result->rows; ++row)
     {
         for (column = 0U; column < result->columns; ++column)
         {
             acc = 0.0F;
-            for (shared_index = 0U; shared_index < left->columns; ++shared_index)
+            for (shared_index = 0U; shared_index < left->columns; ++shared_index) {
                 acc += left->data[(row * left->columns) + shared_index] *
                        right->data[(shared_index * right->columns) + column];
-            if (!isfinite(acc))
+}
+            if (!isfinite(acc)) {
                 return ALG_MATH_STATUS_NUMERICAL_ERROR;
+}
             result->data[(row * result->columns) + column] = acc;
         }
     }
@@ -206,35 +231,42 @@ alg_math_status_t alg_math_matrix_transpose(const alg_math_matrix_t *input,
                                             alg_math_matrix_t *result)
 {
     size_t row, column;
-    float tmp;
-    if (!alg_math_matrix_is_valid(input) || !alg_math_matrix_is_valid(result))
+    float temporary_value;
+    if (!alg_math_matrix_is_valid(input) || !alg_math_matrix_is_valid(result)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if ((result->rows != input->columns) || (result->columns != input->rows))
+}
+    if ((result->rows != input->columns) || (result->columns != input->rows)) {
         return ALG_MATH_STATUS_SIZE_MISMATCH;
-    if (!alg_math_is_finite_array(input->data, input->rows * input->columns))
+}
+    if (!alg_math_is_finite_array(input->data, input->rows * input->columns)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
 
     if (input->data == result->data)
     {
         // ---- 原地转置：仅限方阵 ----
-        if (input->rows != input->columns)
+        if (input->rows != input->columns) {
             return ALG_MATH_STATUS_INVALID_ARGUMENT;
-        for (row = 0U; row < input->rows; ++row)
+}
+        for (row = 0U; row < input->rows; ++row) {
             for (column = row + 1U; column < input->columns; ++column)
             {
-                tmp = result->data[(row * result->columns) + column];
+                temporary_value = result->data[(row * result->columns) + column];
                 result->data[(row * result->columns) + column] =
                     result->data[(column * result->columns) + row];
-                result->data[(column * result->columns) + row] = tmp;
+                result->data[(column * result->columns) + row] = temporary_value;
             }
+}
         return ALG_MATH_STATUS_OK;
     }
 
     // ---- 非原地转置 ----
-    for (row = 0U; row < input->rows; ++row)
-        for (column = 0U; column < input->columns; ++column)
+    for (row = 0U; row < input->rows; ++row) {
+        for (column = 0U; column < input->columns; ++column) {
             result->data[(column * result->columns) + row] =
                 input->data[(row * input->columns) + column];
+}
+}
     return ALG_MATH_STATUS_OK;
 }
 
@@ -247,23 +279,29 @@ alg_math_status_t alg_math_matrix_multiply_vector(const alg_math_matrix_t *matri
 {
     size_t row, column;
     float acc;
-    if (!alg_math_matrix_is_valid(matrix) || (vector == NULL) || (result == NULL))
+    if (!alg_math_matrix_is_valid(matrix) || (vector == NULL) || (result == NULL)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if ((vector_length != matrix->columns) || (result_length != matrix->rows))
+}
+    if ((vector_length != matrix->columns) || (result_length != matrix->rows)) {
         return ALG_MATH_STATUS_SIZE_MISMATCH;
-    if (vector == result)
+}
+    if (vector == result) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
+}
     if (!alg_math_is_finite_array(matrix->data, matrix->rows * matrix->columns) ||
-        !alg_math_is_finite_array(vector, vector_length))
+        !alg_math_is_finite_array(vector, vector_length)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
 
     for (row = 0U; row < matrix->rows; ++row)
     {
         acc = 0.0F;
-        for (column = 0U; column < matrix->columns; ++column)
+        for (column = 0U; column < matrix->columns; ++column) {
             acc += matrix->data[(row * matrix->columns) + column] * vector[column];
-        if (!isfinite(acc))
+}
+        if (!isfinite(acc)) {
             return ALG_MATH_STATUS_NUMERICAL_ERROR;
+}
         result[row] = acc;
     }
     return ALG_MATH_STATUS_OK;
@@ -276,12 +314,12 @@ static void alg_math_matrix_swap_rows(float *matrix, size_t column_count, size_t
                                       size_t second_row)
 {
     size_t col;
-    float tmp;
+    float temporary_value;
     for (col = 0U; col < column_count; ++col)
     {
-        tmp = matrix[(first_row * column_count) + col];
+        temporary_value = matrix[(first_row * column_count) + col];
         matrix[(first_row * column_count) + col] = matrix[(second_row * column_count) + col];
-        matrix[(second_row * column_count) + col] = tmp;
+        matrix[(second_row * column_count) + col] = temporary_value;
     }
 }
 
@@ -295,25 +333,31 @@ alg_math_status_t alg_math_matrix_invert(const alg_math_matrix_t *input, alg_mat
     float pivot_mag, cand_mag, pivot, factor;
 
     if (!alg_math_matrix_is_valid(input) || !alg_math_matrix_is_valid(inverse) ||
-        (workspace == NULL))
+        (workspace == NULL)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if ((input->rows != input->columns) || !alg_math_matrix_has_same_size(input, inverse))
+}
+    if ((input->rows != input->columns) || !alg_math_matrix_has_same_size(input, inverse)) {
         return ALG_MATH_STATUS_SIZE_MISMATCH;
+}
     order = input->rows;
-    if (workspace_size < ALG_MATH_MATRIX_INVERSE_WORKSPACE_SIZE(order))
+    if (workspace_size < ALG_MATH_MATRIX_INVERSE_WORKSPACE_SIZE(order)) {
         return ALG_MATH_STATUS_SIZE_MISMATCH;
-    if (!alg_math_is_finite_array(input->data, order * order))
+}
+    if (!alg_math_is_finite_array(input->data, order * order)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
 
     aug_cols = 2U * order;
 
     // ---- 构造增广矩阵 [A | I] ----
     for (row = 0U; row < order; ++row)
     {
-        for (col = 0U; col < order; ++col)
+        for (col = 0U; col < order; ++col) {
             workspace[(row * aug_cols) + col] = input->data[(row * order) + col];
-        for (col = 0U; col < order; ++col)
+}
+        for (col = 0U; col < order; ++col) {
             workspace[(row * aug_cols) + order + col] = (row == col) ? 1.0F : 0.0F;
+}
     }
 
     // ---- Gauss-Jordan 消元 ----
@@ -331,33 +375,40 @@ alg_math_status_t alg_math_matrix_invert(const alg_math_matrix_t *input, alg_mat
                 pivot_row = row;
             }
         }
-        if (pivot_mag <= ALG_MATH_MATRIX_PIVOT_THRESHOLD)
+        if (pivot_mag <= ALG_MATH_MATRIX_PIVOT_THRESHOLD) {
             return ALG_MATH_STATUS_SINGULAR;
+}
 
         // 交换行
-        if (pivot_row != col)
+        if (pivot_row != col) {
             alg_math_matrix_swap_rows(workspace, aug_cols, col, pivot_row);
+}
 
         // 归一化主元行
         pivot = workspace[(col * aug_cols) + col];
-        for (size_t idx = 0U; idx < aug_cols; ++idx)
+        for (size_t idx = 0U; idx < aug_cols; ++idx) {
             workspace[(col * aug_cols) + idx] /= pivot;
+}
 
         // 消去其他行
         for (row = 0U; row < order; ++row)
         {
-            if (row == col)
+            if (row == col) {
                 continue;
+}
             factor = workspace[(row * aug_cols) + col];
-            for (size_t idx = 0U; idx < aug_cols; ++idx)
+            for (size_t idx = 0U; idx < aug_cols; ++idx) {
                 workspace[(row * aug_cols) + idx] -= factor * workspace[(col * aug_cols) + idx];
+}
         }
     }
 
     // ---- 提取逆矩阵 ----
-    for (row = 0U; row < order; ++row)
-        for (col = 0U; col < order; ++col)
+    for (row = 0U; row < order; ++row) {
+        for (col = 0U; col < order; ++col) {
             inverse->data[(row * order) + col] = workspace[(row * aug_cols) + order + col];
+}
+}
 
     return alg_math_is_finite_array(inverse->data, order * order) ? ALG_MATH_STATUS_OK
                                                                   : ALG_MATH_STATUS_NUMERICAL_ERROR;
@@ -374,24 +425,29 @@ alg_math_status_t alg_math_matrix_solve(const alg_math_matrix_t *coefficients,
     float pivot_mag, cand_mag, factor, acc;
 
     if (!alg_math_matrix_is_valid(coefficients) || (right_hand_side == NULL) ||
-        (solution == NULL) || (workspace == NULL))
+        (solution == NULL) || (workspace == NULL)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if (coefficients->rows != coefficients->columns)
+}
+    if (coefficients->rows != coefficients->columns) {
         return ALG_MATH_STATUS_SIZE_MISMATCH;
+}
     order = coefficients->rows;
-    if (workspace_size < ALG_MATH_MATRIX_SOLVE_WORKSPACE_SIZE(order))
+    if (workspace_size < ALG_MATH_MATRIX_SOLVE_WORKSPACE_SIZE(order)) {
         return ALG_MATH_STATUS_SIZE_MISMATCH;
+}
     if (!alg_math_is_finite_array(coefficients->data, order * order) ||
-        !alg_math_is_finite_array(right_hand_side, order))
+        !alg_math_is_finite_array(right_hand_side, order)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
 
     aug_cols = order + 1U;
 
     // ---- 构造增广矩阵 [A | b] ----
     for (row = 0U; row < order; ++row)
     {
-        for (col = 0U; col < order; ++col)
+        for (col = 0U; col < order; ++col) {
             workspace[(row * aug_cols) + col] = coefficients->data[(row * order) + col];
+}
         workspace[(row * aug_cols) + order] = right_hand_side[row];
     }
 
@@ -409,17 +465,20 @@ alg_math_status_t alg_math_matrix_solve(const alg_math_matrix_t *coefficients,
                 pivot_row = row;
             }
         }
-        if (pivot_mag <= ALG_MATH_MATRIX_PIVOT_THRESHOLD)
+        if (pivot_mag <= ALG_MATH_MATRIX_PIVOT_THRESHOLD) {
             return ALG_MATH_STATUS_SINGULAR;
-        if (pivot_row != col)
+}
+        if (pivot_row != col) {
             alg_math_matrix_swap_rows(workspace, aug_cols, col, pivot_row);
+}
 
         for (row = col + 1U; row < order; ++row)
         {
             factor = workspace[(row * aug_cols) + col] / workspace[(col * aug_cols) + col];
             workspace[(row * aug_cols) + col] = 0.0F;
-            for (size_t idx = col + 1U; idx < aug_cols; ++idx)
+            for (size_t idx = col + 1U; idx < aug_cols; ++idx) {
                 workspace[(row * aug_cols) + idx] -= factor * workspace[(col * aug_cols) + idx];
+}
         }
     }
 
@@ -427,10 +486,12 @@ alg_math_status_t alg_math_matrix_solve(const alg_math_matrix_t *coefficients,
     for (row = order; row-- > 0U;)
     {
         acc = workspace[(row * aug_cols) + order];
-        for (col = row + 1U; col < order; ++col)
+        for (col = row + 1U; col < order; ++col) {
             acc -= workspace[(row * aug_cols) + col] * solution[col];
-        if (fabsf(workspace[(row * aug_cols) + row]) <= ALG_MATH_MATRIX_PIVOT_THRESHOLD)
+}
+        if (fabsf(workspace[(row * aug_cols) + row]) <= ALG_MATH_MATRIX_PIVOT_THRESHOLD) {
             return ALG_MATH_STATUS_SINGULAR;
+}
         solution[row] = acc / workspace[(row * aug_cols) + row];
     }
     return alg_math_is_finite_array(solution, order) ? ALG_MATH_STATUS_OK
@@ -446,25 +507,31 @@ alg_math_status_t alg_math_matrix_cholesky(const alg_math_matrix_t *input,
     size_t row, col, k;
     float acc;
 
-    if (!alg_math_matrix_is_valid(input) || !alg_math_matrix_is_valid(lower_triangular))
+    if (!alg_math_matrix_is_valid(input) || !alg_math_matrix_is_valid(lower_triangular)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if ((input->rows != input->columns) || !alg_math_matrix_has_same_size(input, lower_triangular))
+}
+    if ((input->rows != input->columns) || !alg_math_matrix_has_same_size(input, lower_triangular)) {
         return ALG_MATH_STATUS_SIZE_MISMATCH;
-    if (input->data == lower_triangular->data)
+}
+    if (input->data == lower_triangular->data) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if (!alg_math_is_finite_array(input->data, input->rows * input->columns))
+}
+    if (!alg_math_is_finite_array(input->data, input->rows * input->columns)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 检查对称性（近似） ----
-    for (row = 0U; row < input->rows; ++row)
+    for (row = 0U; row < input->rows; ++row) {
         for (col = row + 1U; col < input->columns; ++col)
         {
             float upper = input->data[(row * input->columns) + col];
             float lower = input->data[(col * input->columns) + row];
             float tol = 1.0e-5F * (1.0F + fmaxf(fabsf(upper), fabsf(lower)));
-            if (fabsf(upper - lower) > tol)
+            if (fabsf(upper - lower) > tol) {
                 return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
         }
+}
 
     (void)alg_math_matrix_zero(lower_triangular);
 
@@ -474,14 +541,16 @@ alg_math_status_t alg_math_matrix_cholesky(const alg_math_matrix_t *input,
         for (col = 0U; col <= row; ++col)
         {
             acc = input->data[(row * input->columns) + col];
-            for (k = 0U; k < col; ++k)
+            for (k = 0U; k < col; ++k) {
                 acc -= lower_triangular->data[(row * lower_triangular->columns) + k] *
                        lower_triangular->data[(col * lower_triangular->columns) + k];
+}
 
             if (row == col)
             {
-                if (acc <= ALG_MATH_MATRIX_PIVOT_THRESHOLD)
+                if (acc <= ALG_MATH_MATRIX_PIVOT_THRESHOLD) {
                     return ALG_MATH_STATUS_SINGULAR;
+}
                 lower_triangular->data[(row * lower_triangular->columns) + col] = sqrtf(acc);
             }
             else

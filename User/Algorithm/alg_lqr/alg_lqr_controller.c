@@ -26,21 +26,25 @@ alg_lqr_status_t alg_lqr_controller_init(alg_lqr_controller_t *me,
     size_t control_index;
 
     // ---- 参数检查 ----
-    if ((me == NULL) || (config == NULL) || (config->gain_matrix == NULL))
+    if ((me == NULL) || (config == NULL) || (config->gain_matrix == NULL)) {
         return ALG_LQR_STATUS_INVALID_ARGUMENT;
+}
 
     me->is_initialized = false;
-    if ((config->state_dimension == 0U) || (config->control_dimension == 0U))
+    if ((config->state_dimension == 0U) || (config->control_dimension == 0U)) {
         return ALG_LQR_STATUS_OUT_OF_RANGE;
+}
 
     // 限幅指针必须同时 NULL 或同时非 NULL
-    if ((config->control_min == NULL) != (config->control_max == NULL))
+    if ((config->control_min == NULL) != (config->control_max == NULL)) {
         return ALG_LQR_STATUS_INVALID_ARGUMENT;
+}
 
     // 检查增益矩阵有限性
     if (!alg_lqr_internal_is_finite_array(config->gain_matrix,
-                                          config->control_dimension * config->state_dimension))
+                                          config->control_dimension * config->state_dimension)) {
         return ALG_LQR_STATUS_OUT_OF_RANGE;
+}
 
     // 检查限幅有效性
     if (config->control_min != NULL)
@@ -49,8 +53,9 @@ alg_lqr_status_t alg_lqr_controller_init(alg_lqr_controller_t *me,
         {
             if (!isfinite(config->control_min[control_index]) ||
                 !isfinite(config->control_max[control_index]) ||
-                (config->control_min[control_index] >= config->control_max[control_index]))
+                (config->control_min[control_index] >= config->control_max[control_index])) {
                 return ALG_LQR_STATUS_OUT_OF_RANGE;
+}
         }
     }
 
@@ -80,10 +85,12 @@ alg_lqr_status_t alg_lqr_controller_update(const alg_lqr_controller_t *me, const
     float output;
 
     // ---- 参数检查 ----
-    if ((me == NULL) || (state == NULL) || (control_output == NULL))
+    if ((me == NULL) || (state == NULL) || (control_output == NULL)) {
         return ALG_LQR_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_LQR_STATUS_NOT_INITIALIZED;
+}
 
     // 输入数组有限性检查
     if (!alg_lqr_internal_is_finite_array(state, me->config.state_dimension) ||
@@ -92,16 +99,18 @@ alg_lqr_status_t alg_lqr_controller_update(const alg_lqr_controller_t *me, const
         ((equilibrium_control != NULL) &&
          !alg_lqr_internal_is_finite_array(equilibrium_control, me->config.control_dimension)) ||
         ((feedforward_control != NULL) &&
-         !alg_lqr_internal_is_finite_array(feedforward_control, me->config.control_dimension)))
+         !alg_lqr_internal_is_finite_array(feedforward_control, me->config.control_dimension))) {
         return ALG_LQR_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 计算每个控制量 ----
     for (control_index = 0U; control_index < me->config.control_dimension; ++control_index)
     {
         // 基础：平衡 + 前馈
         output = (equilibrium_control != NULL) ? equilibrium_control[control_index] : 0.0F;
-        if (feedforward_control != NULL)
+        if (feedforward_control != NULL) {
             output += feedforward_control[control_index];
+}
 
         // 状态反馈：u -= K * (x - x_ref)
         for (state_index = 0U; state_index < me->config.state_dimension; ++state_index)
@@ -114,16 +123,18 @@ alg_lqr_status_t alg_lqr_controller_update(const alg_lqr_controller_t *me, const
         }
 
         // 检查数值有效性
-        if (!isfinite(output))
+        if (!isfinite(output)) {
             return ALG_LQR_STATUS_NUMERICAL_ERROR;
+}
 
         // 限幅
         if (me->config.control_min != NULL)
         {
-            if (output < me->config.control_min[control_index])
+            if (output < me->config.control_min[control_index]) {
                 output = me->config.control_min[control_index];
-            else if (output > me->config.control_max[control_index])
+            } else if (output > me->config.control_max[control_index]) {
                 output = me->config.control_max[control_index];
+}
         }
         control_output[control_index] = output;
     }

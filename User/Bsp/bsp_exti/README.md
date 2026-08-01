@@ -137,7 +137,7 @@ void board_exti_init(void) {
 static void imu_data_ready_callback(bsp_exti_t *me, void *ctx) {
     imu_t *imu = (imu_t *)ctx;
     // 仅记录时间戳或释放信号量
-    imu->last_irq_time = bsp_timebase_get_ms();
+    bsp_dwt_get_cycle_count(&imu->last_irq_cycle_count);
     xSemaphoreGiveFromISR(imu->data_sem, NULL);
 }
 
@@ -212,4 +212,12 @@ bsp_exti_enable(s_imu_exti);
 
 ---
 
-**总结**：`bsp_exti` 为外部中断提供了轻量、可移植的抽象，将中断控制逻辑与具体应用处理分离。应用层只需注册简单的非阻塞回调，将复杂数据处理移至任务上下文，同时符合 RTOS 和实时系统的最佳实践。配合 `bsp_common`，该模块保持了 BSP 层的一致性和可维护性。
+## 一页式接入顺序与可读信息
+
+1. 平台实现 EXTI driver ops，并把 HAL GPIO/EXTI 中断映射到对应 `bsp_exti_t`。
+2. `bsp_exti_init()` 注入 handle 和 driver ops。
+3. 用 `bsp_exti_set_callback()` 同时保存回调和 `user_context`。
+4. 调用 `bsp_exti_enable()`；ISR 中平台只调用 `bsp_exti_notify()`。
+5. 回调必须快速置位/投递消息；停用时先 `disable`，再虚析构。
+
+本模块没有持续数据结构。可观察信息来自回调事件和对象初始化状态；中断计数、边沿时间等业务状态应存放在回调的用户上下文中。

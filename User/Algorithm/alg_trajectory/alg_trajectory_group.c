@@ -59,16 +59,18 @@ alg_trajectory_status_t alg_trajectory_group_init(alg_trajectory_group_t *me,
     size_t i;
     if ((me == NULL) || (axis_config_storage == NULL) || (axis_state_storage == NULL) ||
         (start_position_storage == NULL) || (target_position_storage == NULL) ||
-        (axis_count == 0U) || (initial_states == NULL) || (axis_configs == NULL))
+        (axis_count == 0U) || (initial_states == NULL) || (axis_configs == NULL)) {
         return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
+}
 
     for (i = 0U; i < axis_count; ++i)
     {
         if (!isfinite(initial_states[i].position) ||
             (axis_configs[i].maximum_velocity_per_s <= 0.0F) ||
             (axis_configs[i].maximum_acceleration_per_s2 <= 0.0F) ||
-            (axis_configs[i].maximum_jerk_per_s3 <= 0.0F))
+            (axis_configs[i].maximum_jerk_per_s3 <= 0.0F)) {
             return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
+}
         axis_config_storage[i] = axis_configs[i];
         axis_state_storage[i] = initial_states[i];
         start_position_storage[i] = initial_states[i].position;
@@ -95,16 +97,19 @@ alg_trajectory_status_t alg_trajectory_group_set_target(alg_trajectory_group_t *
 {
     size_t i;
     float duration = 0.0F;
-    if ((me == NULL) || (target_positions == NULL))
+    if ((me == NULL) || (target_positions == NULL)) {
         return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_TRAJECTORY_STATUS_NOT_INITIALIZED;
+}
 
     for (i = 0U; i < me->axis_count; ++i)
     {
         float axis_dur;
-        if (!isfinite(target_positions[i]))
+        if (!isfinite(target_positions[i])) {
             return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
+}
         me->start_positions[i] = me->axis_states[i].position;
         me->target_positions[i] = target_positions[i];
         axis_dur = alg_trajectory_group_axis_duration(target_positions[i] - me->start_positions[i],
@@ -127,12 +132,15 @@ alg_trajectory_status_t alg_trajectory_group_update(alg_trajectory_group_t *me, 
     float pos_scale, vel_scale, acc_scale;
     size_t i;
 
-    if ((me == NULL) || !isfinite(delta_time_s) || (delta_time_s <= 0.0F))
+    if ((me == NULL) || !isfinite(delta_time_s) || (delta_time_s <= 0.0F)) {
         return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_TRAJECTORY_STATUS_NOT_INITIALIZED;
-    if (me->is_finished)
+}
+    if (me->is_finished) {
         return ALG_TRAJECTORY_STATUS_FINISHED;
+}
 
     // ---- 更新已用时间（不超过总时长） ----
     me->elapsed_time_s = fminf(me->elapsed_time_s + delta_time_s, me->duration_s);

@@ -229,4 +229,18 @@ bsp_encoder_get_delta(s_encoder_ptr, &dummy);  // 将 previous_count 同步为�
 
 ---
 
-**总结**：`bsp_encoder` 为增量编码器提供了简洁、可移植的抽象，特别适用于电机控制和位置反馈系统。其内置的模数回绕处理简化了应用层代码，同时通过有状态接口的设计保证了增量计算的连续性。配合 `bsp_common`，它保持了 BSP 层的一致性和可维护性。
+## 一页式接入顺序与可读信息
+
+1. 平台配置编码器定时器并实现 driver ops。
+2. 配置计数模数和方向后调用 `bsp_encoder_init()`。
+3. `bsp_encoder_start()` 后先读一次建立增量基准。
+4. 控制周期调用 `get_count/get_delta/get_direction`；需要归零时用 `reset` 或 `set_count`。
+5. 停机时 stop/deinit。
+
+| 可读取信息                    | 说明                                           |
+| ----------------------------- | ---------------------------------------------- |
+| `bsp_encoder_get_count()`     | 当前计数值                                     |
+| `bsp_encoder_get_delta()`     | 考虑模数回绕后的周期增量；依赖对象内部上次计数 |
+| `bsp_encoder_get_direction()` | 当前硬件计数方向                               |
+
+同一个对象的 `get_delta()` 应只由一个周期任务调用，否则“上次计数”所有权会混乱。

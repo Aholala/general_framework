@@ -96,8 +96,41 @@ Module 层位于 BSP 层之上，是业务逻辑与硬件抽象之间的桥梁�
 | [`module_servo`](module_servo/README.md)                  | PWM 舵机：角度/脉宽映射、归一化控制                             |
 | [`module_buzzer`](module_buzzer/README.md)                | 蜂鸣器：非阻塞音调序列、循环播放                                |
 | [`module_oled`](module_oled/README.md)                    | 单色 OLED：I2C 帧缓冲、像素/直线/矩形/位图绘制                  |
-| [`module_ws2812`](module_ws2812/README.md)                | RGB 灯带：SPI 编码、全局亮度、效果引擎（闪烁/流水/呼吸/彩虹）   |
+| [`module_ws2812`](module_ws2812/README.md)                | RGB 灯带：SPI 编码、全局亮度、闪烁/流水/呼吸/彩虹）             |
 | [`module_diagnostic`](module_device/README_diagnostic.md) | 通用诊断基础设施，与设备基类共同位于 `module_device/`           |
+
+### 3.6 快速接入和数据读取索引
+
+每个子 README 末尾都有“**一页式接入顺序与可读信息**”。第一次使用模块时按下面的顺序进入对应文档，不要只复制某个控制函数：
+
+| 模块                                                      | 必须遵守的接入顺序                                                                             | 主要可读结构体或状态                                           |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| [`module_device`](module_device/README.md)                | `init_base → 派生资源初始化 → complete_init → start/update/stop`                               | 初始化状态、逻辑名称、注册键                                   |
+| [`module_diagnostic`](module_device/README_diagnostic.md) | 定义条目和状态存储 → init → start → 周期 update                                                | `module_diagnostic_state_t`、活动数量、最高等级                |
+| [`module_motor`](module_motor/README.md)                  | 注册表初始化 → 具体电机 init/register → 反馈 → enable → set_target/update → disable/unregister | 名称、协议 ID、dt、运行时间、状态及完整反馈                    |
+| [`module_motor_health`](module_motor/README_health.md)    | 电机就绪 → 阈值/状态数组配置 → init → 周期 update → 查询可用性                                 | `module_motor_health_state_t`、原因位掩码                      |
+| [`module_dji_motor`](module_dji_motor/README.md)          | CAN/总线/注册表 → 配置三级 PID → 型号 init/register → 反馈 → enable/target/update → bus_flush  | 三级 PID、各级目标、通用反馈、原始命令及编码器状态             |
+| [`M2006`](module_dji_motor/README_M2006.md)               | 选择控制模式/PID 形式 → init/register → 对应目标接口 → update/flush                            | 名称、ID、运行信息、输出轴反馈、三级 PID及原始命令             |
+| [`M3508`](module_dji_motor/README_M3508.md)               | 选择控制模式/PID 形式 → init/register → 对应目标接口 → update/flush                            | 名称、ID、运行信息、输出轴反馈、三级 PID及原始命令             |
+| [`GM6020`](module_dji_motor/README_GM6020.md)             | 选择固定控制模式 → init/register → 对应目标接口 → update/flush                                 | 多圈反馈、原始电压命令                                         |
+| [`module_dm_motor`](module_dm_motor/README.md)            | CAN/DM 总线 → limits 和 ID → init/register → 反馈 → 模式命令 → bus_update                      | 通用反馈、`module_dm_fault_t`、MOS 温度                        |
+| [`DM4310`](module_dm_motor/README_DM4310.md)              | 从实际电机读取协议参数 → init/register → 反馈 → enable → 匹配模式命令                          | 通用反馈、故障、MOS 温度、协议 limits                          |
+| [`module_bmi088`](module_bmi088/README.md)                | SPI/片选/延时 → init/start → 可选校准 → 周期 read                                              | `module_bmi088_process_data_t`、`module_bmi088_raw_data_t`     |
+| [`module_dr16`](module_dr16/README.md)                    | DBUS USART/DMA 双缓冲 → init/start → process/update_time                                       | `module_dr16_process_data_t`                                   |
+| [`module_nrf24l01`](module_nrf24l01/README.md)            | 两端统一无线参数 → init/start → RX 或 TX → 周期接收/发送轮询                                   | `module_nrf24l01_packet_t`、重发/丢包计数                      |
+| [`module_referee`](module_referee/README.md)              | USART/四类缓冲区/路由 → init/start → 周期 update → 消费 update_mask                            | `module_referee_process_data_t`、`module_referee_statistics_t` |
+| [`module_referee_ui`](module_referee/README_UI.md)        | 裁判模块在线 → 队列配置 → init/start → enqueue → 周期 update                                   | `module_referee_ui_graphic_t`、队列和丢弃计数                  |
+| [`module_board_comm`](module_board_comm/README.md)        | 两板统一 CAN ID → init/路由 → 发送/接收 → update_time                                          | 遥控、云台、底盘和发射机构数据结构体                           |
+| [`module_vision_comm`](module_vision_comm/README.md)      | USB VCP → init → 接收 feed/发送 send → get_data                                                | `module_vision_comm_process_data_t`                            |
+| [`module_bluetooth`](module_bluetooth/README.md)          | USART/双缓冲 → init/start → 周期 update → transmit/stop                                        | 接收回调、在线状态、接收错误计数                               |
+| [`module_shooter`](module_shooter/README.md)              | 三电机就绪 → init/enable → friction → request_shots → 周期 update                              | 状态、待发数量、卡弹重试次数                                   |
+| [`module_swerve`](module_swerve/README.md)                | 两电机就绪 → init/enable → 运动学 target → apply_target                                        | 舵向角和两个电机反馈                                           |
+| [`module_servo`](module_servo/README.md)                  | PWM → init/start → 选择一种单位设置目标 → stop                                                 | 当前命令角度（无机械反馈）                                     |
+| [`module_buzzer`](module_buzzer/README.md)                | PWM → init/start → tone/sequence → 周期 update                                                 | 播放状态和当前序列进度                                         |
+| [`module_oled`](module_oled/README.md)                    | I2C/帧缓冲 → init/start → 绘图 → flush                                                         | 调用者帧缓冲和启动状态                                         |
+| [`module_ws2812`](module_ws2812/README.md)                | SPI/像素和编码缓冲 → init/start → 修改像素 → show/notify                                       | 像素数组、效果状态和发送忙状态                                 |
+
+通用读取规则：优先使用 `get_*()`、`is_*()` 或只读回调；getter 返回内部指针时只读且不要长期缓存。没有 getter 的公开对象字段只用于调试监控，App 不得借此修改模块状态机。
 
 ## 4. 对象模型
 
@@ -250,7 +283,3 @@ receive_buffer (DMA)  →  pending_buffer (ISR拷贝)  →  任务解析
 | **文档**        | README 包含边界、接口、初始化、流程、安全、移植与验证             |
 | **构建**        | 加入根 `CMakeLists.txt` 并通过 Debug、Release 和严格告警构建      |
 | **无 HAL 依赖** | 不包含任何厂商 HAL 头文件                                         |
-
----
-
-**总结**：Module 层通过面向对象的设计和统一的基类框架，将各类设备协议和功能状态机封装为可复用、可测试、可多实例的软件组件。它位于 BSP 层之上，利用 BSP 的多态外设接口实现硬件解耦，同时为上层应用提供清晰、一致的设备操作接口。新增 Module 时遵循本 README 中的标准规范，可保证整个 Module 层的一致性和可维护性。

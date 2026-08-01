@@ -127,7 +127,7 @@ extern "C"
      */
     typedef struct
     {
-        const char *logical_name;              // 逻辑名称
+        const char *motor_name;                // 调试可见的电机名称
         uint32_t registration_key;             // 注册键值
         bsp_can_t *can;                        // CAN BSP 基类
         module_dm_control_mode_t control_mode; // 控制模式

@@ -71,11 +71,11 @@ static uint32_t module_referee_data_command_bit(uint16_t command_id)
  * @brief 重置数据仓库（清零所有字段）
  * @param me 数据仓库对象
  */
-void module_referee_data_reset(module_referee_data_t *me)
+void module_referee_data_reset(module_referee_process_data_t *me)
 {
     if (me != NULL)
     {
-        *me = (module_referee_data_t){0};
+        *me = (module_referee_process_data_t){0};
     }
 }
 
@@ -86,7 +86,7 @@ void module_referee_data_reset(module_referee_data_t *me)
 void module_referee_data_route_handler(uint16_t command_id, const uint8_t *payload,
                                        size_t payload_size, uint8_t sequence, void *user_context)
 {
-    module_referee_data_t *const me = (module_referee_data_t *)user_context;
+    module_referee_process_data_t *const me = (module_referee_process_data_t *)user_context;
     bool decoded = false;
     (void)sequence; // 未使用
 
@@ -250,7 +250,7 @@ void module_referee_data_route_handler(uint16_t command_id, const uint8_t *paylo
  * @param command_id 命令 ID
  * @return true=有更新
  */
-bool module_referee_data_has_update(const module_referee_data_t *me, uint16_t command_id)
+bool module_referee_data_has_update(const module_referee_process_data_t *me, uint16_t command_id)
 {
     const uint32_t command_bit = module_referee_data_command_bit(command_id);
     return (me != NULL) && (command_bit != 0U) && ((me->update_mask & command_bit) != 0U);
@@ -260,7 +260,7 @@ bool module_referee_data_has_update(const module_referee_data_t *me, uint16_t co
  * @brief 清除所有更新标记
  * @param me 数据仓库对象
  */
-void module_referee_data_clear_updates(module_referee_data_t *me)
+void module_referee_data_clear_updates(module_referee_process_data_t *me)
 {
     if (me != NULL)
     {

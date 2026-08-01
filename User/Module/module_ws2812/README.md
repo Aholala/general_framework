@@ -66,3 +66,38 @@ module_ws2812_update(&strip, elapsed_ms);
 - 五种效果及大步进时间
 - 发送错误恢复
 - 与其他 SPI 设备的总线仲裁
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 先初始化 SPI BSP，并按 LED 数量静态分配像素和编码缓冲区。 */
+static module_ws2812_t strip;
+static module_ws2812_color_t pixels[LED_COUNT];
+static uint8_t transmit_buffer[REQUIRED_BUFFER_SIZE];
+
+/* 2. 配置 SPI、数组、复位字节数、发送模式和超时。 */
+module_ws2812_status_t status = module_ws2812_init(&strip, &strip_config);
+
+/* 3. start 后设置像素/填充颜色，再调用 show 真正发送。 */
+status = module_ws2812_start(&strip);
+module_ws2812_set_pixel(&strip, 0U, module_ws2812_make_color(255U, 0U, 0U));
+status = module_ws2812_show(&strip);
+
+/* 4. DMA/中断发送完成时，由平台回调 notify_transmit_complete。 */
+module_ws2812_notify_transmit_complete(&strip, transfer_status);
+
+/* 5. 使用效果时，启动一次效果并在任务中周期 update。 */
+module_ws2812_start_breath(&strip, color, step_time_ms);
+status = module_ws2812_update(&strip, elapsed_time_ms);
+
+/* 6. stop_effect 只停效果；module_ws2812_stop 关闭整个灯带模块。 */
+```
+
+| 可读取信息 | 读取方式 | 说明 |
+| --- | --- | --- |
+| `module_ws2812_color_t[]` | 调用者持有的 `pixels` | 每颗 LED 当前待发送的 RGB 值 |
+| `module_ws2812_effect_state_t` | `strip.effect`，仅调试读取 | 效果类型、相位、索引、亮度和累计时间 |
+| 发送忙状态 | `module_ws2812_is_busy()` | DMA/中断发送是否仍未完成 |
+| 全局亮度/启动状态 | `module_ws2812_t`，仅调试读取 | 当前亮度和模块运行状态 |
+
+`pixels` 表示逻辑颜色，只有 `module_ws2812_show()` 成功发送后才会反映到灯带。

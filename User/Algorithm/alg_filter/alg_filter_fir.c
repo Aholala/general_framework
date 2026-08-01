@@ -30,18 +30,21 @@ alg_filter_status_t alg_filter_fir_init(alg_filter_fir_t *me, const float *coeff
 {
     size_t tap_index;
 
-    if ((me == NULL) || (coefficients == NULL) || (state_buffer == NULL))
+    if ((me == NULL) || (coefficients == NULL) || (state_buffer == NULL)) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (tap_count == 0U)
+}
+    if (tap_count == 0U) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     me->is_initialized = false;
 
     // 校验所有系数是否为有限数
     for (tap_index = 0U; tap_index < tap_count; ++tap_index)
     {
-        if (!isfinite(coefficients[tap_index]))
+        if (!isfinite(coefficients[tap_index])) {
             return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
     }
 
     me->coefficients = coefficients;
@@ -60,14 +63,17 @@ alg_filter_status_t alg_filter_fir_reset(alg_filter_fir_t *me)
 {
     size_t tap_index;
 
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
+}
     if (!me->is_initialized || (me->tap_count == 0U) || (me->coefficients == NULL) ||
-        (me->state_buffer == NULL))
+        (me->state_buffer == NULL)) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
+}
 
-    for (tap_index = 0U; tap_index < me->tap_count; ++tap_index)
+    for (tap_index = 0U; tap_index < me->tap_count; ++tap_index) {
         me->state_buffer[tap_index] = 0.0F;
+}
     me->write_index = 0U;
     return ALG_FILTER_STATUS_OK;
 }
@@ -87,13 +93,16 @@ alg_filter_status_t alg_filter_fir_update(alg_filter_fir_t *me, float input, flo
     size_t state_index;
     float accumulator = 0.0F;
 
-    if ((me == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL)) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
+}
     if (!me->is_initialized || (me->tap_count == 0U) || (me->coefficients == NULL) ||
-        (me->state_buffer == NULL) || (me->write_index >= me->tap_count))
+        (me->state_buffer == NULL) || (me->write_index >= me->tap_count)) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
-    if (!isfinite(input))
+}
+    if (!isfinite(input)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     // 写入新输入
     me->state_buffer[me->write_index] = input;
@@ -110,8 +119,9 @@ alg_filter_status_t alg_filter_fir_update(alg_filter_fir_t *me, float input, flo
     // 更新写入位置
     me->write_index = (me->write_index + 1U) % me->tap_count;
 
-    if (!isfinite(accumulator))
+    if (!isfinite(accumulator)) {
         return ALG_FILTER_STATUS_NUMERICAL_ERROR;
+}
 
     *output = accumulator;
     return ALG_FILTER_STATUS_OK;

@@ -92,7 +92,7 @@ static const module_referee_route_t routes[] = {
 
 /* 对象 */
 static module_referee_t ref;
-static module_referee_data_t ref_data;  // 可选：强类型数据仓库
+static module_referee_process_data_t ref_data;  // 可选：强类型数据仓库
 ```
 
 ### 6.2 初始化
@@ -256,3 +256,44 @@ USART 回调由模块内部管理，应用层无需关心。模块内部实现�
 ---
 
 **总结**：`module_referee` 提供了完整的裁判系统协议收发框架，具备流式解析、双重 CRC 校验、命令路由、在线检测和运行统计等特性。其设计与 BSP 层解耦，可移植到任意 MCU 平台。强类型数据仓库为常用命令提供了便捷的解析和存储，减少上层重复劳动。协议版本变更时只需更新数据仓库的解析逻辑，核心框架保持稳定。
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 先初始化裁判系统 USART BSP，并准备接收、处理、流解析和发送缓冲区。 */
+static module_referee_t referee;
+static module_referee_process_data_t referee_data;
+
+/* 2. reset 数据仓库；把 data_route_handler 配成默认或指定命令路由。 */
+module_referee_data_reset(&referee_data);
+
+/* 3. 配置 USART、四类缓冲区、路由、超时和 DMA/中断模式。 */
+module_referee_status_t status = module_referee_init(&referee, &referee_config);
+
+/* 4. start 注册回调并启动接收。 */
+status = module_referee_start(&referee);
+
+/* 5. 任务中周期 update：搬运数据、找帧、校验 CRC、分发命令并更新在线状态。 */
+status = module_referee_update(&referee, elapsed_time_ms);
+
+/* 6. 根据 update_mask 消费强类型数据，消费完成后清除更新标志。 */
+if (module_referee_data_has_update(&referee_data, MODULE_REFEREE_COMMAND_ROBOT_STATUS)) {
+    uint16_t hp = referee_data.robot_status.current_hp;
+}
+module_referee_data_clear_updates(&referee_data);
+
+/* 7. 需要发送交互帧时调用 transmit；退出前 stop。 */
+```
+
+| 可读取结构体 | 主要内容 |
+| --- | --- |
+| `module_referee_game_status_t` | 比赛类型、阶段、剩余时间、同步时间戳 |
+| `module_referee_robot_status_t` | 机器人 ID/等级、血量、热量上限、功率限制和供电使能 |
+| `module_referee_power_heat_t` | 电压、电流、功率、缓冲能量和枪口热量 |
+| `module_referee_robot_position_t` | 场地位置和偏航角 |
+| `module_referee_hurt_t` / `module_referee_shoot_process_data_t` | 受击来源、弹丸类型、射速和弹速 |
+| `module_referee_projectile_allowance_t` | 17 mm、42 mm 弹量和金币余量 |
+| `module_referee_process_data_t` | 上述数据仓库、更新位图和解码错误计数 |
+| `module_referee_statistics_t` | `module_referee_get_statistics()` 获取的帧数、CRC 错误、超长帧和接收错误统计 |
+
+数据仓库由路由回调更新；读取前先检查对应更新位，涉及安全和功率限制的数据还必须同时检查 `module_referee_is_online()`。

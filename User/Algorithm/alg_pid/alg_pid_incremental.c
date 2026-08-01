@@ -23,18 +23,21 @@
 static alg_pid_status_t
 alg_pid_incremental_validate_config(const alg_pid_incremental_config_t *config)
 {
-    if (config == NULL)
+    if (config == NULL) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
+}
     if (!isfinite(config->proportional_gain) || !isfinite(config->integral_gain) ||
         !isfinite(config->derivative_gain) || !isfinite(config->derivative_filter_cutoff_hz) ||
         !isfinite(config->error_deadband) || !isfinite(config->delta_output_min) ||
         !isfinite(config->delta_output_max) || !isfinite(config->output_min) ||
-        !isfinite(config->output_max))
+        !isfinite(config->output_max)) {
         return ALG_PID_STATUS_OUT_OF_RANGE;
+}
     if ((config->derivative_filter_cutoff_hz < 0.0F) || (config->error_deadband < 0.0F) ||
         (config->delta_output_min > config->delta_output_max) ||
-        (config->output_min >= config->output_max))
+        (config->output_min >= config->output_max)) {
         return ALG_PID_STATUS_OUT_OF_RANGE;
+}
     return ALG_PID_STATUS_OK;
 }
 
@@ -43,8 +46,9 @@ alg_pid_incremental_validate_config(const alg_pid_incremental_config_t *config)
  */
 alg_pid_status_t alg_pid_incremental_config_init(alg_pid_incremental_config_t *config)
 {
-    if (config == NULL)
+    if (config == NULL) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
+}
 
     *config = (alg_pid_incremental_config_t){.proportional_gain = 0.0F,
                                              .integral_gain = 0.0F,
@@ -66,13 +70,15 @@ alg_pid_status_t alg_pid_incremental_init(alg_pid_incremental_t *me,
 {
     alg_pid_status_t status;
 
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
+}
 
     me->is_initialized = false;
     status = alg_pid_incremental_validate_config(config);
-    if (status != ALG_PID_STATUS_OK)
+    if (status != ALG_PID_STATUS_OK) {
         return status;
+}
 
     me->config = *config;
     me->terms = (alg_pid_terms_t){0};
@@ -92,13 +98,16 @@ alg_pid_status_t alg_pid_incremental_set_config(alg_pid_incremental_t *me,
 {
     alg_pid_status_t status;
 
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_PID_STATUS_NOT_INITIALIZED;
+}
     status = alg_pid_incremental_validate_config(config);
-    if (status != ALG_PID_STATUS_OK)
+    if (status != ALG_PID_STATUS_OK) {
         return status;
+}
 
     me->config = *config;
     me->terms.output =
@@ -111,12 +120,15 @@ alg_pid_status_t alg_pid_incremental_set_config(alg_pid_incremental_t *me,
  */
 alg_pid_status_t alg_pid_incremental_reset(alg_pid_incremental_t *me, float initial_output)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_PID_STATUS_NOT_INITIALIZED;
-    if (!isfinite(initial_output))
+}
+    if (!isfinite(initial_output)) {
         return ALG_PID_STATUS_OUT_OF_RANGE;
+}
 
     me->terms = (alg_pid_terms_t){0};
     me->terms.output =
@@ -148,13 +160,16 @@ alg_pid_status_t alg_pid_incremental_update(alg_pid_incremental_t *me, float set
     float smoothing_factor;
 
     // ---- 参数检查 ----
-    if ((me == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL)) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_PID_STATUS_NOT_INITIALIZED;
+}
     if (!isfinite(setpoint) || !isfinite(measurement) || !isfinite(feedforward_delta) ||
-        !isfinite(delta_time_s) || (delta_time_s <= 0.0F))
+        !isfinite(delta_time_s) || (delta_time_s <= 0.0F)) {
         return ALG_PID_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 计算误差及死区 ----
     error = alg_pid_internal_apply_deadband(setpoint - measurement, me->config.error_deadband);
@@ -197,8 +212,9 @@ alg_pid_status_t alg_pid_incremental_update(alg_pid_incremental_t *me, float set
         alg_pid_internal_clamp(unsaturated_output, me->config.output_min, me->config.output_max);
 
     // ---- 数值检查 ----
-    if (!isfinite(total_delta) || !isfinite(saturated_output))
+    if (!isfinite(total_delta) || !isfinite(saturated_output)) {
         return ALG_PID_STATUS_NUMERICAL_ERROR;
+}
 
     // ---- 更新状态 ----
     me->terms.proportional = proportional_delta;

@@ -307,4 +307,12 @@ void good_example(bsp_spi_t *spi) {
 
 ---
 
-**总结**：`bsp_spi` 提供了灵活、可移植的 SPI 主机抽象，适用于各种传感器、存储器和外设的通信。其三种传输模式和三种传输接口的组合满足了从简单配置到高速数据采集的各类场景。片选控制的独立性设计让上层 Module 能够精确控制事务边界，而可选函数（exchange/abort/get_busy）的 `UNSUPPORTED` 返回机制则兼容了不同硬件平台的能力差异。配合 `bsp_common`，该模块保持了 BSP 层的一致性和可维护性。
+## 一页式接入顺序与可读信息
+
+1. 平台配置 SPI mode、位宽、时钟和 DMA，注入 driver ops 后 init。
+2. 异步模式先注册 callback；片选 GPIO由具体 Module 管理，不由共享 SPI 对象隐式控制。
+3. 拉低片选后调用 transmit/receive/exchange，事务完成后再释放片选。
+4. 中断/DMA 结束由平台调用 `bsp_spi_notify()`；任务可查询 `get_busy()`。
+5. 超时/错误先 abort，再恢复片选；不用时 deinit。
+
+接收数据位于调用者 buffer，忙状态通过 `bsp_spi_get_busy()` 读取。异步传输期间 TX/RX buffer 和片选状态都必须保持有效，多设备共享总线还需要 App/RTOS 仲裁。

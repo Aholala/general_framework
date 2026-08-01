@@ -286,4 +286,12 @@ bsp_i2c_notify(i2c_ptr, BSP_EVENT_TRANSFER_COMPLETE, BSP_STATUS_OK, transferred_
 
 ---
 
-**总结**：`bsp_i2c` 提供了完整、可移植的 I2C 主机抽象，适用于各种传感器、存储器和外设的通信。其灵活的传输模式（阻塞/中断/DMA）和寄存器地址支持（8/16 位）使其能够适应从简单配置到高速数据采集的各种场景。配合 `bsp_common`，该模块保持了 BSP 层的一致性和可维护性，同时通过可选函数设计（`UNSUPPORTED`）兼容了不同硬件平台的能力差异。
+## 一页式接入顺序与可读信息
+
+1. 平台配置 I2C 时序和 DMA，注入 driver ops 后 init。
+2. 异步模式先用 `bsp_i2c_set_callback()` 注册回调和上下文。
+3. 普通设备使用 transmit/receive；寄存器设备优先 memory_read/write，并明确 7 位从地址和 8/16 位寄存器地址宽度。
+4. DMA/中断完成由平台 `bsp_i2c_notify()`；任务可用 `get_busy()` 判断事务状态。
+5. 错误恢复先 abort，必要时由平台执行总线恢复；最后 deinit。
+
+可读取数据写入调用者提供的 receive buffer；`bsp_i2c_is_device_ready()` 返回设备应答状态，`get_busy()` 返回总线事务状态。异步 buffer 在回调前必须保持有效。

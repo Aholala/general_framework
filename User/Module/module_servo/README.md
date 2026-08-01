@@ -146,3 +146,31 @@ module_servo_get_commanded_angle(&s_servo, &current_angle);
 ---
 
 **总结**：`module_servo` 提供了简洁的舵机开环控制接口，通过配置脉宽和角度的映射关系，适配各种标准 PWM 舵机。三种控制接口（角度、归一化、直接脉宽）满足不同应用场景的需求。配合 `module_device` 基类，可统一接入系统调度。
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 初始化对应 PWM BSP，确认同一定时器上的通道使用兼容频率。 */
+static module_servo_t servo;
+
+/* 2. 配置频率、最小/中位/最大脉宽和角度范围。 */
+module_servo_status_t status = module_servo_init(&servo, &servo_config);
+
+/* 3. start 后输出中位脉宽。 */
+status = module_servo_start(&servo);
+
+/* 4. 三种控制接口选一种，不要在不同单位之间混用。 */
+status = module_servo_set_angle(&servo, target_angle_rad);
+/* 或 module_servo_set_normalized_output(&servo, normalized_output); */
+/* 或 module_servo_set_pulse_width(&servo, pulse_width_us); */
+
+/* 5. 停机时 stop，让 PWM 回到模块定义的安全停止状态。 */
+```
+
+| 可读取信息 | 推荐读取方式 | 说明 |
+| --- | --- | --- |
+| 当前命令角度 | `module_servo_get_commanded_angle(me, &angle_rad)` | 最近一次成功设置的命令角度，不是机械反馈 |
+| `module_servo_config_t` | 调用者持有 | 频率、脉宽边界、角度边界 |
+| `module_servo_t` | 调试器只读查看 | 当前脉宽、当前命令角度和启动状态 |
+
+普通 PWM 舵机没有位置反馈，因此 `commanded_angle` 只能表示命令值，不能证明舵机已经到位。

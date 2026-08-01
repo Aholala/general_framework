@@ -64,7 +64,7 @@ extern "C"
         uint8_t data_second;   // 第二个数据字节
         uint32_t update_count; // 更新计数（每次收到有效帧递增）
         bool is_valid;         // 是否有效（是否收到过有效帧）
-    } module_vision_comm_data_t;
+    } module_vision_comm_process_data_t;
 
     /* ======================== 配置结构 ======================== */
 
@@ -89,7 +89,7 @@ extern "C"
         uint8_t transmit_buffer[MODULE_VISION_COMM_FRAME_SIZE]; // 发送缓冲区
         uint8_t stream_buffer[MODULE_VISION_COMM_FRAME_SIZE];   // 流解析缓冲区
         size_t stream_size;                                // 流缓冲区有效字节数
-        module_vision_comm_data_t received_data;                // 最新接收数据
+        module_vision_comm_process_data_t received_data;                // 最新接收数据
         bool is_initialized;                               // 是否已初始化
     } module_vision_comm_t;
 
@@ -131,7 +131,7 @@ extern "C"
      * @return 执行状态
      */
     module_vision_comm_status_t module_vision_comm_get_data(const module_vision_comm_t *const me,
-                                                  module_vision_comm_data_t *const received_data);
+                                                  module_vision_comm_process_data_t *const received_data);
 
     /**
      * @brief 计算 CRC8

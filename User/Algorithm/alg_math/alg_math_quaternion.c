@@ -32,8 +32,9 @@ static bool alg_math_quaternion_is_finite(const alg_math_quaternion_t *quaternio
  */
 alg_math_status_t alg_math_quaternion_identity(alg_math_quaternion_t *result)
 {
-    if (result == NULL)
+    if (result == NULL) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
+}
     *result = (alg_math_quaternion_t){.w = 1.0F, .x = 0.0F, .y = 0.0F, .z = 0.0F};
     return ALG_MATH_STATUS_OK;
 }
@@ -46,15 +47,18 @@ alg_math_status_t alg_math_quaternion_normalize(const alg_math_quaternion_t *qua
 {
     float norm;
     alg_math_quaternion_t temporary;
-    if ((quaternion == NULL) || (result == NULL))
+    if ((quaternion == NULL) || (result == NULL)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if (!alg_math_quaternion_is_finite(quaternion))
+}
+    if (!alg_math_quaternion_is_finite(quaternion)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
 
     norm = sqrtf((quaternion->w * quaternion->w) + (quaternion->x * quaternion->x) +
                  (quaternion->y * quaternion->y) + (quaternion->z * quaternion->z));
-    if (!isfinite(norm) || (norm <= ALG_MATH_QUATERNION_MINIMUM_NORM))
+    if (!isfinite(norm) || (norm <= ALG_MATH_QUATERNION_MINIMUM_NORM)) {
         return ALG_MATH_STATUS_SINGULAR;
+}
 
     temporary.w = quaternion->w / norm;
     temporary.x = quaternion->x / norm;
@@ -71,10 +75,12 @@ alg_math_status_t alg_math_quaternion_conjugate(const alg_math_quaternion_t *qua
                                                 alg_math_quaternion_t *result)
 {
     alg_math_quaternion_t temporary;
-    if ((quaternion == NULL) || (result == NULL))
+    if ((quaternion == NULL) || (result == NULL)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if (!alg_math_quaternion_is_finite(quaternion))
+}
+    if (!alg_math_quaternion_is_finite(quaternion)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
     temporary.w = quaternion->w;
     temporary.x = -quaternion->x;
     temporary.y = -quaternion->y;
@@ -91,10 +97,12 @@ alg_math_status_t alg_math_quaternion_multiply(const alg_math_quaternion_t *left
                                                alg_math_quaternion_t *result)
 {
     alg_math_quaternion_t temporary;
-    if ((left == NULL) || (right == NULL) || (result == NULL))
+    if ((left == NULL) || (right == NULL) || (result == NULL)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if (!alg_math_quaternion_is_finite(left) || !alg_math_quaternion_is_finite(right))
+}
+    if (!alg_math_quaternion_is_finite(left) || !alg_math_quaternion_is_finite(right)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 四元数乘法公式 ----
     temporary.w =
@@ -106,8 +114,9 @@ alg_math_status_t alg_math_quaternion_multiply(const alg_math_quaternion_t *left
     temporary.z =
         (left->w * right->z) + (left->x * right->y) - (left->y * right->x) + (left->z * right->w);
 
-    if (!alg_math_quaternion_is_finite(&temporary))
+    if (!alg_math_quaternion_is_finite(&temporary)) {
         return ALG_MATH_STATUS_NUMERICAL_ERROR;
+}
     *result = temporary;
     return ALG_MATH_STATUS_OK;
 }
@@ -122,10 +131,12 @@ alg_math_status_t alg_math_quaternion_from_euler(float roll_rad, float pitch_rad
     float cr, sr, cp, sp, cy, sy;
     alg_math_quaternion_t temporary;
 
-    if (result == NULL)
+    if (result == NULL) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if (!isfinite(roll_rad) || !isfinite(pitch_rad) || !isfinite(yaw_rad))
+}
+    if (!isfinite(roll_rad) || !isfinite(pitch_rad) || !isfinite(yaw_rad)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
 
     half_roll = 0.5F * roll_rad;
     half_pitch = 0.5F * pitch_rad;
@@ -156,11 +167,13 @@ alg_math_status_t alg_math_quaternion_to_euler(const alg_math_quaternion_t *quat
     float pitch_sine;
     alg_math_status_t status;
 
-    if (euler_rad == NULL)
+    if (euler_rad == NULL) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
+}
     status = alg_math_quaternion_normalize(quaternion, &normalized);
-    if (status != ALG_MATH_STATUS_OK)
+    if (status != ALG_MATH_STATUS_OK) {
         return status;
+}
 
     // ---- Roll (x) ----
     euler_rad->x =
@@ -169,10 +182,11 @@ alg_math_status_t alg_math_quaternion_to_euler(const alg_math_quaternion_t *quat
 
     // ---- Pitch (y) ----
     pitch_sine = 2.0F * ((normalized.w * normalized.y) - (normalized.z * normalized.x));
-    if (fabsf(pitch_sine) >= 1.0F)
+    if (fabsf(pitch_sine) >= 1.0F) {
         euler_rad->y = copysignf(ALG_MATH_HALF_PI_F, pitch_sine);
-    else
+    } else {
         euler_rad->y = asinf(pitch_sine);
+}
 
     // ---- Yaw (z) ----
     euler_rad->z =
@@ -192,19 +206,23 @@ alg_math_status_t alg_math_quaternion_rotate_vector(const alg_math_quaternion_t 
     alg_math_vector3_t q_vec, first_cross, second_cross, temporary;
     alg_math_status_t status;
 
-    if ((vector == NULL) || (result == NULL))
+    if ((vector == NULL) || (result == NULL)) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
+}
     status = alg_math_quaternion_normalize(quaternion, &normalized);
-    if (status != ALG_MATH_STATUS_OK)
+    if (status != ALG_MATH_STATUS_OK) {
         return status;
+}
 
     q_vec = (alg_math_vector3_t){normalized.x, normalized.y, normalized.z};
     status = alg_math_vector3_cross(&q_vec, vector, &first_cross);
-    if (status != ALG_MATH_STATUS_OK)
+    if (status != ALG_MATH_STATUS_OK) {
         return status;
+}
     status = alg_math_vector3_cross(&q_vec, &first_cross, &second_cross);
-    if (status != ALG_MATH_STATUS_OK)
+    if (status != ALG_MATH_STATUS_OK) {
         return status;
+}
 
     // ---- v' = v + 2*w*(q_vec × v) + 2*(q_vec × (q_vec × v)) ----
     temporary.x = vector->x + (2.0F * ((normalized.w * first_cross.x) + second_cross.x));
@@ -225,17 +243,21 @@ alg_math_status_t alg_math_quaternion_slerp(const alg_math_quaternion_t *start,
     float dot, angle, sin_angle, sw, ew;
     alg_math_status_t status;
 
-    if (result == NULL)
+    if (result == NULL) {
         return ALG_MATH_STATUS_INVALID_ARGUMENT;
-    if (!isfinite(ratio) || (ratio < 0.0F) || (ratio > 1.0F))
+}
+    if (!isfinite(ratio) || (ratio < 0.0F) || (ratio > 1.0F)) {
         return ALG_MATH_STATUS_OUT_OF_RANGE;
+}
 
     status = alg_math_quaternion_normalize(start, &ns);
-    if (status != ALG_MATH_STATUS_OK)
+    if (status != ALG_MATH_STATUS_OK) {
         return status;
+}
     status = alg_math_quaternion_normalize(end, &ne);
-    if (status != ALG_MATH_STATUS_OK)
+    if (status != ALG_MATH_STATUS_OK) {
         return status;
+}
 
     // ---- 计算点积，若为负则翻转 end 以走最短路径 ----
     dot = (ns.w * ne.w) + (ns.x * ne.x) + (ns.y * ne.y) + (ns.z * ne.z);
@@ -262,8 +284,9 @@ alg_math_status_t alg_math_quaternion_slerp(const alg_math_quaternion_t *start,
     // ---- 球面插值 ----
     angle = acosf(dot);
     sin_angle = sinf(angle);
-    if (fabsf(sin_angle) <= ALG_MATH_QUATERNION_MINIMUM_NORM)
+    if (fabsf(sin_angle) <= ALG_MATH_QUATERNION_MINIMUM_NORM) {
         return ALG_MATH_STATUS_SINGULAR;
+}
 
     sw = sinf((1.0F - ratio) * angle) / sin_angle;
     ew = sinf(ratio * angle) / sin_angle;

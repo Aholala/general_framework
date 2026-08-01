@@ -351,4 +351,19 @@ void bsp_uart_notify(bsp_uart_t *me, bsp_event_t event, bsp_status_t status, siz
 
 ---
 
-**总结**：`bsp_common` 是构建整个 BSP 框架的“地基”。通过提供统一的状态码、设备基类和容器宏，它确保了所有上层外设模块在接口风格和行为上的一致性。任何新增的外设抽象都应严格遵循此基础设施的规范，从而实现高内聚、低耦合、可移植的嵌入式软件架构。
+## 一页式派生顺序与可读信息
+
+1. 派生对象首成员放 `bsp_device_t super`，派生 ops 首成员放 `bsp_device_ops_t super`。
+2. 在实现文件用 `BSP_STATIC_ASSERT_SUPER_FIRST()` 检查布局，并定义 `static const` 虚表。
+3. 平台句柄通过 `device_handle` 注入，HAL 函数通过派生类的 `driver_ops` 注入。
+4. 具体 BSP 构造函数验证必需 driver 操作后调用 `bsp_device_init()`。
+5. 上层只调用 `bsp_xxx_*()`；结束时通过 `bsp_device_deinit(bsp_xxx_as_base())` 虚析构。
+
+| 可读取类型            | 说明                                                                   |
+| --------------------- | ---------------------------------------------------------------------- |
+| `bsp_status_t`        | OK、参数、范围、未初始化、忙、超时、I/O、资源和不支持                  |
+| `bsp_transfer_mode_t` | 阻塞、中断、DMA                                                        |
+| `bsp_event_t`         | 发送/接收/传输完成、中止和错误事件                                     |
+| `bsp_device_t`        | 可通过 `bsp_device_is_initialized()` 和 `bsp_device_get_handle()` 观察 |
+
+`device_handle` 只用于平台适配器，Module/App 不应把它强转为 STM32 HAL 类型。

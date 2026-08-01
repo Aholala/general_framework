@@ -23,11 +23,14 @@
 bool alg_lqr_internal_is_finite_array(const float *values, size_t value_count)
 {
     size_t index;
-    if (values == NULL)
+    if (values == NULL) {
         return false;
-    for (index = 0U; index < value_count; ++index)
-        if (!isfinite(values[index]))
+}
+    for (index = 0U; index < value_count; ++index) {
+        if (!isfinite(values[index])) {
             return false;
+}
+}
     return true;
 }
 
@@ -37,13 +40,15 @@ bool alg_lqr_internal_is_finite_array(const float *values, size_t value_count)
 bool alg_lqr_internal_has_nonnegative_diagonal(const float *matrix, size_t dimension)
 {
     size_t index;
-    if (matrix == NULL)
+    if (matrix == NULL) {
         return false;
+}
     for (index = 0U; index < dimension; ++index)
     {
         if (!isfinite(matrix[(index * dimension) + index]) ||
-            (matrix[(index * dimension) + index] < 0.0F))
+            (matrix[(index * dimension) + index] < 0.0F)) {
             return false;
+}
     }
     return true;
 }
@@ -54,8 +59,9 @@ bool alg_lqr_internal_has_nonnegative_diagonal(const float *matrix, size_t dimen
 void alg_lqr_internal_copy(float *destination, const float *source, size_t value_count)
 {
     size_t index;
-    for (index = 0U; index < value_count; ++index)
+    for (index = 0U; index < value_count; ++index) {
         destination[index] = source[index];
+}
 }
 
 /**
@@ -71,9 +77,10 @@ void alg_lqr_internal_multiply(const float *left, size_t left_rows, size_t share
         for (column = 0U; column < right_columns; ++column)
         {
             accumulator = 0.0F;
-            for (shared_index = 0U; shared_index < shared_dimension; ++shared_index)
+            for (shared_index = 0U; shared_index < shared_dimension; ++shared_index) {
                 accumulator += left[(row * shared_dimension) + shared_index] *
                                right[(shared_index * right_columns) + column];
+}
             output[(row * right_columns) + column] = accumulator;
         }
     }
@@ -93,9 +100,10 @@ void alg_lqr_internal_multiply_left_transpose(const float *left, size_t left_row
         for (output_column = 0U; output_column < right_columns; ++output_column)
         {
             accumulator = 0.0F;
-            for (shared_index = 0U; shared_index < left_rows; ++shared_index)
+            for (shared_index = 0U; shared_index < left_rows; ++shared_index) {
                 accumulator += left[(shared_index * left_columns) + output_row] *
                                right[(shared_index * right_columns) + output_column];
+}
             output[(output_row * right_columns) + output_column] = accumulator;
         }
     }
@@ -108,7 +116,7 @@ void alg_lqr_internal_symmetrize(float *matrix, size_t dimension)
 {
     size_t row, column;
     float average;
-    for (row = 0U; row < dimension; ++row)
+    for (row = 0U; row < dimension; ++row) {
         for (column = row + 1U; column < dimension; ++column)
         {
             average =
@@ -116,6 +124,7 @@ void alg_lqr_internal_symmetrize(float *matrix, size_t dimension)
             matrix[(row * dimension) + column] = average;
             matrix[(column * dimension) + row] = average;
         }
+}
 }
 
 /**
@@ -127,9 +136,11 @@ alg_lqr_status_t alg_lqr_internal_invert(float *matrix, float *inverse, size_t d
     float pivot_magnitude, candidate_magnitude, pivot_value, factor, temporary;
 
     // 初始化为单位矩阵
-    for (row = 0U; row < dimension; ++row)
-        for (column = 0U; column < dimension; ++column)
+    for (row = 0U; row < dimension; ++row) {
+        for (column = 0U; column < dimension; ++column) {
             inverse[(row * dimension) + column] = (row == column) ? 1.0F : 0.0F;
+}
+}
 
     // 主循环
     for (column = 0U; column < dimension; ++column)
@@ -146,8 +157,9 @@ alg_lqr_status_t alg_lqr_internal_invert(float *matrix, float *inverse, size_t d
                 pivot_row = row;
             }
         }
-        if (!isfinite(pivot_magnitude) || (pivot_magnitude <= ALG_LQR_SINGULAR_THRESHOLD))
+        if (!isfinite(pivot_magnitude) || (pivot_magnitude <= ALG_LQR_SINGULAR_THRESHOLD)) {
             return ALG_LQR_STATUS_SINGULAR_MATRIX;
+}
 
         // 交换行
         if (pivot_row != column)
@@ -175,8 +187,9 @@ alg_lqr_status_t alg_lqr_internal_invert(float *matrix, float *inverse, size_t d
         // 消去其他行
         for (row = 0U; row < dimension; ++row)
         {
-            if (row == column)
+            if (row == column) {
                 continue;
+}
             factor = matrix[(row * dimension) + column];
             for (element = 0U; element < dimension; ++element)
             {

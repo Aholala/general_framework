@@ -338,4 +338,19 @@ static float s_workspace_tustin[
 
 ---
 
-**总结**：`alg_lqr` 为嵌入式系统提供了一套完整的 LQR 最优控制解决方案，覆盖从模型离散化、增益计算到实时控制的全链路，且保持零动态内存、纯 C11 的可移植性。配合 BSP/Module 层的执行器与传感器接口，可快速实现高可靠性的最优控制系统。
+## 一页式使用顺序与可读信息
+
+1. 离线或启动阶段准备离散模型和 Q/R 权重；连续模型先用 `alg_lqr_discretize_tustin()`。
+2. 使用 `alg_lqr_dare_solve()` 或 `alg_lqr_finite_solve()` 计算增益，不要在高频控制周期重复求 Riccati 方程。
+3. 把固定增益、状态/输入维度、限幅和工作区写入 `alg_lqr_controller_config_t`，调用 `alg_lqr_controller_init()`。
+4. 每周期准备当前状态和参考状态，调用 `alg_lqr_controller_update()` 得到控制向量。
+5. 二维角度控制使用 `alg_lqr_angle_t`，按 `init → update → reset` 管理，不再额外套一层 angle controller 文件。
+
+| 可读取结构体            | 主要信息                             |
+| ----------------------- | ------------------------------------ |
+| `alg_lqr_controller_t`  | 当前增益、状态误差、输出和工作区引用 |
+| `alg_lqr_angle_input_t` | 角度/角速度目标与反馈                |
+| `alg_lqr_angle_t`       | 两轴角度控制器状态和最近输出         |
+| DARE/finite 输出数组    | Riccati 矩阵和反馈增益，由调用者保存 |
+
+输出在交给执行器前仍需经过 App 的安全联锁和物理限幅。

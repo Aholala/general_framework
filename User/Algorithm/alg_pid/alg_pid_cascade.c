@@ -21,22 +21,26 @@ alg_pid_status_t alg_pid_cascade_init(alg_pid_cascade_t *me, const alg_pid_casca
 {
     alg_pid_status_t status;
 
-    if ((me == NULL) || (config == NULL))
+    if ((me == NULL) || (config == NULL)) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
+}
 
     me->is_initialized = false;
     if ((config->position_loop_divider == 0U) || !isfinite(config->velocity_setpoint_min) ||
         !isfinite(config->velocity_setpoint_max) ||
-        (config->velocity_setpoint_min >= config->velocity_setpoint_max))
+        (config->velocity_setpoint_min >= config->velocity_setpoint_max)) {
         return ALG_PID_STATUS_OUT_OF_RANGE;
+}
 
     status = alg_pid_position_init(&me->position_controller, &config->position_config);
-    if (status != ALG_PID_STATUS_OK)
+    if (status != ALG_PID_STATUS_OK) {
         return status;
+}
 
     status = alg_pid_velocity_init(&me->velocity_controller, &config->velocity_config);
-    if (status != ALG_PID_STATUS_OK)
+    if (status != ALG_PID_STATUS_OK) {
         return status;
+}
 
     me->position_loop_divider = config->position_loop_divider;
     me->position_loop_counter = config->position_loop_divider - 1U;
@@ -56,21 +60,26 @@ alg_pid_status_t alg_pid_cascade_reset(alg_pid_cascade_t *me, float position_mea
 {
     alg_pid_status_t status;
 
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_PID_STATUS_NOT_INITIALIZED;
+}
     if (!isfinite(position_measurement) || !isfinite(velocity_measurement) ||
-        !isfinite(initial_output))
+        !isfinite(initial_output)) {
         return ALG_PID_STATUS_OUT_OF_RANGE;
+}
 
     status = alg_pid_reset(&me->position_controller, position_measurement, 0.0F);
-    if (status != ALG_PID_STATUS_OK)
+    if (status != ALG_PID_STATUS_OK) {
         return status;
+}
 
     status = alg_pid_reset(&me->velocity_controller, velocity_measurement, initial_output);
-    if (status != ALG_PID_STATUS_OK)
+    if (status != ALG_PID_STATUS_OK) {
         return status;
+}
 
     me->position_loop_counter = me->position_loop_divider - 1U;
     me->position_elapsed_time_s = 0.0F;
@@ -89,15 +98,18 @@ alg_pid_status_t alg_pid_cascade_update(alg_pid_cascade_t *me, const alg_pid_cas
     float pos_output;
 
     // ---- 参数检查 ----
-    if ((me == NULL) || (input == NULL) || (output == NULL))
+    if ((me == NULL) || (input == NULL) || (output == NULL)) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_PID_STATUS_NOT_INITIALIZED;
+}
     if (!isfinite(input->position_setpoint) || !isfinite(input->position_measurement) ||
         !isfinite(input->velocity_measurement) || !isfinite(input->velocity_feedforward) ||
         !isfinite(input->actuator_feedforward) || !isfinite(input->delta_time_s) ||
-        (input->delta_time_s <= 0.0F))
+        (input->delta_time_s <= 0.0F)) {
         return ALG_PID_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 累积时间和计数器 ----
     me->position_elapsed_time_s += input->delta_time_s;
@@ -113,8 +125,9 @@ alg_pid_status_t alg_pid_cascade_update(alg_pid_cascade_t *me, const alg_pid_cas
                                       .additional_feedforward = input->velocity_feedforward,
                                       .delta_time_s = me->position_elapsed_time_s};
         status = alg_pid_update_advanced(&me->position_controller, &pos_input, &pos_output);
-        if (status != ALG_PID_STATUS_OK)
+        if (status != ALG_PID_STATUS_OK) {
             return status;
+}
 
         // 速度设定值限幅
         me->velocity_setpoint = alg_pid_internal_clamp(pos_output, me->velocity_setpoint_min,

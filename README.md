@@ -196,10 +196,8 @@ BSP 目录为 `User/Bsp`。通用 BSP 对象不决定使用哪个外设实例或
 | `bsp_dac`                | `bsp_dac_t`、`bsp_dac_config_t`                                          | 当前原始输出值                                 |
 | `bsp_usb_vcp`            | `bsp_usb_vcp_t`、`bsp_usb_vcp_config_t`                                  | 连接状态、忙状态和接收事件                     |
 | `bsp_watchdog`           | `bsp_watchdog_t`、`bsp_watchdog_config_t`                                | 超时时间和看门狗复位标志                       |
-| `bsp_timebase`           | `bsp_timebase_t`、`bsp_timebase_time_point_t`                            | 周期计数、计数频率和时间差                     |
-| `bsp_storage`            | `bsp_storage_t`、`bsp_storage_geometry_t`                                | 存储容量、擦除块、写入块等几何信息             |
+| `bsp_dwt`                | `bsp_dwt_time_point_t`                                                    | DWT 周期计数、计数频率和时间差                  |
 | `bsp_crc`                | `bsp_crc_t`、`bsp_crc_config_t`                                          | 硬件 CRC 计算结果                              |
-| `bsp_rng`                | `bsp_rng_t`、`bsp_rng_config_t`                                          | 32 位硬件随机数                                |
 | `bsp_rtc`                | `bsp_rtc_t`、`bsp_rtc_time_t`                                            | 日期时间和 Unix 时间                           |
 | `bsp_stm32h723_port`     | `bsp_stm32h723_port_config_t`                                            | 将 STM32 HAL 句柄、回调和通用 BSP 接口连接起来 |
 
@@ -207,20 +205,24 @@ BSP 目录为 `User/Bsp`。通用 BSP 对象不决定使用哪个外设实例或
 
 Module 目录为 `User/Module`。模块负责设备协议、状态机和业务数据，不负责决定板上具体引脚。
 
+完整的接入先后顺序、带注释示例以及每个模块可读取的结构体，统一从
+[`User/Module/README.md`](User/Module/README.md) 的“快速接入和数据读取索引”进入；
+每个子模块 README 末尾还提供一页式接入清单。
+
 | 模块                  | 主要结构体                                                                                                 | 功能                                        | 对外可读数据                                     |
 | --------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------ |
 | `module_device`       | `module_device_t`、`module_device_ops_t`                                                                   | 模块统一基类                                | 初始化状态、注册键                               |
-| `module_motor`        | `module_motor_t`、`module_motor_feedback_t`、`module_motor_registry_t`                                     | 通用电机基类与注册表                        | 位置、速度、扭矩、电流、温度、在线状态           |
-| `module_dji_motor`    | `module_dji_motor_t`、`module_dji_motor_bus_t`                                                             | DJI 电机 CAN 协议公共实现                   | 通用反馈和当前命令原始值                         |
-| `module_dji_motor / module_m2006`  | `module_m2006_t`、`module_m2006_config_t`                                                     | M2006 + C610                                | 通用反馈、电流命令                               |
-| `module_dji_motor / module_m3508`  | `module_m3508_t`、`module_m3508_config_t`                                                     | M3508 + C620                                | 通用反馈、电流命令                               |
-| `module_dji_motor / module_gm6020` | `module_gm6020_t`、`module_gm6020_config_t`                                                   | GM6020                                      | 通用反馈、电压命令                               |
+| `module_motor`        | `module_motor_t`、`module_motor_feedback_t`、`module_motor_registry_t`                                     | 通用电机基类与注册表                        | 名称、ID、dt、累计运行时间、状态及完整反馈       |
+| `module_dji_motor`    | `module_dji_motor_t`、`module_dji_motor_bus_t`                                                             | DJI 电机 CAN 协议与三级串级 PID             | 电流/速度/角度 PID、各级目标、CAN 映射及命令     |
+| `module_dji_motor / module_m2006`  | `module_m2006_t`、`module_m2006_config_t`                                                     | M2006 + C610                                | 通用反馈、三级 PID、原始协议命令                 |
+| `module_dji_motor / module_m3508`  | `module_m3508_t`、`module_m3508_config_t`                                                     | M3508 + C620                                | 通用反馈、三级 PID、原始协议命令                 |
+| `module_dji_motor / module_gm6020` | `module_gm6020_t`、`module_gm6020_config_t`                                                   | GM6020                                      | 通用反馈、三级 PID、原始电压命令                 |
 | `module_dm_motor`     | `module_dm_motor_t`、`module_dm_limits_t`、`module_dm_mit_command_t`、`module_dm_force_position_command_t` | 达妙电机 MIT、位置速度等控制                | 通用反馈、故障码、MOS 温度                       |
 | `module_dm_motor_bus` | `module_dm_motor_bus_t`                                                                                    | 达妙 CAN 总线分发                           | 反馈处理状态                                     |
 | `module_dm_motor / module_dm4310` | `module_dm4310_t`、`module_dm4310_config_t`                                                  | DM-J4310-2EC 专用限制和默认值               | 通用反馈、故障码、MOS 温度                       |
 | `module_motor / module_motor_health` | `module_motor_health_observation_t`、`module_motor_health_state_t`、`module_motor_health_t`            | 多电机在线、温度、堵转、跟踪和饱和诊断      | 每个电机的原因掩码、计时和可用性                 |
-| `module_bmi088`       | `module_bmi088_raw_data_t`、`module_bmi088_data_t`、`module_bmi088_t`                                      | BMI088 初始化、读取、换算、轴映射和零偏标定 | 原始计数、加速度、角速度、温度、时间戳和有效性   |
-| `module_dr16`         | `module_dr16_data_t`、`module_dr16_t`                                                                      | DR16/DBUS 双 DMA 接收与解码                 | 摇杆、开关、鼠标、键盘、拨轮、统计和在线状态     |
+| `module_bmi088`       | `module_bmi088_raw_data_t`、`module_bmi088_process_data_t`、`module_bmi088_t`                                      | BMI088 初始化、读取、换算、轴映射和零偏标定 | 原始计数、加速度、角速度、温度、时间戳和有效性   |
+| `module_dr16`         | `module_dr16_process_data_t`、`module_dr16_t`                                                                      | DR16/DBUS 双 DMA 接收与解码                 | 摇杆、开关、鼠标、键盘、拨轮、统计和在线状态     |
 | `module_swerve`       | `module_swerve_t`、`module_swerve_config_t`                                                                | 单个舵轮的转向与驱动执行                    | 当前舵角；接收 `alg_swerve_module_target_t`      |
 | `module_shooter`      | `module_shooter_t`、`module_shooter_state_t`                                                               | 双摩擦轮与拨弹电机状态机                    | 状态、待发弹量和卡弹重试次数                     |
 | `module_servo`        | `module_servo_t`、`module_servo_config_t`                                                                  | 标准 PWM 舵机                               | 当前命令角度                                     |
@@ -229,10 +231,10 @@ Module 目录为 `User/Module`。模块负责设备协议、状态机和业务�
 | `module_oled`         | `module_oled_t`、`module_oled_config_t`                                                                    | I2C 单色页式 OLED 帧缓冲                    | 对象内帧缓冲和初始化状态                         |
 | `module_bluetooth`    | `module_bluetooth_t`、`module_bluetooth_config_t`                                                          | 串口蓝牙收发、超时与回调                    | 在线状态                                         |
 | `module_nrf24l01`     | `module_nrf24l01_packet_t`、`module_nrf24l01_t`                                                            | nRF24L01 点对点收发和 ACE 协议封包          | 收到的数据包、管道号和重发/丢包统计寄存器        |
-| `module_vision_comm`       | `module_vision_comm_data_t`、`module_vision_comm_t`                                                                  | USB VCP 固定帧视觉通信                      | 两个数据字节、更新计数和有效标志                 |
-| `module_board_comm`   | `module_board_comm_gimbal_data_t`、`module_board_comm_chassis_data_t`、`module_board_comm_shooter_data_t`  | 云台板与底盘板 CAN 通信                     | 遥控、云台、底盘、发射机构数据和各链路在线状态   |
+| `module_vision_comm`       | `module_vision_comm_process_data_t`、`module_vision_comm_t`                                                                  | USB VCP 固定帧视觉通信                      | 两个数据字节、更新计数和有效标志                 |
+| `module_board_comm`   | `module_board_comm_gimbal_process_data_t`、`module_board_comm_chassis_process_data_t`、`module_board_comm_shooter_process_data_t`  | 云台板与底盘板 CAN 通信                     | 遥控、云台、底盘、发射机构数据和各链路在线状态   |
 | `module_referee`      | `module_referee_t`、`module_referee_statistics_t`                                                          | 裁判系统流式接收、CRC 和命令路由            | 在线状态和解析统计                               |
-| `module_referee_data` | `module_referee_data_t` 及各子数据结构                                                                     | 裁判系统强类型数据仓库                      | 比赛、机器人、功率热量、位置、受击、射击、弹量等 |
+| `module_referee_data` | `module_referee_process_data_t` 及各子数据结构                                                                     | 裁判系统强类型数据仓库                      | 比赛、机器人、功率热量、位置、受击、射击、弹量等 |
 | `module_referee / module_referee_ui` | `module_referee_ui_graphic_t`、`module_referee_ui_t`                                         | 裁判系统客户端图形打包                      | 图形配置及发送状态                               |
 | `module_device / module_diagnostic` | `module_diagnostic_entry_t`、`module_diagnostic_state_t`、`module_diagnostic_t`                         | 通用探针注册、确认、恢复和锁存              | 故障详情、次数、活动状态和最高严重等级           |
 
@@ -262,7 +264,7 @@ M2006、M3508、GM6020、DM4310 都可通过其 `super` 电机基类读取这组
 
 ### DR16 遥控器
 
-通过 `module_dr16_get_data()` 获取 `const module_dr16_data_t *`：
+通过 `module_dr16_get_data()` 获取 `const module_dr16_process_data_t *`：
 
 | 字段                                         | 含义                                          |
 | -------------------------------------------- | --------------------------------------------- |
@@ -286,7 +288,7 @@ M2006、M3508、GM6020、DM4310 都可通过其 `super` 电机基类读取这组
 - `angular_velocity[3]`
 - `temperature`
 
-`module_bmi088_get_data()` 返回 `module_bmi088_data_t`：
+`module_bmi088_get_data()` 返回 `module_bmi088_process_data_t`：
 
 - `acceleration_m_per_s2[3]`
 - `angular_velocity_rad_per_s[3]`
@@ -352,7 +354,7 @@ IMU EKF 通过 getter 提供：
 
 `module_board_comm` 提供以下只读数据：
 
-- `module_board_comm_get_remote()`：完整 `module_dr16_data_t`
+- `module_board_comm_get_remote()`：完整 `module_dr16_process_data_t`
 - `module_board_comm_get_gimbal()`：yaw、pitch、两轴角速度、IMU 有效性和电机在线状态
 - `module_board_comm_get_chassis()`：`vx`、`vy`、`wz`、电机在线状态和自锁状态
 - `module_board_comm_get_shooter()`：摩擦轮速度、拨弹位置、发射状态和卡弹次数
@@ -367,7 +369,7 @@ IMU EKF 通过 getter 提供：
 - CRC8、CRC16 错误计数
 - 超大帧、丢弃字节、接收覆盖和 DMA 重启错误计数
 
-`module_referee_data_t` 数据仓库包含：
+`module_referee_process_data_t` 数据仓库包含：
 
 | 子结构                 | 数据                                                             |
 | ---------------------- | ---------------------------------------------------------------- |

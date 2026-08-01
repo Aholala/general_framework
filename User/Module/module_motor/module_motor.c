@@ -54,24 +54,126 @@ static module_motor_status_t module_motor_enter_feedback_fault(module_motor_t *c
     return (status == MODULE_MOTOR_STATUS_OK) ? MODULE_MOTOR_STATUS_FEEDBACK_UNAVAILABLE : status;
 }
 
+static module_motor_status_t module_motor_map_pid_status(alg_pid_status_t status)
+{
+    if (status == ALG_PID_STATUS_OK)
+    {
+        return MODULE_MOTOR_STATUS_OK;
+    }
+    if (status == ALG_PID_STATUS_NOT_INITIALIZED)
+    {
+        return MODULE_MOTOR_STATUS_NOT_INITIALIZED;
+    }
+    if (status == ALG_PID_STATUS_INVALID_ARGUMENT)
+    {
+        return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    }
+    return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
+}
+
+module_motor_status_t module_motor_pid_init(module_motor_pid_t *const me,
+                                            const module_motor_pid_config_t *const config)
+{
+    alg_pid_status_t status;
+
+    if ((me == NULL) || (config == NULL) || (config->form > MODULE_MOTOR_PID_INCREMENTAL))
+    {
+        return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    }
+
+    me->is_initialized = false;
+    me->form = config->form;
+    status = (config->form == MODULE_MOTOR_PID_POSITIONAL)
+                 ? alg_pid_init(&me->controller.positional, &config->positional_config)
+                 : alg_pid_incremental_init(&me->controller.incremental,
+                                            &config->incremental_config);
+    if (status != ALG_PID_STATUS_OK)
+    {
+        return module_motor_map_pid_status(status);
+    }
+
+    me->is_initialized = true;
+    return MODULE_MOTOR_STATUS_OK;
+}
+
+module_motor_status_t module_motor_pid_reset(module_motor_pid_t *const me,
+                                             float measurement,
+                                             float initial_output)
+{
+    alg_pid_status_t status;
+
+    if (me == NULL)
+    {
+        return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    }
+    if (!me->is_initialized)
+    {
+        return MODULE_MOTOR_STATUS_NOT_INITIALIZED;
+    }
+
+    status = (me->form == MODULE_MOTOR_PID_POSITIONAL)
+                 ? alg_pid_reset(&me->controller.positional, measurement, initial_output)
+                 : alg_pid_incremental_reset(&me->controller.incremental, initial_output);
+    return module_motor_map_pid_status(status);
+}
+
+module_motor_status_t module_motor_pid_update(module_motor_pid_t *const me,
+                                              float setpoint,
+                                              float measurement,
+                                              float delta_time_s,
+                                              float *const output)
+{
+    alg_pid_status_t status;
+
+    if ((me == NULL) || (output == NULL))
+    {
+        return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    }
+    if (!me->is_initialized)
+    {
+        return MODULE_MOTOR_STATUS_NOT_INITIALIZED;
+    }
+
+    status = (me->form == MODULE_MOTOR_PID_POSITIONAL)
+                 ? alg_pid_update(&me->controller.positional, setpoint, measurement,
+                                  delta_time_s, output)
+                 : alg_pid_incremental_update(&me->controller.incremental, setpoint, measurement,
+                                              0.0F, delta_time_s, output);
+    return module_motor_map_pid_status(status);
+}
+
+const alg_pid_terms_t *module_motor_pid_get_terms(const module_motor_pid_t *const me)
+{
+    if ((me == NULL) || !me->is_initialized)
+    {
+        return NULL;
+    }
+
+    return (me->form == MODULE_MOTOR_PID_POSITIONAL)
+               ? alg_pid_get_terms(&me->controller.positional)
+               : alg_pid_incremental_get_terms(&me->controller.incremental);
+}
+
 /* ======================== 基类初始化 ======================== */
 
 /**
  * @brief 初始化电机基类
  * @param me 电机对象
  * @param vptr 虚表指针
- * @param logical_name 逻辑名称
+ * @param motor_name 调试可见的电机名称
  * @param registration_key 注册键值
+ * @param motor_identifier 电机协议 ID 或主机 ID
  * @return 执行状态
  * @note 检查所有虚函数是否非空
  */
 module_motor_status_t module_motor_init_base(module_motor_t *const me,
                                              const module_motor_ops_t *const vptr,
-                                             const char *const logical_name,
-                                             uint32_t registration_key)
+                                             const char *const motor_name,
+                                             uint32_t registration_key,
+                                             uint32_t motor_identifier)
 {
     // ---- 参数校验 ----
-    if ((me == NULL) || (vptr == NULL) || (logical_name == NULL) || (vptr->enable == NULL) ||
+    if ((me == NULL) || (vptr == NULL) || (motor_name == NULL) || (vptr->enable == NULL) ||
         (vptr->disable == NULL) || (vptr->set_target == NULL) || (vptr->update == NULL))
     {
         return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
@@ -79,11 +181,17 @@ module_motor_status_t module_motor_init_base(module_motor_t *const me,
 
     // ---- 初始化基类字段 ----
     me->vptr = vptr;
-    me->logical_name = logical_name;
+    me->motor_name = motor_name;
     me->registration_key = registration_key;
+    me->motor_identifier = motor_identifier;
     me->registry_index = SIZE_MAX; // 未注册状态
     me->state = MODULE_MOTOR_STATE_DISABLED;
     me->feedback = (module_motor_feedback_t){0};
+    me->delta_time_s = 0.0F;
+    me->total_runtime_us = 0U;
+    me->enabled_runtime_us = 0U;
+    me->control_update_count = 0U;
+    me->last_update_status = MODULE_MOTOR_STATUS_OK;
     me->feedback_timeout_ms = 0U;
     me->is_registered = false;
     me->is_initialized = true;
@@ -310,19 +418,60 @@ module_motor_status_t module_motor_set_target(module_motor_t *const me, float ta
 module_motor_status_t module_motor_update(module_motor_t *const me, float delta_time_s)
 {
     module_motor_status_t status = module_motor_validate_registered(me);
+    uint64_t elapsed_time_us;
 
     // 使能状态下反馈离线 → 进入故障
     if ((status == MODULE_MOTOR_STATUS_OK) && (me->state == MODULE_MOTOR_STATE_ENABLED) &&
         !me->feedback.is_online)
     {
-        return module_motor_enter_feedback_fault(me);
+        status = module_motor_enter_feedback_fault(me);
+        me->last_update_status = status;
+        return status;
     }
     // 检查时间步长有效性
     if ((status == MODULE_MOTOR_STATUS_OK) && (!isfinite(delta_time_s) || (delta_time_s <= 0.0F)))
     {
-        return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
+        me->last_update_status = MODULE_MOTOR_STATUS_OUT_OF_RANGE;
+        return me->last_update_status;
     }
-    return (status == MODULE_MOTOR_STATUS_OK) ? me->vptr->update(me, delta_time_s) : status;
+    if (status != MODULE_MOTOR_STATUS_OK)
+    {
+        return status;
+    }
+
+    status = me->vptr->update(me, delta_time_s);
+    me->last_update_status = status;
+    if (status == MODULE_MOTOR_STATUS_OK)
+    {
+        me->delta_time_s = delta_time_s;
+        elapsed_time_us = (delta_time_s >= ((float)UINT64_MAX / 1000000.0F))
+                              ? UINT64_MAX
+                              : (uint64_t)(delta_time_s * 1000000.0F + 0.5F);
+        if (UINT64_MAX - me->total_runtime_us < elapsed_time_us)
+        {
+            me->total_runtime_us = UINT64_MAX;
+        }
+        else
+        {
+            me->total_runtime_us += elapsed_time_us;
+        }
+        if (me->control_update_count != UINT32_MAX)
+        {
+            ++me->control_update_count;
+        }
+        if (me->state == MODULE_MOTOR_STATE_ENABLED)
+        {
+            if (UINT64_MAX - me->enabled_runtime_us < elapsed_time_us)
+            {
+                me->enabled_runtime_us = UINT64_MAX;
+            }
+            else
+            {
+                me->enabled_runtime_us += elapsed_time_us;
+            }
+        }
+    }
+    return status;
 }
 
 /* ======================== 反馈管理 ======================== */

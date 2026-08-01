@@ -289,4 +289,18 @@ bsp_fdcan_notify(fdcan_ptr, BSP_EVENT_RECEIVE_COMPLETE, BSP_STATUS_OK, 1U);
 
 ---
 
-**总结**：`bsp_fdcan` 为 CAN FD 提供了完整的抽象接口，同时通过 Classic 适配器实现了与现有 Classic CAN 系统的无缝兼容。该模块特别适合需要高带宽、长数据帧的通信场景（如多传感器数据传输、固件升级等），同时保持了与 `bsp_can` 体系的一致性，降低了代码迁移成本。
+## 一页式接入顺序与可读信息
+
+1. 平台配置 arbitration/data phase 时序和 message RAM，注入 FDCAN driver ops。
+2. init 后配置 filter、注册 callback，再 start。
+3. 使用 `bsp_fdcan_frame_t` 发送/接收；明确 Classic/FD、BRS 和有效数据长度。
+4. ISR 经 `bsp_fdcan_notify()` 路由，任务读取并处理帧。
+5. 旧模块需要 Classic CAN 接口时创建 `bsp_fdcan_classic_adapter_t`，并只通过 `as_can()` 使用。
+
+| 可读取结构体                  | 主要信息                                       |
+| ----------------------------- | ---------------------------------------------- |
+| `bsp_fdcan_frame_t`           | ID、帧格式、位速率切换、长度和最多 64 字节数据 |
+| `bsp_fdcan_protocol_status_t` | 总线状态、错误状态和错误计数                   |
+| TX 空闲量                     | `bsp_fdcan_get_transmit_free_level()`          |
+
+Classic 适配器只接受 Classic 帧语义，不能借适配器偷偷发送 64 字节 FD 帧。

@@ -206,3 +206,35 @@ USART DMA 空闲中断 (ISR)
 ---
 
 **总结**：`module_bluetooth` 提供了通用的蓝牙串口透传模块，通过 DMA 空闲中断和双缓冲机制实现高效接收，在线超时检测提供链路状态指示，适用于需要蓝牙通信的各种嵌入式应用。其设计与 BSP 层解耦，可移植到任意 MCU 平台。配合 `module_device` 框架，可统一接入系统调度。
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 先初始化 USART BSP，并准备两个生命周期覆盖 bluetooth 的静态缓冲区。 */
+static module_bluetooth_t bluetooth;
+static uint8_t receive_buffer[128];
+static uint8_t processing_buffer[128];
+
+/* 2. 填写 module_bluetooth_config_t：注入 USART、缓冲区、超时和接收回调。 */
+module_bluetooth_status_t status = module_bluetooth_init(&bluetooth, &bluetooth_config);
+
+/* 3. init 成功后启动 DMA/中断接收。 */
+if (status == MODULE_BLUETOOTH_STATUS_OK) {
+    status = module_bluetooth_start(&bluetooth);
+}
+
+/* 4. 在任务中周期调用；这里才执行接收回调并推进离线计时。 */
+status = module_bluetooth_update(&bluetooth, elapsed_time_ms);
+
+/* 5. 需要发送时调用 transmit/send_command；退出前先 stop。 */
+status = module_bluetooth_stop(&bluetooth);
+```
+
+| 可读取信息 | 推荐读取方式 | 说明 |
+| --- | --- | --- |
+| 在线状态 | `module_bluetooth_is_online()` | 是否在离线超时内收到过数据 |
+| 接收内容 | `module_bluetooth_receive_callback_t` | 数据只在回调期间有效，长期保存必须复制 |
+| `module_bluetooth_t` | 调试器只读查看 | `receive_overrun_count`、`receive_restart_error_count`、`receive_elapsed_time_ms`、`is_started` |
+| `module_device_t super` | `module_device_is_initialized()` 等 | 逻辑名称、注册键和初始化状态 |
+
+不要从应用代码修改 `module_bluetooth_t` 的运行字段；它们公开是为了静态分配和调试，不是控制接口。

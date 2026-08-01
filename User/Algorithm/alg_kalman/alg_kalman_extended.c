@@ -34,18 +34,21 @@ alg_kalman_extended_validate_config(const alg_kalman_extended_config_t *config)
         (config->process_noise == NULL) || (config->measurement_noise == NULL) ||
         (config->workspace == NULL) || (config->state_function == NULL) ||
         (config->state_jacobian_function == NULL) || (config->measurement_function == NULL) ||
-        (config->measurement_jacobian_function == NULL))
+        (config->measurement_jacobian_function == NULL)) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
+}
 
     // ---- 维度检查 ----
-    if ((config->state_dimension == 0U) || (config->measurement_dimension == 0U))
+    if ((config->state_dimension == 0U) || (config->measurement_dimension == 0U)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 工作区大小检查 ----
     required_workspace =
         ALG_KALMAN_WORKSPACE_SIZE(config->state_dimension, config->measurement_dimension);
-    if (config->workspace_size < required_workspace)
+    if (config->workspace_size < required_workspace) {
         return ALG_KALMAN_STATUS_INSUFFICIENT_WORKSPACE;
+}
 
     // ---- 矩阵内容检查 ----
     state_square = config->state_dimension * config->state_dimension;
@@ -60,8 +63,9 @@ alg_kalman_extended_validate_config(const alg_kalman_extended_config_t *config)
         !alg_kalman_internal_has_nonnegative_diagonal(config->process_noise,
                                                       config->state_dimension) ||
         !alg_kalman_internal_has_nonnegative_diagonal(config->measurement_noise,
-                                                      config->measurement_dimension))
+                                                      config->measurement_dimension)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     return ALG_KALMAN_STATUS_OK;
 }
@@ -77,14 +81,16 @@ alg_kalman_status_t alg_kalman_extended_init(alg_kalman_extended_t *me,
 {
     alg_kalman_status_t status;
 
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
+}
 
     me->is_initialized = false;
 
     status = alg_kalman_extended_validate_config(config);
-    if (status != ALG_KALMAN_STATUS_OK)
+    if (status != ALG_KALMAN_STATUS_OK) {
         return status;
+}
 
     me->config = *config;
     alg_kalman_internal_symmetrize(me->config.covariance, me->config.state_dimension);
@@ -105,17 +111,20 @@ alg_kalman_status_t alg_kalman_extended_reset(alg_kalman_extended_t *me, const f
 {
     size_t state_square;
 
-    if ((me == NULL) || (initial_state == NULL) || (initial_covariance == NULL))
+    if ((me == NULL) || (initial_state == NULL) || (initial_covariance == NULL)) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
+}
 
     state_square = me->config.state_dimension * me->config.state_dimension;
     if (!alg_kalman_internal_is_finite_array(initial_state, me->config.state_dimension) ||
         !alg_kalman_internal_is_finite_array(initial_covariance, state_square) ||
         !alg_kalman_internal_has_nonnegative_diagonal(initial_covariance,
-                                                      me->config.state_dimension))
+                                                      me->config.state_dimension)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     alg_kalman_internal_copy(me->config.state, initial_state, me->config.state_dimension);
     alg_kalman_internal_copy(me->config.covariance, initial_covariance, state_square);
@@ -145,21 +154,26 @@ alg_kalman_status_t alg_kalman_extended_predict(alg_kalman_extended_t *me,
     float *predicted_covariance;
     alg_kalman_status_t status;
 
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
-    if (!isfinite(delta_time_s) || (delta_time_s <= 0.0F))
+}
+    if (!isfinite(delta_time_s) || (delta_time_s <= 0.0F)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     config = &me->config;
 
     // 控制输入检查
-    if ((config->control_dimension > 0U) && (control_input == NULL))
+    if ((config->control_dimension > 0U) && (control_input == NULL)) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
+}
     if ((config->control_dimension > 0U) &&
-        !alg_kalman_internal_is_finite_array(control_input, config->control_dimension))
+        !alg_kalman_internal_is_finite_array(control_input, config->control_dimension)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     state_square = config->state_dimension * config->state_dimension;
     predicted_state = config->workspace;
@@ -171,20 +185,23 @@ alg_kalman_status_t alg_kalman_extended_predict(alg_kalman_extended_t *me,
     status = config->state_function(config->state, config->state_dimension, control_input,
                                     config->control_dimension, delta_time_s, predicted_state,
                                     config->user_context);
-    if (status != ALG_KALMAN_STATUS_OK)
+    if (status != ALG_KALMAN_STATUS_OK) {
         return status;
+}
 
     // ---- 2. 调用状态雅可比函数计算 F = ∂f/∂x ----
     status = config->state_jacobian_function(config->state, config->state_dimension, control_input,
                                              config->control_dimension, delta_time_s,
                                              state_jacobian, config->user_context);
-    if (status != ALG_KALMAN_STATUS_OK)
+    if (status != ALG_KALMAN_STATUS_OK) {
         return status;
+}
 
     // ---- 3. 检查模型输出有效性 ----
     if (!alg_kalman_internal_is_finite_array(predicted_state, config->state_dimension) ||
-        !alg_kalman_internal_is_finite_array(state_jacobian, state_square))
+        !alg_kalman_internal_is_finite_array(state_jacobian, state_square)) {
         return ALG_KALMAN_STATUS_MODEL_ERROR;
+}
 
     // ---- 4. 协方差预测：P = F*P*F^T + Q ----
     alg_kalman_internal_multiply(state_jacobian, config->state_dimension, config->state_dimension,
@@ -193,14 +210,16 @@ alg_kalman_status_t alg_kalman_extended_predict(alg_kalman_extended_t *me,
                                                  config->state_dimension, state_jacobian,
                                                  config->state_dimension, predicted_covariance);
 
-    for (index = 0U; index < state_square; ++index)
+    for (index = 0U; index < state_square; ++index) {
         predicted_covariance[index] += config->process_noise[index];
+}
 
     alg_kalman_internal_symmetrize(predicted_covariance, config->state_dimension);
 
     // ---- 5. 检查结果有效性 ----
-    if (!alg_kalman_internal_is_finite_array(predicted_covariance, state_square))
+    if (!alg_kalman_internal_is_finite_array(predicted_covariance, state_square)) {
         return ALG_KALMAN_STATUS_NUMERICAL_ERROR;
+}
 
     // ---- 6. 提交更新 ----
     alg_kalman_internal_copy(config->state, predicted_state, config->state_dimension);
@@ -227,14 +246,17 @@ alg_kalman_status_t alg_kalman_extended_correct(alg_kalman_extended_t *me, const
     size_t correction_workspace_size;
     alg_kalman_status_t status;
 
-    if ((me == NULL) || (measurement == NULL))
+    if ((me == NULL) || (measurement == NULL)) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
+}
 
     config = &me->config;
-    if (!alg_kalman_internal_is_finite_array(measurement, config->measurement_dimension))
+    if (!alg_kalman_internal_is_finite_array(measurement, config->measurement_dimension)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     cross_size = config->state_dimension * config->measurement_dimension;
     predicted_measurement = config->workspace;
@@ -246,21 +268,24 @@ alg_kalman_status_t alg_kalman_extended_correct(alg_kalman_extended_t *me, const
     status = config->measurement_function(config->state, config->state_dimension,
                                           config->measurement_dimension, predicted_measurement,
                                           config->user_context);
-    if (status != ALG_KALMAN_STATUS_OK)
+    if (status != ALG_KALMAN_STATUS_OK) {
         return status;
+}
 
     // ---- 2. 调用测量雅可比函数计算 H = ∂h/∂x ----
     status = config->measurement_jacobian_function(config->state, config->state_dimension,
                                                    config->measurement_dimension,
                                                    measurement_jacobian, config->user_context);
-    if (status != ALG_KALMAN_STATUS_OK)
+    if (status != ALG_KALMAN_STATUS_OK) {
         return status;
+}
 
     // ---- 3. 检查模型输出有效性 ----
     if (!alg_kalman_internal_is_finite_array(predicted_measurement,
                                              config->measurement_dimension) ||
-        !alg_kalman_internal_is_finite_array(measurement_jacobian, cross_size))
+        !alg_kalman_internal_is_finite_array(measurement_jacobian, cross_size)) {
         return ALG_KALMAN_STATUS_MODEL_ERROR;
+}
 
     // ---- 4. 执行校正 ----
     return alg_kalman_internal_correct(config->state, config->covariance, config->state_dimension,

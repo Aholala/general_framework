@@ -82,7 +82,7 @@ module_dm_limits_t limits = {
 };
 
 module_dm_motor_config_t cfg = {
-    .logical_name = "dm_motor_1",
+    .motor_name = "dm_motor_1",
     .registration_key = 1,
     .can = can_ptr,
     .control_mode = MODULE_DM_MODE_MIT,
@@ -207,3 +207,39 @@ module_dm_motor_bus_init(&bus, can, storage, 8, 4);
 ---
 
 **总结**：`module_dm_motor` 提供了完整的达妙电机 CAN 协议驱动，通过 `mode_vptr` 多态实现四种控制模式，浮点量按 `limits` 范围量化到协议字段。`module_dm_motor_bus` 提供多电机管理、反馈路由和轮询发送预算，适用于多电机系统的统一调度。
+
+## 一页式总线接入顺序与可读信息
+
+```c
+/* 1. 初始化 CAN BSP、电机注册表；为 DM 总线准备电机指针存储。 */
+module_dm_motor_bus_init(&dm_bus, can, dm_motor_storage,
+                         dm_motor_capacity, maximum_transmits_per_cycle);
+
+/* 2. 使用 module_dm4310_init 或通用 init，协议 limits 必须来自实际固件配置。 */
+module_dm4310_init(&motor, &motor_config);
+module_dm4310_register(&motor, &registry);
+module_dm_motor_bus_register(&dm_bus, module_dm4310_as_dm_motor(&motor));
+
+/* 3. CAN 接收路由统一交给总线解析反馈。 */
+module_dm_motor_bus_handle_feedback(&dm_bus, frame);
+
+/* 4. 确认反馈和安全条件后 enable，并只调用当前 control_mode 对应的命令接口。 */
+module_dm4310_enable(&motor);
+module_dm4310_command_velocity(&motor, target_velocity_rad_per_s);
+
+/* 5. 周期调用 bus_update；它按发送预算轮询电机。 */
+module_dm_motor_bus_update(&dm_bus, delta_time_s);
+
+/* 6. 停机 disable；从总线和注册表分别 unregister。 */
+```
+
+| 可读取信息 | API/结构体 | 说明 |
+| --- | --- | --- |
+| 通用反馈 | `module_motor_feedback_t` / `get_feedback()` | 位置、速度、扭矩、电流、温度、在线状态 |
+| 驱动故障 | `module_dm_motor_get_fault()` | 达妙协议故障枚举 |
+| MOS 温度 | `module_dm_motor_get_mos_temperature_c()` | 驱动器功率器件温度 |
+| 协议范围 | `module_dm_limits_t` | 位置、速度、力矩、Kp、Kd 的量化边界 |
+| 命令结构 | `module_dm_mit_command_t`、`module_dm_force_position_command_t` | MIT 与力位混合模式的完整输入 |
+| 总线状态 | `module_dm_motor_bus_t`，仅调试读取 | 电机数量、轮询位置和每周期发送预算 |
+
+`control_mode` 与命令 API 不匹配时应视为调用错误；不要在运行中通过直接修改对象字段切换模式。

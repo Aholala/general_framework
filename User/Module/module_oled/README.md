@@ -221,3 +221,34 @@ if (need_refresh) {
 ---
 
 **总结**：`module_oled` 提供了轻量、可移植的 OLED 显示驱动，适用于需要简单图形显示的嵌入式系统。其页式帧缓冲设计兼容 SSD1306 类控制器，绘图原语覆盖了大多数基础图形需求。配合 `module_device` 基类，可接入统一设备管理框架。
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 先初始化 I2C BSP；帧缓冲大小必须为 width * height / 8。 */
+static module_oled_t oled;
+static uint8_t frame_buffer[128U * 64U / 8U];
+
+/* 2. 配置 I2C、7 位地址、尺寸和帧缓冲，然后初始化。 */
+module_oled_status_t status = module_oled_init(&oled, &oled_config);
+
+/* 3. start 发送控制器初始化命令并允许绘图。 */
+status = module_oled_start(&oled);
+
+/* 4. 绘图函数只修改 RAM 帧缓冲；完成一批绘图后统一 flush。 */
+module_oled_clear(&oled, false);
+module_oled_draw_rectangle(&oled, 0, 0, 20U, 10U, true, true);
+status = module_oled_flush(&oled);
+
+/* 5. 关闭显示或重新配置 I2C 前调用 stop。 */
+```
+
+本模块没有独立的传感数据 getter。可读取的信息主要是：
+
+| 结构体/数据 | 读取方式 | 说明 |
+| --- | --- | --- |
+| `module_oled_config_t` | 调用者持有 | I2C 地址、屏幕尺寸和缓冲区配置 |
+| `frame_buffer` | 调用者提供的数组 | 当前待刷新的单色像素页数据 |
+| `module_oled_t` | 调试器只读查看 | 当前对比度、尺寸、帧缓冲引用和启动状态 |
+
+屏幕当前内容应以帧缓冲为准；只有 `module_oled_flush()` 成功后，屏幕才与缓冲区同步。

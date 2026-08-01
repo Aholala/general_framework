@@ -41,16 +41,18 @@ alg_lqr_status_t alg_lqr_internal_riccati_step(
         state_transpose_riccati_state + state_square;                    // AᵀPB + N
     float *feedback_cost = state_transpose_riccati_control + cross_size; // (AᵀPB+N)K
 
-    if (workspace_size < required_size)
+    if (workspace_size < required_size) {
         return ALG_LQR_STATUS_INSUFFICIENT_WORKSPACE;
+}
 
     // ---- 计算增益分母：S = BᵀPB + R ----
     alg_lqr_internal_multiply(next_riccati, state_dimension, state_dimension, control_matrix,
                               control_dimension, riccati_control);
     alg_lqr_internal_multiply_left_transpose(control_matrix, state_dimension, control_dimension,
                                              riccati_control, control_dimension, gain_denominator);
-    for (size_t i = 0U; i < control_square; ++i)
+    for (size_t i = 0U; i < control_square; ++i) {
         gain_denominator[i] += control_weight[i];
+}
 
     // ---- 计算增益分子：BᵀPA + Nᵀ ----
     alg_lqr_internal_multiply(next_riccati, state_dimension, state_dimension, state_matrix,
@@ -59,16 +61,19 @@ alg_lqr_status_t alg_lqr_internal_riccati_step(
                                              riccati_state, state_dimension, gain_numerator);
     if (cross_weight != NULL)
     {
-        for (size_t row = 0U; row < control_dimension; ++row)
-            for (size_t col = 0U; col < state_dimension; ++col)
+        for (size_t row = 0U; row < control_dimension; ++row) {
+            for (size_t col = 0U; col < state_dimension; ++col) {
                 gain_numerator[(row * state_dimension) + col] +=
                     cross_weight[(col * control_dimension) + row];
+}
+}
     }
 
     // ---- 求逆并计算增益 K = S⁻¹ * (BᵀPA + Nᵀ) ----
     status = alg_lqr_internal_invert(gain_denominator, gain_denominator_inverse, control_dimension);
-    if (status != ALG_LQR_STATUS_OK)
+    if (status != ALG_LQR_STATUS_OK) {
         return status;
+}
     alg_lqr_internal_multiply(gain_denominator_inverse, control_dimension, control_dimension,
                               gain_numerator, state_dimension, gain_matrix);
 
@@ -81,20 +86,23 @@ alg_lqr_status_t alg_lqr_internal_riccati_step(
                                              state_transpose_riccati_control);
     if (cross_weight != NULL)
     {
-        for (size_t i = 0U; i < cross_size; ++i)
+        for (size_t i = 0U; i < cross_size; ++i) {
             state_transpose_riccati_control[i] += cross_weight[i];
+}
     }
     alg_lqr_internal_multiply(state_transpose_riccati_control, state_dimension, control_dimension,
                               gain_matrix, state_dimension, feedback_cost);
 
-    for (size_t i = 0U; i < state_square; ++i)
+    for (size_t i = 0U; i < state_square; ++i) {
         current_riccati[i] = state_weight[i] + state_transpose_riccati_state[i] - feedback_cost[i];
+}
     alg_lqr_internal_symmetrize(current_riccati, state_dimension);
 
     // ---- 结果检查 ----
     if (!alg_lqr_internal_is_finite_array(current_riccati, state_square) ||
-        !alg_lqr_internal_is_finite_array(gain_matrix, cross_size))
+        !alg_lqr_internal_is_finite_array(gain_matrix, cross_size)) {
         return ALG_LQR_STATUS_NUMERICAL_ERROR;
+}
     return ALG_LQR_STATUS_OK;
 }
 
@@ -109,15 +117,18 @@ static alg_lqr_status_t alg_lqr_dare_validate(const alg_lqr_dare_config_t *confi
 
     if ((config == NULL) || (config->state_matrix == NULL) || (config->control_matrix == NULL) ||
         (config->state_weight == NULL) || (config->control_weight == NULL) ||
-        (config->workspace == NULL))
+        (config->workspace == NULL)) {
         return ALG_LQR_STATUS_INVALID_ARGUMENT;
+}
     if ((config->state_dimension == 0U) || (config->control_dimension == 0U) ||
         !isfinite(config->tolerance) || (config->tolerance <= 0.0F) ||
-        (config->maximum_iterations == 0U))
+        (config->maximum_iterations == 0U)) {
         return ALG_LQR_STATUS_OUT_OF_RANGE;
+}
     if (config->workspace_size <
-        ALG_LQR_RICCATI_WORKSPACE_SIZE(config->state_dimension, config->control_dimension))
+        ALG_LQR_RICCATI_WORKSPACE_SIZE(config->state_dimension, config->control_dimension)) {
         return ALG_LQR_STATUS_INSUFFICIENT_WORKSPACE;
+}
 
     if (!alg_lqr_internal_is_finite_array(config->state_matrix, state_square) ||
         !alg_lqr_internal_is_finite_array(config->control_matrix, cross_size) ||
@@ -127,8 +138,9 @@ static alg_lqr_status_t alg_lqr_dare_validate(const alg_lqr_dare_config_t *confi
         !alg_lqr_internal_has_nonnegative_diagonal(config->control_weight,
                                                    config->control_dimension) ||
         ((config->cross_weight != NULL) &&
-         !alg_lqr_internal_is_finite_array(config->cross_weight, cross_size)))
+         !alg_lqr_internal_is_finite_array(config->cross_weight, cross_size))) {
         return ALG_LQR_STATUS_OUT_OF_RANGE;
+}
     return ALG_LQR_STATUS_OK;
 }
 
@@ -138,12 +150,14 @@ static alg_lqr_status_t alg_lqr_dare_validate(const alg_lqr_dare_config_t *confi
 alg_lqr_status_t alg_lqr_dare_solve(const alg_lqr_dare_config_t *config, float *riccati_solution,
                                     float *gain_matrix, size_t *completed_iterations)
 {
-    if ((riccati_solution == NULL) || (gain_matrix == NULL))
+    if ((riccati_solution == NULL) || (gain_matrix == NULL)) {
         return ALG_LQR_STATUS_INVALID_ARGUMENT;
+}
 
     alg_lqr_status_t status = alg_lqr_dare_validate(config);
-    if (status != ALG_LQR_STATUS_OK)
+    if (status != ALG_LQR_STATUS_OK) {
         return status;
+}
 
     size_t state_square = config->state_dimension * config->state_dimension;
     float *candidate_riccati = config->workspace;
@@ -161,16 +175,18 @@ alg_lqr_status_t alg_lqr_dare_solve(const alg_lqr_dare_config_t *config, float *
             config->control_matrix, config->state_weight, config->control_weight,
             config->cross_weight, riccati_solution, candidate_riccati, gain_matrix, step_workspace,
             step_workspace_size);
-        if (status != ALG_LQR_STATUS_OK)
+        if (status != ALG_LQR_STATUS_OK) {
             return status;
+}
 
         // 计算最大变化量
         float max_diff = 0.0F;
         for (size_t i = 0U; i < state_square; ++i)
         {
             float diff = fabsf(candidate_riccati[i] - riccati_solution[i]);
-            if (diff > max_diff)
+            if (diff > max_diff) {
                 max_diff = diff;
+}
         }
         alg_lqr_internal_copy(riccati_solution, candidate_riccati, state_square);
 
@@ -183,16 +199,19 @@ alg_lqr_status_t alg_lqr_dare_solve(const alg_lqr_dare_config_t *config, float *
                 config->control_matrix, config->state_weight, config->control_weight,
                 config->cross_weight, riccati_solution, candidate_riccati, gain_matrix,
                 step_workspace, step_workspace_size);
-            if (status != ALG_LQR_STATUS_OK)
+            if (status != ALG_LQR_STATUS_OK) {
                 return status;
-            if (completed_iterations != NULL)
+}
+            if (completed_iterations != NULL) {
                 *completed_iterations = iteration;
+}
             return ALG_LQR_STATUS_OK;
         }
     }
 
-    if (completed_iterations != NULL)
+    if (completed_iterations != NULL) {
         *completed_iterations = config->maximum_iterations;
+}
     return ALG_LQR_STATUS_NOT_CONVERGED;
 }
 
@@ -210,14 +229,17 @@ alg_lqr_status_t alg_lqr_finite_solve(const alg_lqr_finite_config_t *config, flo
     if ((config == NULL) || (gain_sequence == NULL) || (initial_riccati_solution == NULL) ||
         (config->state_matrix == NULL) || (config->control_matrix == NULL) ||
         (config->state_weight == NULL) || (config->control_weight == NULL) ||
-        (config->terminal_state_weight == NULL) || (config->workspace == NULL))
+        (config->terminal_state_weight == NULL) || (config->workspace == NULL)) {
         return ALG_LQR_STATUS_INVALID_ARGUMENT;
+}
     if ((config->state_dimension == 0U) || (config->control_dimension == 0U) ||
-        (config->horizon_length == 0U))
+        (config->horizon_length == 0U)) {
         return ALG_LQR_STATUS_OUT_OF_RANGE;
+}
     if (config->workspace_size <
-        ALG_LQR_FINITE_WORKSPACE_SIZE(config->state_dimension, config->control_dimension))
+        ALG_LQR_FINITE_WORKSPACE_SIZE(config->state_dimension, config->control_dimension)) {
         return ALG_LQR_STATUS_INSUFFICIENT_WORKSPACE;
+}
 
     if (!alg_lqr_internal_is_finite_array(config->state_matrix, state_square) ||
         !alg_lqr_internal_is_finite_array(config->control_matrix, cross_size) ||
@@ -230,8 +252,9 @@ alg_lqr_status_t alg_lqr_finite_solve(const alg_lqr_finite_config_t *config, flo
         !alg_lqr_internal_has_nonnegative_diagonal(config->terminal_state_weight,
                                                    config->state_dimension) ||
         ((config->cross_weight != NULL) &&
-         !alg_lqr_internal_is_finite_array(config->cross_weight, cross_size)))
+         !alg_lqr_internal_is_finite_array(config->cross_weight, cross_size))) {
         return ALG_LQR_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 反向递推 ----
     float *next_riccati = config->workspace;
@@ -248,8 +271,9 @@ alg_lqr_status_t alg_lqr_finite_solve(const alg_lqr_finite_config_t *config, flo
             config->cross_weight, next_riccati, initial_riccati_solution,
             &gain_sequence[(step - 1U) * config->control_dimension * config->state_dimension],
             step_workspace, step_workspace_size);
-        if (status != ALG_LQR_STATUS_OK)
+        if (status != ALG_LQR_STATUS_OK) {
             return status;
+}
         alg_lqr_internal_copy(next_riccati, initial_riccati_solution, state_square);
     }
     return ALG_LQR_STATUS_OK;

@@ -40,16 +40,18 @@ alg_kalman_status_t alg_kalman_scalar_init(alg_kalman_scalar_t *me, float proces
                                            float measurement_noise, float initial_estimate,
                                            float initial_covariance)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
+}
 
     me->is_initialized = false;
 
     // 参数校验：Q >= 0，R > 0，P >= 0
     if (!alg_kalman_scalar_is_nonnegative_finite(process_noise) || !isfinite(measurement_noise) ||
         (measurement_noise <= 0.0F) || !isfinite(initial_estimate) ||
-        !alg_kalman_scalar_is_nonnegative_finite(initial_covariance))
+        !alg_kalman_scalar_is_nonnegative_finite(initial_covariance)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     me->process_noise = process_noise;
     me->measurement_noise = measurement_noise;
@@ -71,13 +73,16 @@ alg_kalman_status_t alg_kalman_scalar_init(alg_kalman_scalar_t *me, float proces
 alg_kalman_status_t alg_kalman_scalar_set_noise(alg_kalman_scalar_t *me, float process_noise,
                                                 float measurement_noise)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
+}
     if (!alg_kalman_scalar_is_nonnegative_finite(process_noise) || !isfinite(measurement_noise) ||
-        (measurement_noise <= 0.0F))
+        (measurement_noise <= 0.0F)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     me->process_noise = process_noise;
     me->measurement_noise = measurement_noise;
@@ -94,12 +99,15 @@ alg_kalman_status_t alg_kalman_scalar_set_noise(alg_kalman_scalar_t *me, float p
 alg_kalman_status_t alg_kalman_scalar_reset(alg_kalman_scalar_t *me, float initial_estimate,
                                             float initial_covariance)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
-    if (!isfinite(initial_estimate) || !alg_kalman_scalar_is_nonnegative_finite(initial_covariance))
+}
+    if (!isfinite(initial_estimate) || !alg_kalman_scalar_is_nonnegative_finite(initial_covariance)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     me->estimate = initial_estimate;
     me->covariance = initial_covariance;
@@ -116,18 +124,22 @@ alg_kalman_status_t alg_kalman_scalar_reset(alg_kalman_scalar_t *me, float initi
  */
 alg_kalman_status_t alg_kalman_scalar_predict(alg_kalman_scalar_t *me, float state_delta)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
-    if (!isfinite(state_delta))
+}
+    if (!isfinite(state_delta)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     me->estimate += state_delta;
     me->covariance += me->process_noise;
 
-    if (!isfinite(me->estimate) || !alg_kalman_scalar_is_nonnegative_finite(me->covariance))
+    if (!isfinite(me->estimate) || !alg_kalman_scalar_is_nonnegative_finite(me->covariance)) {
         return ALG_KALMAN_STATUS_NUMERICAL_ERROR;
+}
 
     return ALG_KALMAN_STATUS_OK;
 }
@@ -145,17 +157,21 @@ alg_kalman_status_t alg_kalman_scalar_correct(alg_kalman_scalar_t *me, float mea
 {
     float innovation_covariance;
 
-    if ((me == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL)) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
-    if (!isfinite(measurement))
+}
+    if (!isfinite(measurement)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     // 创新协方差 S = P + R
     innovation_covariance = me->covariance + me->measurement_noise;
-    if (!isfinite(innovation_covariance) || (innovation_covariance <= 0.0F))
+    if (!isfinite(innovation_covariance) || (innovation_covariance <= 0.0F)) {
         return ALG_KALMAN_STATUS_NUMERICAL_ERROR;
+}
 
     // 卡尔曼增益 K = P / (P + R)
     me->gain = me->covariance / innovation_covariance;
@@ -166,8 +182,9 @@ alg_kalman_status_t alg_kalman_scalar_correct(alg_kalman_scalar_t *me, float mea
     // 协方差更新 P = (1 - K) * P
     me->covariance = (1.0F - me->gain) * me->covariance;
 
-    if (!isfinite(me->estimate) || !alg_kalman_scalar_is_nonnegative_finite(me->covariance))
+    if (!isfinite(me->estimate) || !alg_kalman_scalar_is_nonnegative_finite(me->covariance)) {
         return ALG_KALMAN_STATUS_NUMERICAL_ERROR;
+}
 
     *output = me->estimate;
     return ALG_KALMAN_STATUS_OK;
@@ -186,16 +203,20 @@ alg_kalman_status_t alg_kalman_scalar_update(alg_kalman_scalar_t *me, float meas
 {
     alg_kalman_status_t status;
 
-    if ((me == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL)) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
-    if (!isfinite(measurement))
+}
+    if (!isfinite(measurement)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     status = alg_kalman_scalar_predict(me, 0.0F);
-    if (status != ALG_KALMAN_STATUS_OK)
+    if (status != ALG_KALMAN_STATUS_OK) {
         return status;
+}
 
     return alg_kalman_scalar_correct(me, measurement, output);
 }

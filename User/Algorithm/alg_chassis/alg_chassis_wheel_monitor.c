@@ -93,12 +93,15 @@ alg_chassis_status_t alg_chassis_wheel_monitor_update(alg_chassis_wheel_monitor_
     size_t available_wheel_count = 0U;
 
     // ---- 参数校验 ----
-    if ((me == NULL) || (wheel_residuals_m_per_s == NULL) || (wheel_is_available == NULL))
+    if ((me == NULL) || (wheel_residuals_m_per_s == NULL) || (wheel_is_available == NULL)) {
         return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_CHASSIS_STATUS_NOT_INITIALIZED;
-    if (output_capacity < me->wheel_count)
+}
+    if (output_capacity < me->wheel_count) {
         return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
+}
 
     // ---- 遍历所有轮子 ----
     for (wheel_index = 0U; wheel_index < me->wheel_count; ++wheel_index)
@@ -109,8 +112,9 @@ alg_chassis_status_t alg_chassis_wheel_monitor_update(alg_chassis_wheel_monitor_
         const float residual_m_per_s = fabsf(wheel_residuals_m_per_s[wheel_index]);
 
         // 检查残差是否为有限数
-        if (!isfinite(residual_m_per_s))
+        if (!isfinite(residual_m_per_s)) {
             return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
+}
 
         // 保存当前残差
         wheel_state->residual_m_per_s = residual_m_per_s;
@@ -175,8 +179,9 @@ alg_chassis_status_t alg_chassis_wheel_monitor_update(alg_chassis_wheel_monitor_
 
         // ---- 输出可用性 ----
         wheel_is_available[wheel_index] = !wheel_state->is_faulted;
-        if (wheel_is_available[wheel_index])
+        if (wheel_is_available[wheel_index]) {
             ++available_wheel_count;
+}
     }
 
     // 部分轮子不可用 → 返回 DEGRADED
@@ -196,12 +201,15 @@ alg_chassis_status_t alg_chassis_wheel_monitor_reset_wheel(alg_chassis_wheel_mon
                                                            size_t wheel_index,
                                                            bool assume_available)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_CHASSIS_STATUS_NOT_INITIALIZED;
-    if (wheel_index >= me->wheel_count)
+}
+    if (wheel_index >= me->wheel_count) {
         return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
+}
 
     // 重置状态：清零计数，根据 assume_available 设置故障标志
     me->wheel_states[wheel_index] = (alg_chassis_wheel_monitor_wheel_state_t){

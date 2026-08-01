@@ -110,7 +110,7 @@ extern "C"
         uint8_t shooter_number; // 发射器编号
         uint8_t frequency_hz;   // 射速（Hz）
         float speed_m_per_s;    // 弹速（米/秒）
-    } module_referee_shoot_data_t;
+    } module_referee_shoot_process_data_t;
 
     /**
      * @brief 弹量剩余
@@ -135,7 +135,7 @@ extern "C"
         module_referee_power_heat_t power_heat;                     // 功率与热量
         module_referee_robot_position_t robot_position;             // 机器人位置
         module_referee_hurt_t hurt;                                 // 受击信息
-        module_referee_shoot_data_t shoot_data;                     // 射击数据
+        module_referee_shoot_process_data_t shoot_data;                     // 射击数据
         module_referee_projectile_allowance_t projectile_allowance; // 弹量剩余
         uint32_t robot_health[16];                                  // 各机器人血量
         uint32_t event_data;                                        // 事件数据
@@ -145,7 +145,7 @@ extern "C"
         uint8_t game_result;         // 比赛结果
         uint8_t warning_level;       // 警告等级
         uint8_t warning_robot_id;    // 警告机器人 ID
-    } module_referee_data_t;
+    } module_referee_process_data_t;
 
     /* ======================== 公共 API ======================== */
 
@@ -153,7 +153,7 @@ extern "C"
      * @brief 重置数据仓库（清零所有字段）
      * @param me 数据仓库对象
      */
-    void module_referee_data_reset(module_referee_data_t *me);
+    void module_referee_data_reset(module_referee_process_data_t *me);
 
     /**
      * @brief 裁判系统数据命令路由处理器
@@ -175,14 +175,14 @@ extern "C"
      * @param command_id 命令 ID（使用 MODULE_REFEREE_COMMAND_xxx 宏）
      * @return true=自上次清除后收到过该命令的新数据
      */
-    bool module_referee_data_has_update(const module_referee_data_t *me, uint16_t command_id);
+    bool module_referee_data_has_update(const module_referee_process_data_t *me, uint16_t command_id);
 
     /**
      * @brief 清除所有更新标记
      * @param me 数据仓库对象
      * @note 在完成当前周期数据消费后调用，准备接收下一周期数据
      */
-    void module_referee_data_clear_updates(module_referee_data_t *me);
+    void module_referee_data_clear_updates(module_referee_process_data_t *me);
 
 #ifdef __cplusplus
 }

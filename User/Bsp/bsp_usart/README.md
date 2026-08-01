@@ -359,4 +359,12 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size) {
 
 ---
 
-**总结**：`bsp_usart` 提供了灵活、可移植的 USART/UART 抽象，适用于各种串行通信场景。其固定长度和空闲线接收两种模式覆盖了从简单协议到不定长协议的需求，三种传输模式（阻塞/中断/DMA）满足了不同性能要求。配合 `bsp_common`，该模块保持了 BSP 层的一致性和可维护性。
+## 一页式接入顺序与可读信息
+
+1. CubeMX/平台配置波特率、数据位、校验、停止位、DMA 和 IRQ，再注入 USART driver ops。
+2. init 后先注册 callback；固定帧用 receive，不定长流用 receive_to_idle，DR16 使用 double-buffer 版本。
+3. 启动一次接收后，由平台在 HAL 回调中调用 `bsp_usart_notify()` 或 `notify_double_buffer()`。
+4. Module 回调只搬运最小数据并立即重启接收，任务上下文再解析协议。
+5. 发送选择阻塞/中断/DMA；停机或重配前 abort/deinit。
+
+可读信息来自接收 buffer、回调的 `transferred_size`/event/status 和 `bsp_usart_get_busy()`。双缓冲回调还会指出完成的 buffer；未完成的 DMA buffer 不得覆盖。

@@ -24,8 +24,9 @@
 static void alg_filter_window_clear(float *buffer, size_t capacity)
 {
     size_t index;
-    for (index = 0U; index < capacity; ++index)
+    for (index = 0U; index < capacity; ++index) {
         buffer[index] = 0.0F;
+}
 }
 
 /* ======================== 滑动平均滤波器 ======================== */
@@ -41,10 +42,12 @@ static void alg_filter_window_clear(float *buffer, size_t capacity)
 alg_filter_status_t alg_filter_moving_average_init(alg_filter_moving_average_t *me,
                                                    float *sample_buffer, size_t capacity)
 {
-    if ((me == NULL) || (sample_buffer == NULL))
+    if ((me == NULL) || (sample_buffer == NULL)) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (capacity == 0U)
+}
+    if (capacity == 0U) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     me->sample_buffer = sample_buffer;
     me->capacity = capacity;
@@ -59,10 +62,12 @@ alg_filter_status_t alg_filter_moving_average_init(alg_filter_moving_average_t *
  */
 alg_filter_status_t alg_filter_moving_average_reset(alg_filter_moving_average_t *me)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
+}
 
     alg_filter_window_clear(me->sample_buffer, me->capacity);
     me->sample_count = 0U;
@@ -83,18 +88,22 @@ alg_filter_status_t alg_filter_moving_average_reset(alg_filter_moving_average_t 
 alg_filter_status_t alg_filter_moving_average_update(alg_filter_moving_average_t *me, float input,
                                                      float *output)
 {
-    if ((me == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL)) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
-    if (!isfinite(input))
+}
+    if (!isfinite(input)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     // 窗口已满：移除最旧样本
-    if (me->sample_count == me->capacity)
+    if (me->sample_count == me->capacity) {
         me->sum -= me->sample_buffer[me->write_index];
-    else
+    } else {
         ++me->sample_count; // 窗口未满：增加计数
+}
 
     // 写入新样本
     me->sample_buffer[me->write_index] = input;
@@ -121,10 +130,12 @@ alg_filter_status_t alg_filter_moving_average_update(alg_filter_moving_average_t
 alg_filter_status_t alg_filter_median_init(alg_filter_median_t *me, float *sample_buffer,
                                            float *sort_buffer, size_t capacity)
 {
-    if ((me == NULL) || (sample_buffer == NULL) || (sort_buffer == NULL))
+    if ((me == NULL) || (sample_buffer == NULL) || (sort_buffer == NULL)) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if ((capacity == 0U) || (sample_buffer == sort_buffer))
+}
+    if ((capacity == 0U) || (sample_buffer == sort_buffer)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE; // sample_buffer 和 sort_buffer 不能相同
+}
 
     me->sample_buffer = sample_buffer;
     me->sort_buffer = sort_buffer;
@@ -140,10 +151,12 @@ alg_filter_status_t alg_filter_median_init(alg_filter_median_t *me, float *sampl
  */
 alg_filter_status_t alg_filter_median_reset(alg_filter_median_t *me)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
+}
 
     alg_filter_window_clear(me->sample_buffer, me->capacity);
     alg_filter_window_clear(me->sort_buffer, me->capacity);
@@ -170,22 +183,27 @@ alg_filter_status_t alg_filter_median_update(alg_filter_median_t *me, float inpu
     size_t insertion_index;
     float value;
 
-    if ((me == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL)) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
-    if (!isfinite(input))
+}
+    if (!isfinite(input)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     // 写入新样本到环形缓冲区
     me->sample_buffer[me->write_index] = input;
     me->write_index = (me->write_index + 1U) % me->capacity;
-    if (me->sample_count < me->capacity)
+    if (me->sample_count < me->capacity) {
         ++me->sample_count;
+}
 
     // 复制样本到排序工作区
-    for (source_index = 0U; source_index < me->sample_count; ++source_index)
+    for (source_index = 0U; source_index < me->sample_count; ++source_index) {
         me->sort_buffer[source_index] = me->sample_buffer[source_index];
+}
 
     // 插入排序（对少量数据效率足够）
     for (source_index = 1U; source_index < me->sample_count; ++source_index)

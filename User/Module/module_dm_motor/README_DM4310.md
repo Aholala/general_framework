@@ -46,7 +46,7 @@ MIT 编码和反馈解码必须使用电机当前实际参数。因此 `module_d
 
 ```c
 const module_dm4310_config_t config = {
-    .logical_name = "pitch_motor",
+    .motor_name = "pitch_motor",
     .registration_key = 20U,
     .can = gimbal_can,
     .control_mode = MODULE_DM4310_CONTROL_MIT,
@@ -127,3 +127,34 @@ const module_dm_force_position_command_t command = {
 - 使能前必须确保机械机构不会因当前位置误差突然运动；
 - 检测到过压、欠压、过流、过温、通信丢失或过载后必须停止运动命令；
 - App 应实现反馈超时、软限位、急停和重新使能条件。
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 从调试工具确认 CAN ID、PMAX/VMAX/TMAX、Kp/Kd 范围，再填写 config。 */
+static module_dm4310_t motor;
+module_motor_status_t status = module_dm4310_init(&motor, &motor_config);
+
+/* 2. 分别注册到通用 motor registry 和 DM bus。 */
+status = module_dm4310_register(&motor, &registry);
+status = module_dm_motor_bus_register(&dm_bus, module_dm4310_as_dm_motor(&motor));
+
+/* 3. CAN 反馈交给 dm_bus，确认 get_feedback 非 NULL 后再使能。 */
+status = module_dm4310_enable(&motor);
+
+/* 4. 只调用配置控制模式对应的一个命令接口。 */
+status = module_dm4310_command_mit(&motor, &mit_command);
+
+/* 5. 周期 module_dm_motor_bus_update 负责发送；停机先 disable。 */
+
+/* 6. set_zero_position 只能在 DISABLED 且机械位置明确时执行。 */
+```
+
+| 可读取信息 | API | 说明 |
+| --- | --- | --- |
+| `module_motor_feedback_t` | `module_dm4310_get_feedback()` | 输出轴位置/速度、扭矩、电流、电机温度和在线状态 |
+| `module_dm_fault_t` | `module_dm4310_get_fault()` | 当前驱动器故障码 |
+| MOS 温度 | `module_dm4310_get_mos_temperature_c()` | 驱动器 MOS 温度 |
+| `module_dm_limits_t` | `motor.super.limits`，仅调试读取 | 当前实际用于编码/解码的协议范围 |
+
+getter 返回 NULL 或反馈离线时，App 必须禁止继续发送运动目标并进入安全状态。

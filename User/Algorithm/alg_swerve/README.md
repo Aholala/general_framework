@@ -225,4 +225,19 @@ alg_chassis_status_t status = alg_swerve_forward(
 
 ---
 
-**总结**：`alg_swerve` 提供了高度灵活的舵轮底盘运动学解决方案，适用于各种舵轮布局（包括非标准布局），并集成了参考坐标系、任意旋转中心、模块失效处理和舵角优化等实用功能。其轻量级、零动态内存的实现使其成为嵌入式实时控制系统的理想选择。
+## 一页式使用顺序与可读信息
+
+1. 准备 `alg_swerve_module_geometry_t[]`；矩形四舵轮可用 `alg_swerve_configure_rectangular_layout()`。
+2. 调用 `alg_swerve_init()`，配置模块数量和最大轮线速度。
+3. 每周期构造 `alg_swerve_command_t`，调用 `alg_swerve_calculate()`；有故障模块时用 availability 版本。
+4. 用每个模块当前舵角调用 `alg_swerve_optimize_target()`，允许舵角少转 180°并反转轮速。
+5. 把 `alg_swerve_module_target_t[]` 交给对应 `module_swerve`；停车抗推时可计算自锁目标。
+
+| 可读取结构体                   | 主要信息                         |
+| ------------------------------ | -------------------------------- |
+| `alg_swerve_command_t`         | 车体速度、角速度和旋转中心       |
+| `alg_swerve_module_target_t`   | 每个舵轮目标速度、舵角和优化结果 |
+| `alg_swerve_module_geometry_t` | 模块相对底盘原点的位置           |
+| `alg_swerve_t`                 | 几何配置引用、模块数和速度上限   |
+
+数组顺序必须与物理舵轮、`module_swerve_t` 实例和健康状态数组保持完全一致。

@@ -136,10 +136,10 @@ module_board_comm_status_t module_board_comm_handle_frame(
 
 | 函数                            | 返回类型                                   | 说明                   |
 | :------------------------------ | :----------------------------------------- | :--------------------- |
-| `module_board_comm_get_remote`  | `const module_dr16_data_t *`               | 遥控器数据（若在线）   |
-| `module_board_comm_get_gimbal`  | `const module_board_comm_gimbal_data_t *`  | 云台数据（若在线）     |
-| `module_board_comm_get_chassis` | `const module_board_comm_chassis_data_t *` | 底盘数据（若在线）     |
-| `module_board_comm_get_shooter` | `const module_board_comm_shooter_data_t *` | 发射机构数据（若在线） |
+| `module_board_comm_get_remote`  | `const module_dr16_process_data_t *`               | 遥控器数据（若在线）   |
+| `module_board_comm_get_gimbal`  | `const module_board_comm_gimbal_process_data_t *`  | 云台数据（若在线）     |
+| `module_board_comm_get_chassis` | `const module_board_comm_chassis_process_data_t *` | 底盘数据（若在线）     |
+| `module_board_comm_get_shooter` | `const module_board_comm_shooter_process_data_t *` | 发射机构数据（若在线） |
 
 ### 5.5 在线状态更新
 
@@ -152,7 +152,7 @@ void module_board_comm_update_time(module_board_comm_t *me, uint32_t elapsed_tim
 
 ## 6. 数据结构
 
-### 6.1 云台数据 (`module_board_comm_gimbal_data_t`)
+### 6.1 云台数据 (`module_board_comm_gimbal_process_data_t`)
 
 ```c
 typedef struct {
@@ -162,10 +162,10 @@ typedef struct {
     float pitch_velocity_rad_per_s; // 俯仰角速度（rad/s）
     bool imu_valid;                 // IMU 数据是否有效
     bool motors_online;             // 电机是否在线
-} module_board_comm_gimbal_data_t;
+} module_board_comm_gimbal_process_data_t;
 ```
 
-### 6.2 底盘数据 (`module_board_comm_chassis_data_t`)
+### 6.2 底盘数据 (`module_board_comm_chassis_process_data_t`)
 
 ```c
 typedef struct {
@@ -174,10 +174,10 @@ typedef struct {
     float angular_velocity_rad_per_s; // 角速度（rad/s）
     bool motors_online;              // 电机是否在线
     bool self_lock_active;           // 自锁是否激活
-} module_board_comm_chassis_data_t;
+} module_board_comm_chassis_process_data_t;
 ```
 
-### 6.3 发射机构数据 (`module_board_comm_shooter_data_t`)
+### 6.3 发射机构数据 (`module_board_comm_shooter_process_data_t`)
 
 ```c
 typedef struct {
@@ -185,7 +185,7 @@ typedef struct {
     float feeder_position_rad;         // 拨弹盘位置（弧度）
     uint8_t state;                     // 发射机构状态
     uint8_t jam_retry_count;           // 卡弹重试次数
-} module_board_comm_shooter_data_t;
+} module_board_comm_shooter_process_data_t;
 ```
 
 ## 7. 使用示例
@@ -219,13 +219,13 @@ void can_rx_callback(const bsp_can_frame_t *frame) {
 ### 7.3 发送数据（云台板发送遥控器数据到底盘板）
 
 ```c
-const module_dr16_data_t *remote = module_dr16_get_data(&dr16);
+const module_dr16_process_data_t *remote = module_dr16_get_data(&dr16);
 if (remote != NULL && remote->is_online) {
     module_board_comm_send_remote(&s_robot_link, remote);
 }
 
 // 发送云台状态
-module_board_comm_gimbal_data_t gimbal = {
+module_board_comm_gimbal_process_data_t gimbal = {
     .yaw_rad = current_yaw,
     .pitch_rad = current_pitch,
     .yaw_velocity_rad_per_s = yaw_vel,
@@ -244,7 +244,7 @@ void control_loop(void) {
     module_board_comm_update_time(&s_robot_link, dt_ms);
 
     // 2. 获取遥控器数据
-    const module_dr16_data_t *remote = module_board_comm_get_remote(&s_robot_link);
+    const module_dr16_process_data_t *remote = module_board_comm_get_remote(&s_robot_link);
     if (remote != NULL) {
         // 使用遥控器数据控制底盘
         float forward = remote->normalized_channel[3];
@@ -253,7 +253,7 @@ void control_loop(void) {
     }
 
     // 3. 获取云台数据
-    const module_board_comm_gimbal_data_t *gimbal = module_board_comm_get_gimbal(&s_robot_link);
+    const module_board_comm_gimbal_process_data_t *gimbal = module_board_comm_get_gimbal(&s_robot_link);
     if (gimbal != NULL) {
         // 使用云台角度数据
     }
@@ -332,3 +332,37 @@ void control_loop(void) {
 ---
 
 **总结**：`module_board_comm` 提供了完整的云台-底盘 CAN 通信协议，支持多帧分片组装、独立在线超时和原子数据提交。其设计适合多板分布式控制系统，确保关键数据在 CAN 总线上可靠、实时地传输。配合 `module_dr16` 和 `bsp_can_dispatcher`，可快速构建双板通信方案。
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 两块板先初始化各自 CAN BSP，并约定完全相同的 base_identifier。 */
+static module_board_comm_t board_comm;
+
+/* 2. 注入 CAN、ID 基址、发送超时和离线超时。 */
+module_board_comm_status_t status =
+    module_board_comm_init(&board_comm, &board_comm_config);
+
+/* 3. 将本模块的 ID 范围注册进 bsp_can_dispatcher。 */
+/* CAN 路由回调中只调用 module_board_comm_handle_frame(&board_comm, frame)。 */
+
+/* 4. 各板按职责发送 remote/gimbal/chassis/shooter 或 heartbeat。 */
+status = module_board_comm_send_remote(&board_comm, remote_data);
+
+/* 5. 周期推进每组数据的独立离线计时。 */
+module_board_comm_update_time(&board_comm, elapsed_time_ms);
+
+/* 6. getter 离线时返回 NULL，App 必须切换安全状态。 */
+const module_board_comm_chassis_process_data_t *chassis =
+    module_board_comm_get_chassis(&board_comm);
+```
+
+| 可读取结构体 | Getter | 主要信息 |
+| --- | --- | --- |
+| `module_dr16_process_data_t` | `module_board_comm_get_remote()` | 跨板转发的遥控器完整输入 |
+| `module_board_comm_gimbal_process_data_t` | `module_board_comm_get_gimbal()` | 云台角度/角速度、IMU 和电机在线状态 |
+| `module_board_comm_chassis_process_data_t` | `module_board_comm_get_chassis()` | 车体速度、自锁和电机在线状态 |
+| `module_board_comm_shooter_process_data_t` | `module_board_comm_get_shooter()` | 摩擦轮、拨弹盘、发射状态和卡弹次数 |
+| `module_board_comm_t` | 调试器只读查看 | 每组在线标志、超时计时、分片掩码和序号 |
+
+所有 getter 都返回内部只读指针；多帧消息只有在全部分片通过校验后才会原子更新正式数据。

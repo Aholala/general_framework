@@ -13,7 +13,6 @@
 #ifndef MODULE_DJI_MOTOR_H
 #define MODULE_DJI_MOTOR_H
 
-#include "alg_pid.h"      // PID 控制器算法
 #include "bsp_can.h"      // CAN BSP 抽象层
 #include "module_motor.h" // 电机基类
 
@@ -50,9 +49,10 @@ extern "C"
      */
     typedef enum
     {
-        MODULE_DJI_CONTROL_DIRECT = 0, // 直通模式：目标值直接作为电流命令
-        MODULE_DJI_CONTROL_VELOCITY,   // 速度控制：速度 PID
-        MODULE_DJI_CONTROL_POSITION    // 位置控制：位置/速度串级 PID
+        MODULE_DJI_CONTROL_DIRECT = 0, // 直通模式：目标值直接作为协议命令
+        MODULE_DJI_CONTROL_CURRENT,    // 电流环：电流 PID -> 协议命令
+        MODULE_DJI_CONTROL_VELOCITY,   // 速度环 -> 电流环 -> 协议命令
+        MODULE_DJI_CONTROL_ANGLE       // 角度环 -> 速度环 -> 电流环 -> 协议命令
     } module_dji_control_mode_t;
 
     /* ======================== 总线对象 ======================== */
@@ -78,7 +78,7 @@ extern "C"
      */
     typedef struct
     {
-        const char *logical_name;                     // 逻辑名称
+        const char *motor_name;                       // 调试可见的电机名称
         uint32_t registration_key;                    // 注册键值
         module_dji_motor_bus_t *motor_bus;            // 所属总线
         module_dji_motor_model_t motor_model;         // 电机型号
@@ -87,8 +87,9 @@ extern "C"
         float direction_sign;                         // 方向符号（+1 或 -1）
         float maximum_temperature_c;                  // 最大允许温度（℃）
         float current_scale_a_per_count;              // 电流换算因子（A/原始值）
-        alg_pid_config_t velocity_pid_config;         // 速度 PID 配置
-        alg_pid_cascade_config_t position_pid_config; // 位置串级 PID 配置
+        module_motor_pid_config_t current_pid_config;  // 电流环 PID 配置
+        module_motor_pid_config_t velocity_pid_config; // 速度环 PID 配置
+        module_motor_pid_config_t angle_pid_config;    // 角度环 PID 配置
     } module_dji_motor_config_t;
 
     /* ======================== 电机对象 ======================== */
@@ -102,9 +103,13 @@ extern "C"
         module_dji_motor_bus_t *motor_bus;      // 所属总线
         module_dji_motor_model_t motor_model;   // 电机型号
         module_dji_control_mode_t control_mode; // 控制模式
-        alg_pid_t velocity_controller;          // 速度 PID 控制器
-        alg_pid_cascade_t position_controller;  // 位置串级 PID 控制器
-        float target_value;                     // 目标值（含义取决于控制模式）
+        module_motor_pid_t current_pid;          // 电流环 PID
+        module_motor_pid_t velocity_pid;         // 速度环 PID
+        module_motor_pid_t angle_pid;            // 角度环 PID
+        float direct_command_value;              // 直通协议命令
+        float target_current_a;                  // 电流目标（A）
+        float target_velocity_rad_per_s;         // 速度目标（rad/s）
+        float target_angle_rad;                  // 角度目标（rad）
         float direction_sign;                   // 方向符号
         float gear_ratio;                       // 减速比
         float maximum_temperature_c;            // 最大允许温度
@@ -113,6 +118,7 @@ extern "C"
         int16_t maximum_command_value;          // 最大命令值（型号相关）
         uint16_t previous_encoder_count;        // 上次编码器值（用于回绕计算）
         int64_t accumulated_encoder_count;      // 累积编码器值（多圈）
+        uint8_t motor_identifier;               // DJI 电机 ID（1~8）
         uint32_t receive_identifier;            // CAN 接收 ID
         uint8_t group_index;                    // 发送组索引（0,1,2）
         uint8_t group_slot;                     // 组内槽位（0~3）
@@ -165,6 +171,10 @@ extern "C"
      * @return 基类指针
      */
     module_motor_t *module_dji_motor_as_base(module_dji_motor_t *const me);
+
+    const module_motor_pid_t *module_dji_motor_get_current_pid(const module_dji_motor_t *const me);
+    const module_motor_pid_t *module_dji_motor_get_velocity_pid(const module_dji_motor_t *const me);
+    const module_motor_pid_t *module_dji_motor_get_angle_pid(const module_dji_motor_t *const me);
 
     /**
      * @brief 处理 CAN 反馈帧

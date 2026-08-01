@@ -245,3 +245,34 @@ if (module_shooter_get_state(&s_shooter) == MODULE_SHOOTER_STATE_FAULT) {
 ---
 
 **总结**：`module_shooter` 提供了完整的 RoboMaster 发射机构控制方案，通过状态机管理送弹流程、堵转检测和故障恢复。其模块化设计使其可与任意 `module_motor` 派生类配合，适应不同电机型号和安装方向。配合电机层和上层控制逻辑，可构建可靠的弹丸发射系统。
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 三个电机必须先初始化、注册并能提供有效反馈。 */
+static module_shooter_t shooter;
+
+/* 2. 配置中注入左右摩擦轮和拨弹电机，以及速度、堵转和重试参数。 */
+module_shooter_status_t status = module_shooter_init(&shooter, &shooter_config);
+
+/* 3. 使能模块，再设置摩擦轮目标；未使能时不接受发射流程。 */
+status = module_shooter_enable(&shooter);
+status = module_shooter_set_friction(
+    &shooter, friction_enabled, target_friction_velocity_rad_per_s);
+
+/* 4. 请求发射只增加待发数量，真正送弹由 update 状态机执行。 */
+status = module_shooter_request_shots(&shooter, shot_count);
+
+/* 5. 固定周期调用并检查返回值；电机离线时立即进入上层安全处理。 */
+status = module_shooter_update(&shooter, delta_time_s);
+
+/* 6. 停机先 cancel_shots，再 disable；FAULT 只能显式 reset_fault。 */
+```
+
+| 可读取信息 | API | 说明 |
+| --- | --- | --- |
+| `module_shooter_state_t` | `module_shooter_get_state()` | 禁用、准备、送弹、回退或故障状态 |
+| 待发弹数 | `module_shooter_get_pending_shots()` | 尚未完成的发射请求数量 |
+| 堵转重试次数 | `module_shooter_get_jam_retry_count()` | 当前发射流程已经执行的回退次数 |
+| 电机反馈 | `module_motor_get_feedback()` | 三个依赖电机的位置、速度、温度和在线状态 |
+| `module_shooter_t` | 调试器只读查看 | 状态机计时、目标值和内部阶段；应用不要直接修改 |

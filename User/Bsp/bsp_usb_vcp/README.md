@@ -326,4 +326,12 @@ void usb_event_callback(bsp_event_t event, bsp_status_t status,
 
 ---
 
-**总结**：`bsp_usb_vcp` 提供了 USB 虚拟串口的简洁、可移植抽象，适用于上位机通信、遥测数据发送和固件升级等场景。其异步发送/接收模型和连接状态查询机制，使得 Module 层能够以非阻塞方式与上位机通信，同时保持良好的容错能力。配合 `bsp_common`，该模块保持了 BSP 层的一致性和可维护性。
+## 一页式接入顺序与可读信息
+
+1. 先初始化 USB Device/CDC 栈，平台再用 CDC handle 和 driver ops 构造 VCP BSP。
+2. init 后注册事件 callback，并提交 receive buffer。
+3. CDC RX/TX 完成从平台调用 `bsp_usb_vcp_notify()`，不要在 USB ISR 中解析业务协议。
+4. 发送前检查 connected/busy；BUSY 时由任务稍后重试，不要阻塞 USB 回调。
+5. 停机或重新枚举前 abort/deinit。
+
+可读取 `bsp_usb_vcp_get_connected()`、`bsp_usb_vcp_get_busy()`、接收 buffer 和回调传输长度。connected 只表示链路枚举/端点状态，不代表上位机应用已经准备好协议交互。

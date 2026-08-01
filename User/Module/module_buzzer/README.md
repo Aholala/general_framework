@@ -184,3 +184,35 @@ void main_loop(void) {
 ---
 
 **总结**：`module_buzzer` 提供了简洁、非阻塞的蜂鸣器控制，适用于各种提示音和告警场景。通过 `bsp_pwm` 抽象层，与具体 MCU 解耦，可移植到任意平台。配合 `module_device` 框架，可统一接入系统调度，便于管理。
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. PWM BSP 必须先初始化；音符数组由调用者长期保存。 */
+static module_buzzer_t buzzer;
+static const module_buzzer_note_t alarm_notes[] = {
+    {.frequency_hz = 1000U, .sound_time_ms = 100U, .silence_time_ms = 50U},
+};
+
+/* 2. 注入 PWM、占空比、逻辑名称等配置。 */
+module_buzzer_status_t status = module_buzzer_init(&buzzer, &buzzer_config);
+
+/* 3. 启动后才能播放。 */
+status = module_buzzer_start(&buzzer);
+
+/* 4. 选择单音或序列；序列播放期间 alarm_notes 不能失效。 */
+status = module_buzzer_play_sequence(&buzzer, alarm_notes, 1U, false);
+
+/* 5. 在任务中周期推进发声/停顿状态机。 */
+status = module_buzzer_update(&buzzer, elapsed_time_ms);
+
+/* 6. 停止播放可用 silence；关闭模块使用 stop。 */
+```
+
+| 可读取信息 | 推荐读取方式 | 说明 |
+| --- | --- | --- |
+| 是否正在播放 | `module_buzzer_is_playing()` | 单音或音符序列是否仍在运行 |
+| 音符定义 | `module_buzzer_note_t` | 频率、持续时间和停顿时间 |
+| `module_buzzer_t` | 调试器只读查看 | 当前音符索引、阶段累计时间、循环标志和启动状态 |
+
+播放状态由 `module_buzzer_update()` 推进；如果不周期调用，序列不会自动切换音符。

@@ -253,4 +253,12 @@ void adc_reader_task(void *pv) {
 
 ---
 
-**总结**：本抽象层通过“继承 + 虚表”的设计，将硬件差异完全封装在平台驱动中，应用层只需关注业务逻辑（电压/电流换算、报警阈值等）。请严格遵守 **生命周期管理** 与 **DMA 内存所有权** 规范，以确保系统长期稳定运行。
+## 一页式接入顺序与可读信息
+
+1. 平台配置 ADC 通道/DMA 并实现 `bsp_adc_driver_ops_t`。
+2. 填写 `bsp_adc_config_t`，调用 init；需要异步采样时先注册 callback。
+3. 可选执行 `bsp_adc_calibrate()`，随后 start。
+4. 单次读取选择 `read_raw/read_normalized/read_voltage`；连续采样用 `start_dma`。
+5. DMA/错误 ISR 由平台调用 `bsp_adc_notify()`；停止时 `stop_dma → stop → deinit`。
+
+可读取原始 ADC count、归一化值和电压值；DMA 模式的数据位于调用者提供的 sample buffer。buffer 在完成/停止前不能释放或复用，回调中的 transferred size 表示有效样本量。

@@ -8,7 +8,7 @@
  *
  * @note 固定电机型号为 M2006，使用 C610 电调的命令范围和 36:1 默认减速比，
  *       防止调用者误配成 M3508 或 GM6020。
- *       继承自 module_dji_motor_t，提供电流、速度、位置三种控制模式。
+ *       继承自 module_dji_motor_t，提供直通、电流、速度、角度四种控制模式。
  *       原始电流命令范围 [-10000, 10000]。
  */
 
@@ -30,14 +30,15 @@ extern "C"
     /**
      * @brief M2006 控制模式（C610 电调）
      * @note 与 module_dji_control_mode_t 一一对应，但独立命名以避免混淆
-     *       CURRENT → DIRECT，VELOCITY → VELOCITY，POSITION → POSITION
+     *       DIRECT/CURRENT/VELOCITY/ANGLE 与通用 DJI 模式一一对应
      *       使用 module_m2006_map_control_mode() 映射到通用 DJI 模式
      */
     typedef enum
     {
-        MODULE_M2006_CONTROL_CURRENT = 0, // 电流模式（直接输出原始电流命令）
-        MODULE_M2006_CONTROL_VELOCITY,    // 速度模式（速度 PID）
-        MODULE_M2006_CONTROL_POSITION     // 位置模式（位置串级 PID）
+        MODULE_M2006_CONTROL_DIRECT = 0, // 原始协议命令直通，不经过 PID
+        MODULE_M2006_CONTROL_CURRENT,    // 电流 PID
+        MODULE_M2006_CONTROL_VELOCITY,   // 速度 PID + 电流 PID
+        MODULE_M2006_CONTROL_ANGLE       // 角度 PID + 速度 PID + 电流 PID
     } module_m2006_control_mode_t;
 
     /* ======================== 配置结构体 ======================== */
@@ -50,7 +51,7 @@ extern "C"
      */
     typedef struct
     {
-        const char *logical_name;                     // 逻辑名称
+        const char *motor_name;                       // 调试可见的电机名称
         uint32_t registration_key;                    // 注册键值
         module_dji_motor_bus_t *motor_bus;            // DJI 电机总线（共享）
         module_m2006_control_mode_t control_mode;     // 控制模式
@@ -58,8 +59,9 @@ extern "C"
         float direction_sign;                         // 方向符号（+1 或 -1）
         float maximum_temperature_c;                  // 最大允许温度（℃）
         float current_scale_a_per_count;              // 电流换算因子（A/原始值）
-        alg_pid_config_t velocity_pid_config;         // 速度 PID 配置
-        alg_pid_cascade_config_t position_pid_config; // 位置串级 PID 配置
+        module_motor_pid_config_t current_pid_config;
+        module_motor_pid_config_t velocity_pid_config;
+        module_motor_pid_config_t angle_pid_config;
     } module_m2006_config_t;
 
     /* ======================== 对象结构体 ======================== */
@@ -132,14 +134,16 @@ extern "C"
     module_motor_status_t module_m2006_disable(module_m2006_t *const me);
 
     /**
-     * @brief 设置原始电流命令（电流模式）
+     * @brief 设置原始协议命令（直通模式）
      * @param me 电机对象
-     * @param current_command_raw 电流命令（-10000~10000）
+     * @param command_raw 原始协议命令（-10000~10000）
      * @return 执行状态
-     * @note 仅当控制模式为 CURRENT 时有效
+     * @note 仅当控制模式为 DIRECT 时有效，不经过电流 PID
      */
-    module_motor_status_t module_m2006_set_current_command_raw(module_m2006_t *const me,
-                                                               int16_t current_command_raw);
+    module_motor_status_t module_m2006_set_direct_command_raw(module_m2006_t *const me,
+                                                              int16_t command_raw);
+
+    module_motor_status_t module_m2006_set_current_a(module_m2006_t *const me, float current_a);
 
     /**
      * @brief 设置速度目标（速度模式）
@@ -152,14 +156,13 @@ extern "C"
                                                               float velocity_rad_per_s);
 
     /**
-     * @brief 设置位置目标（位置模式）
+     * @brief 设置角度目标（角度模式）
      * @param me 电机对象
-     * @param position_rad 位置目标（弧度）
+     * @param angle_rad 角度目标（弧度）
      * @return 执行状态
-     * @note 仅当控制模式为 POSITION 时有效
+     * @note 仅当控制模式为 ANGLE 时有效
      */
-    module_motor_status_t module_m2006_set_position_rad(module_m2006_t *const me,
-                                                        float position_rad);
+    module_motor_status_t module_m2006_set_angle_rad(module_m2006_t *const me, float angle_rad);
 
     /**
      * @brief 周期更新电机
@@ -182,7 +185,7 @@ extern "C"
      * @param me 电机对象
      * @return 当前命令值（-10000~10000）
      */
-    int16_t module_m2006_get_current_command_raw(const module_m2006_t *const me);
+    int16_t module_m2006_get_command_raw(const module_m2006_t *const me);
 
 #ifdef __cplusplus
 }

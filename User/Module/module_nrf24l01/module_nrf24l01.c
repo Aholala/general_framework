@@ -67,7 +67,7 @@ MODULE_STATIC_ASSERT_SUPER_FIRST(module_nrf24l01_t);
 /** @brief 发送数据已发送（TX_DS） */
 #define MODULE_NRF24L01_STATUS_TRANSMIT_DATA_SENT (1U << 5)
 /** @brief 达到最大重发次数（MAX_RT） */
-#define MODULE_NRF24L01_STATUS_MAXIMUM_RETRANSMIT (1U << 4)
+#define MODULE_NRF24L01_STATUS_REGISTER_MAXIMUM_RETRANSMIT (1U << 4)
 
 /* ======================== 内部函数 ======================== */
 
@@ -471,7 +471,8 @@ module_nrf24l01_status_t module_nrf24l01_start(module_nrf24l01_t *me)
         (module_nrf24l01_write_single_register(
              me, MODULE_NRF24L01_REGISTER_STATUS,
              MODULE_NRF24L01_STATUS_RECEIVE_DATA_READY | MODULE_NRF24L01_STATUS_TRANSMIT_DATA_SENT |
-                 MODULE_NRF24L01_STATUS_MAXIMUM_RETRANSMIT) != MODULE_NRF24L01_STATUS_OK))
+                 MODULE_NRF24L01_STATUS_REGISTER_MAXIMUM_RETRANSMIT) !=
+                MODULE_NRF24L01_STATUS_OK))
     {
         return MODULE_NRF24L01_STATUS_TRANSPORT_ERROR;
     }
@@ -719,7 +720,7 @@ module_nrf24l01_status_t module_nrf24l01_transmit(module_nrf24l01_t *me, const u
     // 清除中断标志（TX_DS 和 MAX_RT）
     (void)module_nrf24l01_write_single_register(me, MODULE_NRF24L01_REGISTER_STATUS,
                                                 MODULE_NRF24L01_STATUS_TRANSMIT_DATA_SENT |
-                                                    MODULE_NRF24L01_STATUS_MAXIMUM_RETRANSMIT);
+                                                    MODULE_NRF24L01_STATUS_REGISTER_MAXIMUM_RETRANSMIT);
 
     /* -------- 写载荷到发送 FIFO -------- */
     transmit_buffer[0] = MODULE_NRF24L01_COMMAND_WRITE_PAYLOAD;
@@ -774,11 +775,11 @@ module_nrf24l01_status_t module_nrf24l01_poll_transmit(module_nrf24l01_t *me)
     }
 
     // 检查是否达到最大重发次数
-    if ((status_register & MODULE_NRF24L01_STATUS_MAXIMUM_RETRANSMIT) != 0U)
+    if ((status_register & MODULE_NRF24L01_STATUS_REGISTER_MAXIMUM_RETRANSMIT) != 0U)
     {
         me->transmit_pending = false;
         (void)module_nrf24l01_write_single_register(me, MODULE_NRF24L01_REGISTER_STATUS,
-                                                    MODULE_NRF24L01_STATUS_MAXIMUM_RETRANSMIT);
+                                                    MODULE_NRF24L01_STATUS_REGISTER_MAXIMUM_RETRANSMIT);
         (void)module_nrf24l01_flush_transmit(me); // 清空发送 FIFO
         return MODULE_NRF24L01_STATUS_MAXIMUM_RETRANSMIT;
     }

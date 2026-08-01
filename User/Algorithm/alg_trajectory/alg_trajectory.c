@@ -21,10 +21,12 @@
  */
 static float alg_trajectory_clamp(float value, float minimum_value, float maximum_value)
 {
-    if (value < minimum_value)
+    if (value < minimum_value) {
         return minimum_value;
-    if (value > maximum_value)
+}
+    if (value > maximum_value) {
         return maximum_value;
+}
     return value;
 }
 
@@ -33,10 +35,12 @@ static float alg_trajectory_clamp(float value, float minimum_value, float maximu
  */
 static float alg_trajectory_sign(float value)
 {
-    if (value > 0.0F)
+    if (value > 0.0F) {
         return 1.0F;
-    if (value < 0.0F)
+}
+    if (value < 0.0F) {
         return -1.0F;
+}
     return 0.0F;
 }
 
@@ -100,8 +104,9 @@ static float alg_trajectory_calculate_position_acceleration(const alg_trajectory
     braking_distance =
         ((directed_velocity * directed_velocity) - (terminal_velocity * terminal_velocity)) /
         (2.0F * me->config.maximum_deceleration_per_s2);
-    if (braking_distance < 0.0F)
+    if (braking_distance < 0.0F) {
         braking_distance = 0.0F;
+}
 
     if (braking_distance >= fabsf(position_error)) // 需要减速以避免越过目标
     {
@@ -150,8 +155,9 @@ static float alg_trajectory_apply_jerk_limit(const alg_trajectory_t *me, float t
 float alg_trajectory_calculate_stopping_distance(float velocity_per_s, float deceleration_per_s2)
 {
     if (!isfinite(velocity_per_s) || !isfinite(deceleration_per_s2) ||
-        (deceleration_per_s2 <= 0.0F))
+        (deceleration_per_s2 <= 0.0F)) {
         return NAN;
+}
     return (velocity_per_s * fabsf(velocity_per_s)) / (2.0F * deceleration_per_s2);
 }
 
@@ -164,8 +170,9 @@ alg_trajectory_status_t alg_trajectory_init(alg_trajectory_t *me,
                                             const alg_trajectory_state_t *initial_state)
 {
     if ((me == NULL) || !alg_trajectory_config_is_valid(config) ||
-        !alg_trajectory_state_is_valid(initial_state) || (profile > ALG_TRAJECTORY_PROFILE_S_CURVE))
+        !alg_trajectory_state_is_valid(initial_state) || (profile > ALG_TRAJECTORY_PROFILE_S_CURVE)) {
         return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
+}
 
     *me = (alg_trajectory_t){0};
     me->config = *config;
@@ -185,10 +192,12 @@ alg_trajectory_status_t alg_trajectory_init(alg_trajectory_t *me,
 alg_trajectory_status_t alg_trajectory_reset(alg_trajectory_t *me,
                                              const alg_trajectory_state_t *state)
 {
-    if ((me == NULL) || !alg_trajectory_state_is_valid(state))
+    if ((me == NULL) || !alg_trajectory_state_is_valid(state)) {
         return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_TRAJECTORY_STATUS_NOT_INITIALIZED;
+}
 
     me->state = *state;
     me->target_position = state->position;
@@ -205,12 +214,15 @@ alg_trajectory_status_t alg_trajectory_set_position_target(alg_trajectory_t *me,
                                                            float target_position,
                                                            float terminal_velocity_per_s)
 {
-    if ((me == NULL) || !isfinite(target_position) || !isfinite(terminal_velocity_per_s))
+    if ((me == NULL) || !isfinite(target_position) || !isfinite(terminal_velocity_per_s)) {
         return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_TRAJECTORY_STATUS_NOT_INITIALIZED;
-    if (fabsf(terminal_velocity_per_s) > me->config.maximum_velocity_per_s)
+}
+    if (fabsf(terminal_velocity_per_s) > me->config.maximum_velocity_per_s) {
         return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
+}
 
     me->target_position = target_position;
     me->target_velocity_per_s = terminal_velocity_per_s;
@@ -225,12 +237,15 @@ alg_trajectory_status_t alg_trajectory_set_position_target(alg_trajectory_t *me,
 alg_trajectory_status_t alg_trajectory_set_velocity_target(alg_trajectory_t *me,
                                                            float target_velocity_per_s)
 {
-    if ((me == NULL) || !isfinite(target_velocity_per_s))
+    if ((me == NULL) || !isfinite(target_velocity_per_s)) {
         return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_TRAJECTORY_STATUS_NOT_INITIALIZED;
-    if (fabsf(target_velocity_per_s) > me->config.maximum_velocity_per_s)
+}
+    if (fabsf(target_velocity_per_s) > me->config.maximum_velocity_per_s) {
         return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
+}
 
     me->target_velocity_per_s = target_velocity_per_s;
     me->target_type = ALG_TRAJECTORY_TARGET_VELOCITY;
@@ -244,10 +259,12 @@ alg_trajectory_status_t alg_trajectory_set_velocity_target(alg_trajectory_t *me,
 alg_trajectory_status_t alg_trajectory_set_profile(alg_trajectory_t *me,
                                                    alg_trajectory_profile_t profile)
 {
-    if ((me == NULL) || (profile > ALG_TRAJECTORY_PROFILE_S_CURVE))
+    if ((me == NULL) || (profile > ALG_TRAJECTORY_PROFILE_S_CURVE)) {
         return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_TRAJECTORY_STATUS_NOT_INITIALIZED;
+}
     me->profile = profile;
     return ALG_TRAJECTORY_STATUS_OK;
 }
@@ -264,10 +281,12 @@ alg_trajectory_status_t alg_trajectory_update(alg_trajectory_t *me, float delta_
     float new_position;
 
     // ---- 参数检查 ----
-    if ((me == NULL) || (output_state == NULL) || !isfinite(delta_time_s) || (delta_time_s <= 0.0F))
+    if ((me == NULL) || (output_state == NULL) || !isfinite(delta_time_s) || (delta_time_s <= 0.0F)) {
         return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_TRAJECTORY_STATUS_NOT_INITIALIZED;
+}
 
     // ---- 根据目标类型计算期望加速度 ----
     target_acceleration = (me->target_type == ALG_TRAJECTORY_TARGET_POSITION)
@@ -298,8 +317,9 @@ alg_trajectory_status_t alg_trajectory_update(alg_trajectory_t *me, float delta_
     me->state.position = new_position;
     me->state.velocity_per_s = new_velocity;
     me->state.acceleration_per_s2 = new_acceleration;
-    if (!alg_trajectory_state_is_valid(&me->state))
+    if (!alg_trajectory_state_is_valid(&me->state)) {
         return ALG_TRAJECTORY_STATUS_NUMERICAL_ERROR;
+}
 
     // ---- 完成判定 ----
     if (me->target_type == ALG_TRAJECTORY_TARGET_POSITION)
@@ -346,10 +366,12 @@ alg_trajectory_status_t alg_trajectory_update(alg_trajectory_t *me, float delta_
 alg_trajectory_status_t alg_trajectory_get_state(const alg_trajectory_t *me,
                                                  alg_trajectory_state_t *state)
 {
-    if ((me == NULL) || (state == NULL))
+    if ((me == NULL) || (state == NULL)) {
         return ALG_TRAJECTORY_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_TRAJECTORY_STATUS_NOT_INITIALIZED;
+}
     *state = me->state;
     return ALG_TRAJECTORY_STATUS_OK;
 }

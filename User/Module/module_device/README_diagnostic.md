@@ -240,4 +240,35 @@ if (module_diagnostic_get_state(&diag, 0x1002)->is_active == false) {
 
 ---
 
-**总结**：`module_diagnostic` 提供了一个轻量、可扩展的健康诊断框架，适用于嵌入式系统的设备监控和故障管理。它将健康检测逻辑与业务控制解耦，使应用层能够根据统一接口判断系统状态，并采取相应措施。配合 `module_device` 基类，可统一接入系统调度。
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 为每个诊断项定义只读 entry，并准备等长的 state 存储。 */
+static const module_diagnostic_entry_t entries[] = { /* probe、等级、防抖时间 */ };
+static module_diagnostic_state_t states[DIAGNOSTIC_COUNT];
+static module_diagnostic_t diagnostics;
+
+/* 2. 配置条目、状态数组和可选事件回调。 */
+module_device_status_t status = module_diagnostic_init(&diagnostics, &diagnostic_config);
+
+/* 3. 通过统一设备接口启动。 */
+status = module_device_start(&diagnostics.super);
+
+/* 4. 在任务中周期更新；探针和事件回调都在这里执行。 */
+status = module_device_update(&diagnostics.super, elapsed_time_ms);
+
+/* 5. 读取状态并由 App 决定降级、停机或提示。 */
+const module_diagnostic_state_t *state =
+    module_diagnostic_get_state(&diagnostics, diagnostic_id);
+
+/* 6. 锁存故障恢复后，才允许 clear_latched。 */
+```
+
+| 可读取结构体/信息           | 读取方式                           | 重点字段                                                   |
+| --------------------------- | ---------------------------------- | ---------------------------------------------------------- |
+| `module_diagnostic_state_t` | `module_diagnostic_get_state()`    | `detail_code`、故障/恢复累计时间、发生次数、活动和锁存标志 |
+| 最高故障等级                | `module_diagnostic_has_severity()` | 判断是否存在达到指定等级的活动故障                         |
+| `module_diagnostic_t`       | 调试器只读查看                     | `highest_active_severity`、`active_count`、`is_started`    |
+| `module_diagnostic_entry_t` | 调用者持有                         | ID、等级、探针、防抖和锁存策略                             |
+
+getter 返回的状态指针属于诊断对象，下一次 `module_device_update()` 后内容可能变化。

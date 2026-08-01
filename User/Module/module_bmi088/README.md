@@ -93,7 +93,7 @@ typedef struct {
     uint32_t sample_count;                // 成功采样总数
     uint32_t failed_sample_count;         // 失败采样总数
     bool is_valid;                        // 当前数据是否有效
-} module_bmi088_data_t;
+} module_bmi088_process_data_t;
 ```
 
 ### 4.4 配置结构体
@@ -206,7 +206,7 @@ module_bmi088_init(&imu, &config);
 void imu_task(void *param) {
     while (1) {
         if (module_bmi088_read(&imu) == MODULE_BMI088_STATUS_OK) {
-            const module_bmi088_data_t *data = module_bmi088_get_data(&imu);
+            const module_bmi088_process_data_t *data = module_bmi088_get_data(&imu);
             if (data->is_valid) {
                 // 加速度（m/s²）
                 float ax = data->acceleration_m_per_s2[0];
@@ -318,3 +318,37 @@ module_device_update(dev, elapsed_ms);
 ---
 
 **总结**：`module_bmi088` 提供了完整的 BMI088 驱动，涵盖初始化、配置、数据读取、零偏校准和自检。其轴映射、量程配置和回调注入的设计使其能够适应各种安装方向和硬件平台。配合 `module_device` 框架，可统一接入系统调度。数据有效性和统计信息为上层算法提供了可靠的诊断依据。
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 先初始化 SPI BSP，并实现加速度计/陀螺仪片选和毫秒延时回调。 */
+static module_bmi088_t imu;
+
+/* 2. 配置量程、轴映射、SPI、片选、延时和可选微秒时间戳。 */
+module_bmi088_status_t status = module_bmi088_init(&imu, &bmi088_config);
+
+/* 3. 通过统一设备接口 start，完成芯片配置。 */
+module_device_status_t device_status =
+    module_device_start(module_bmi088_as_device(&imu));
+
+/* 4. 静止安装后可执行零偏校准；运动期间不要校准。 */
+status = module_bmi088_calibrate_gyroscope(
+    &imu, sample_count, sample_interval_ms, maximum_stationary_deviation);
+
+/* 5. 每个采样周期读取一次，再获取只读数据。 */
+status = module_bmi088_read(&imu);
+const module_bmi088_process_data_t *data = module_bmi088_get_data(&imu);
+const module_bmi088_raw_data_t *raw = module_bmi088_get_raw_data(&imu);
+
+/* 6. 把 data 的 SI 单位数据送入姿态算法；停机时统一 stop。 */
+```
+
+| 可读取结构体 | 重点字段 | 用途 |
+| --- | --- | --- |
+| `module_bmi088_process_data_t` | 三轴 `acceleration_m_per_s2`、`angular_velocity_rad_per_s`、温度、时间戳、采样间隔、成功/失败计数、`is_valid` | 控制和姿态算法的主要输入 |
+| `module_bmi088_raw_data_t` | 加速度、角速度和温度原始计数 | 驱动排错、量程和零偏检查 |
+| `module_bmi088_axis_map_t` | 原始轴索引和方向符号 | 检查传感器安装方向 |
+| `module_bmi088_t` | 零偏、换算比例和时间戳状态，仅调试读取 | 标定和运行诊断 |
+
+`get_data/get_raw_data` 返回对象内部只读指针；必须先检查返回值和 `is_valid`，不要跨更新假设内容不变。

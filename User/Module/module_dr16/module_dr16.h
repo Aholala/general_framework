@@ -94,14 +94,14 @@ extern "C"
         uint32_t receive_overrun_count;                       // 接收覆盖次数
         uint32_t transport_error_count;                       // 传输错误次数
         bool is_online;                                       // 是否在线
-    } module_dr16_data_t;
+    } module_dr16_process_data_t;
 
     /**
      * @brief 帧回调函数指针（每帧解码完成后调用）
      * @param data 解码后的数据指针
      * @param user_context 用户上下文
      */
-    typedef void (*module_dr16_frame_callback_t)(const module_dr16_data_t *data,
+    typedef void (*module_dr16_frame_callback_t)(const module_dr16_process_data_t *data,
                                                  void *user_context);
 
     /**
@@ -126,7 +126,7 @@ extern "C"
     {
         module_device_t super;                    // 设备基类
         bsp_usart_t *usart;                       // USART BSP 基类指针
-        module_dr16_data_t data;                  // 解码后的数据
+        module_dr16_process_data_t data;                  // 解码后的数据
         module_dr16_frame_callback_t frame_callback; // 帧回调函数
         void *user_context;                       // 回调用户上下文
         uint8_t (*dma_receive_buffer)[MODULE_DR16_DMA_BUFFER_SIZE]; // DMA M0/M1 双缓冲区
@@ -187,7 +187,7 @@ extern "C"
      * @param me DR16 设备对象
      * @return 数据指针，未初始化返回 NULL
      */
-    const module_dr16_data_t *module_dr16_get_data(const module_dr16_t *const me);
+    const module_dr16_process_data_t *module_dr16_get_data(const module_dr16_t *const me);
     /**
      * @brief 检查指定键盘按键是否被按下
      * @param me DR16 设备对象

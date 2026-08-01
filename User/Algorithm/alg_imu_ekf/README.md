@@ -147,4 +147,18 @@ alg_imu_ekf_get_linear_acceleration_body(&s_imu_ekf, accelerometer_m_s2, linear_
 
 ---
 
-**总结**：`alg_imu_ekf` 提供了完整的六轴 IMU 姿态估计解决方案，通过扩展卡尔曼滤波实现四元数状态和陀螺仪零偏的联合估计。其自适应测量噪声和卡方检验机制使其对运动加速度和异常观测具有鲁棒性。配合 `module_bmi088` 等 IMU 模块，可构建完整的姿态估计系统。
+## 一页式使用顺序与可读信息
+
+1. 先调用 `alg_imu_ekf_config_init()` 得到安全默认配置，再按传感器噪声和采样率调整。
+2. 静态准备 EKF 状态、协方差和工作区，调用 `alg_imu_ekf_init()`。
+3. 设备静止且加速度有效时可用 `alg_imu_ekf_reset_from_accelerometer()` 建立初始俯仰/横滚。
+4. 每周期调用一次 `alg_imu_ekf_update()`；如果需要分步调度，则严格按 `predict → correct_accelerometer`。
+5. 更新成功后通过 getter 读取姿态、零偏、重力方向、校正角速度和诊断量。
+
+| 可读取结构体                                       | 主要信息                                        |
+| -------------------------------------------------- | ----------------------------------------------- |
+| `alg_imu_ekf_quaternion_t` / `alg_imu_ekf_euler_t` | 当前四元数和欧拉角                              |
+| `alg_imu_ekf_diagnostics_t`                        | 滤波加速度、创新、NIS、噪声倍率和观测是否被接受 |
+| `alg_imu_ekf_t`                                    | 状态、协方差、陀螺零偏和内部计数；仅调试读取    |
+
+控制逻辑应同时检查 update 状态和诊断中的 `was_accelerometer_used`，不能把被拒绝的加速度校正当作有效融合。

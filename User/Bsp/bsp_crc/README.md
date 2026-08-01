@@ -179,4 +179,11 @@ bsp_crc_calculate(s_crc_ptr, part2, len2, crc, &crc);
 
 ---
 
-**总结**：`bsp_crc` 提供了简洁、高效的硬件 CRC 加速抽象，让应用层专注于协议和应用逻辑，无需关心底层 CRC 单元细节。结合 `bsp_common`，它保持了 BSP 层的一致性和可移植性。
+## 一页式接入顺序与可读信息
+
+1. 平台按多项式、输入/输出反转和数据宽度配置 CRC 外设并实现 driver ops。
+2. 填写 `bsp_crc_config_t` 后调用 `bsp_crc_init()`。
+3. 每次准备只读数据、长度和初值，调用 `bsp_crc_calculate()`。
+4. 检查返回状态后读取输出 `uint32_t result`；结束时基类 deinit。
+
+本模块没有持续采样结构体。可读取信息只有计算结果和初始化状态；CRC 参数由平台配置决定，协议层必须确认硬件配置与协议算法完全一致。

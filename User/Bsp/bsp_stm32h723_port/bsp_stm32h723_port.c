@@ -14,6 +14,7 @@
 #include "bsp_stm32h723_port.h"
 
 #include "board_config.h" // 板级配置（时钟频率等）
+#include "bsp_dwt.h"      // Cortex-M7 DWT 周期计数器
 #include "fdcan.h"        // FDCAN HAL 句柄
 #include "main.h"         // 主头文件（包含所有 HAL 句柄）
 #include "spi.h"          // SPI HAL 句柄
@@ -68,7 +69,6 @@ static bsp_spi_device_t bsp_stm32h723_bmi088_spi_device;
 static bsp_exti_device_t bsp_stm32h723_exti_devices[BSP_STM32H723_EXTI_COUNT];
 static bsp_pwm_device_t bsp_stm32h723_pwm_devices[BSP_STM32H723_PWM_COUNT];
 static bsp_usb_vcp_device_t bsp_stm32h723_usb_device;
-static bsp_timebase_device_t bsp_stm32h723_timebase_device;
 static bsp_watchdog_device_t bsp_stm32h723_watchdog_device;
 
 /* ---------- 上下文对象 ---------- */
@@ -788,68 +788,6 @@ static const bsp_pwm_driver_ops_t bsp_stm32h723_pwm_driver_ops = {
     .get_period = bsp_stm32h723_pwm_get_period,
 };
 
-/* ---------- Timebase 驱动实现 ---------- */
-
-/**
- * @brief 初始化时间基准（使用 DWT 周期计数器）
- */
-static bsp_status_t bsp_stm32h723_timebase_init(void *handle)
-{
-    (void)handle;
-    // 使能 DWT 跟踪（需要先使能 TRCENA）
-    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-    DWT->CYCCNT = 0U;
-    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
-    return ((DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk) != 0U) ? BSP_STATUS_OK : BSP_STATUS_UNSUPPORTED;
-}
-
-/**
- * @brief 复位周期计数器
- */
-static bsp_status_t bsp_stm32h723_timebase_reset(void *handle)
-{
-    (void)handle;
-    DWT->CYCCNT = 0U;
-    return BSP_STATUS_OK;
-}
-
-/**
- * @brief 获取当前周期计数
- */
-static bsp_status_t bsp_stm32h723_timebase_cycles(const void *handle, uint32_t *cycle_count)
-{
-    (void)handle;
-    if (cycle_count == NULL)
-    {
-        return BSP_STATUS_INVALID_ARGUMENT;
-    }
-    *cycle_count = DWT->CYCCNT;
-    return BSP_STATUS_OK;
-}
-
-/**
- * @brief 获取时间基准频率（CPU 主频）
- */
-static bsp_status_t bsp_stm32h723_timebase_frequency(const void *handle, uint32_t *frequency_hz)
-{
-    (void)handle;
-    if (frequency_hz == NULL)
-    {
-        return BSP_STATUS_INVALID_ARGUMENT;
-    }
-    *frequency_hz = SystemCoreClock;
-    return BSP_STATUS_OK;
-}
-
-/** Timebase 驱动操作表 */
-static const bsp_timebase_driver_ops_t bsp_stm32h723_timebase_driver_ops = {
-    .init = bsp_stm32h723_timebase_init,
-    .deinit = bsp_stm32h723_noop_deinit,
-    .reset = bsp_stm32h723_timebase_reset,
-    .get_cycle_count = bsp_stm32h723_timebase_cycles,
-    .get_frequency = bsp_stm32h723_timebase_frequency,
-};
-
 /* ---------- Watchdog 驱动实现 ---------- */
 
 /**
@@ -1159,18 +1097,14 @@ bsp_status_t bsp_stm32h723_port_init(const bsp_stm32h723_port_config_t *config)
             return BSP_STATUS_IO_ERROR;
         }
     }
-    // 6. 初始化 USB VCP 和 Timebase
+    // 6. 初始化 USB VCP 和内核 DWT 周期计数器
     {
         const bsp_usb_vcp_config_t usb_config = {
             .device_handle = &bsp_stm32h723_usb_context,
             .driver_ops = &bsp_stm32h723_usb_driver_ops,
         };
-        const bsp_timebase_config_t timebase_config = {
-            .device_handle = &bsp_stm32h723_timebase_device,
-            .driver_ops = &bsp_stm32h723_timebase_driver_ops,
-        };
         if ((bsp_usb_vcp_init(&bsp_stm32h723_usb_device, &usb_config) != BSP_STATUS_OK) ||
-            (bsp_timebase_init(&bsp_stm32h723_timebase_device, &timebase_config) != BSP_STATUS_OK))
+            (bsp_dwt_init() != BSP_STATUS_OK))
         {
             return BSP_STATUS_IO_ERROR;
         }
@@ -1249,14 +1183,6 @@ bsp_pwm_t *bsp_stm32h723_port_get_pwm(bsp_stm32h723_pwm_index_t index)
 bsp_usb_vcp_t *bsp_stm32h723_port_get_usb_vcp(void)
 {
     return bsp_stm32h723_initialized ? bsp_usb_vcp_as_base(&bsp_stm32h723_usb_device) : NULL;
-}
-
-/**
- * @brief 获取 Timebase 基类指针
- */
-bsp_timebase_t *bsp_stm32h723_port_get_timebase(void)
-{
-    return bsp_stm32h723_initialized ? bsp_timebase_as_base(&bsp_stm32h723_timebase_device) : NULL;
 }
 
 /**

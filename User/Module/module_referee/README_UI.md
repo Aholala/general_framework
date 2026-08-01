@@ -163,3 +163,35 @@ void ui_task(void *param) {
 - [ ] 图形参数合法性校验（超出范围返回 `INVALID_ARGUMENT`）
 - [ ] 字符串长度超过 30 字节被拒绝
 - [ ] 图形名称 3 字节唯一性（由调用者保证）
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. module_referee 必须先初始化并启动；准备调用者拥有的图形队列。 */
+static module_referee_ui_t referee_ui;
+static module_referee_ui_graphic_t graphic_queue[16];
+
+/* 2. 配置裁判对象、队列、发送方/接收方 ID 和最小发送间隔。 */
+module_device_status_t status = module_referee_ui_init(&referee_ui, &ui_config);
+
+/* 3. 通过统一设备接口启动 UI。 */
+status = module_device_start(&referee_ui.super);
+
+/* 4. 填写完整 graphic 后入队；name 三字节由调用者保证唯一。 */
+module_referee_ui_graphic_t graphic = { /* operation/type/layer/color/坐标 */ };
+status = module_referee_ui_enqueue(&referee_ui, &graphic);
+
+/* 5. 任务中周期 update，模块根据发送间隔自动批量出队。 */
+status = module_device_update(&referee_ui.super, elapsed_time_ms);
+
+/* 6. 删除图层/全部图形或发送字符串；退出前统一 stop。 */
+```
+
+| 可读取结构体/信息 | 读取方式 | 说明 |
+| --- | --- | --- |
+| `module_referee_ui_graphic_t` | 调用者创建和保存 | 图形名称、操作、类型、图层、颜色、线宽和坐标 |
+| 队列状态 | `module_referee_ui_t`，仅调试读取 | `queue_count`、读写索引和容量 |
+| 丢弃计数 | `module_referee_ui_t.dropped_graphic_count` | 队列满导致的图形丢弃数量 |
+| 发送节流状态 | `transmit_elapsed_time_ms`、`minimum_transmit_interval_ms` | 判断 UI 更新是否被限频 |
+
+当前 UI 模块没有 getter；运行字段只能用于监控，应用不得直接修改队列索引和计数。

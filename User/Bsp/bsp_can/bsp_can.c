@@ -158,8 +158,9 @@ bsp_status_t bsp_can_init(bsp_can_device_t *const me, const bsp_can_config_t *co
     if (config->driver_ops->init != NULL)
     {
         status = config->driver_ops->init(config->device_handle);
-        if (status != BSP_STATUS_OK)
+        if (status != BSP_STATUS_OK) {
             return status;
+}
     }
     // 保存回调与用户上下文
     me->super.callback = config->callback;
@@ -185,8 +186,9 @@ bsp_can_t *bsp_can_as_base(bsp_can_device_t *const me)
  */
 static bsp_status_t bsp_can_validate(const bsp_can_t *const me)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return BSP_STATUS_INVALID_ARGUMENT;
+}
     return bsp_device_is_initialized(&me->super) ? BSP_STATUS_OK : BSP_STATUS_NOT_INITIALIZED;
 }
 
@@ -227,8 +229,9 @@ bsp_status_t bsp_can_set_callback(bsp_can_t *const me, bsp_event_callback_t call
                                   void *user_context)
 {
     const bsp_status_t status = bsp_can_validate(me);
-    if (status != BSP_STATUS_OK)
+    if (status != BSP_STATUS_OK) {
         return status;
+}
     me->callback = callback;
     me->user_context = user_context;
     return BSP_STATUS_OK;
@@ -263,8 +266,9 @@ bsp_status_t bsp_can_stop(bsp_can_t *const me)
 bsp_status_t bsp_can_configure_filter(bsp_can_t *const me, const bsp_can_filter_t *filter_config)
 {
     const bsp_status_t status = bsp_can_validate(me);
-    if (status != BSP_STATUS_OK)
+    if (status != BSP_STATUS_OK) {
         return status;
+}
     // 参数合法性：过滤器配置非空，ID、掩码有效，FIFO 选择正确
     if ((filter_config == NULL) ||
         !bsp_can_is_id_valid(filter_config->identifier, filter_config->id_type) ||
@@ -288,11 +292,13 @@ bsp_status_t bsp_can_transmit(bsp_can_t *const me, const bsp_can_frame_t *frame,
                               uint32_t timeout_ms)
 {
     const bsp_status_t status = bsp_can_validate(me);
-    if (status != BSP_STATUS_OK)
+    if (status != BSP_STATUS_OK) {
         return status;
+}
     // 校验帧合法性
-    if (!bsp_can_is_frame_valid(frame))
+    if (!bsp_can_is_frame_valid(frame)) {
         return BSP_STATUS_OUT_OF_RANGE;
+}
     return bsp_can_get_ops(me)->transmit(me, frame, timeout_ms);
 }
 
@@ -307,16 +313,19 @@ bsp_status_t bsp_can_receive(bsp_can_t *const me, bsp_can_receive_fifo_t receive
                              bsp_can_frame_t *frame)
 {
     const bsp_status_t status = bsp_can_validate(me);
-    if (status != BSP_STATUS_OK)
+    if (status != BSP_STATUS_OK) {
         return status;
+}
     // 检查输出指针和 FIFO 合法性
     if ((frame == NULL) ||
-        ((receive_fifo != BSP_CAN_RX_FIFO_0) && (receive_fifo != BSP_CAN_RX_FIFO_1)))
+        ((receive_fifo != BSP_CAN_RX_FIFO_0) && (receive_fifo != BSP_CAN_RX_FIFO_1))) {
         return BSP_STATUS_INVALID_ARGUMENT;
+}
     // 调用底层接收
     const bsp_status_t receive_status = bsp_can_get_ops(me)->receive(me, receive_fifo, frame);
-    if (receive_status != BSP_STATUS_OK)
+    if (receive_status != BSP_STATUS_OK) {
         return receive_status;
+}
     // 再次校验帧，防止底层返回畸形数据
     return bsp_can_is_frame_valid(frame) ? BSP_STATUS_OK : BSP_STATUS_IO_ERROR;
 }
@@ -330,13 +339,16 @@ bsp_status_t bsp_can_receive(bsp_can_t *const me, bsp_can_receive_fifo_t receive
 bsp_status_t bsp_can_get_transmit_free_level(const bsp_can_t *const me, uint32_t *free_level)
 {
     const bsp_status_t status = bsp_can_validate(me);
-    if (status != BSP_STATUS_OK)
+    if (status != BSP_STATUS_OK) {
         return status;
-    if (free_level == NULL)
+}
+    if (free_level == NULL) {
         return BSP_STATUS_INVALID_ARGUMENT;
+}
     // 检查底层驱动是否实现了该函数
-    if (bsp_can_get_device_const(me)->driver_ops->get_tx_free_level == NULL)
+    if (bsp_can_get_device_const(me)->driver_ops->get_tx_free_level == NULL) {
         return BSP_STATUS_UNSUPPORTED;
+}
     return bsp_can_get_ops(me)->get_tx_free_level(me, free_level);
 }
 

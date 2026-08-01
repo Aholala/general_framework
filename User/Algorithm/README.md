@@ -15,20 +15,20 @@
 
 **模块组成**：
 
-| 分类           | 模块                   | 功能                                      |
-| :------------- | :--------------------- | :---------------------------------------- |
-| **数学基础**   | `alg_math`             | 标量、统计、向量、矩阵、四元数            |
-| **运动与轨迹** | `alg_trajectory`       | 梯形/S曲线单轴轨迹、多轴同步              |
-| **姿态估计**   | `alg_attitude`         | Mahony/Madgwick 六轴姿态融合              |
-| **滤波**       | `alg_filter`           | 基础滤波、窗口滤波、FIR、Biquad、互补滤波 |
-| **状态估计**   | `alg_kalman`           | 标量/线性/扩展卡尔曼滤波                  |
-| **IMU 姿态**   | `alg_imu_ekf`          | 六轴 IMU 四元数姿态 EKF                   |
-| **控制**       | `alg_pid`              | 位置式/增量式/串级/增益调度/模糊/角度 PID |
-| **控制**       | `alg_lqr`              | 无限/有限时域 LQR、LQI 增广、角度 LQR     |
-| **底盘运动**   | `alg_chassis`          | 底盘运动计算、车轮状态监测                |
-| **底盘运动**   | `alg_mecanum`          | X/O 型四麦克纳姆轮运动学                  |
-| **底盘运动**   | `alg_omni`             | 三轮/四轮/任意全向轮运动学                |
-| **底盘运动**   | `alg_swerve`           | 任意舵轮布局运动学                        |
+| 分类           | 模块             | 功能                                      |
+| :------------- | :--------------- | :---------------------------------------- |
+| **数学基础**   | `alg_math`       | 标量、统计、向量、矩阵、四元数            |
+| **运动与轨迹** | `alg_trajectory` | 梯形/S曲线单轴轨迹、多轴同步              |
+| **姿态估计**   | `alg_attitude`   | Mahony/Madgwick 六轴姿态融合              |
+| **滤波**       | `alg_filter`     | 基础滤波、窗口滤波、FIR、Biquad、互补滤波 |
+| **状态估计**   | `alg_kalman`     | 标量/线性/扩展卡尔曼滤波                  |
+| **IMU 姿态**   | `alg_imu_ekf`    | 六轴 IMU 四元数姿态 EKF                   |
+| **控制**       | `alg_pid`        | 位置式/增量式/串级/增益调度/模糊/角度 PID |
+| **控制**       | `alg_lqr`        | 无限/有限时域 LQR、LQI 增广、角度 LQR     |
+| **底盘运动**   | `alg_chassis`    | 底盘运动计算、车轮状态监测                |
+| **底盘运动**   | `alg_mecanum`    | X/O 型四麦克纳姆轮运动学                  |
+| **底盘运动**   | `alg_omni`       | 三轮/四轮/任意全向轮运动学                |
+| **底盘运动**   | `alg_swerve`     | 任意舵轮布局运动学                        |
 
 ---
 
@@ -231,6 +231,25 @@
 
 ---
 
+### 3.13 快速使用和输出读取索引
+
+| 算法                                         | 使用顺序                                             | 主要输出结构体                              |
+| -------------------------------------------- | ---------------------------------------------------- | ------------------------------------------- |
+| [`alg_math`](alg_math/README.md)             | 准备输入/输出 → 调用函数 → 检查状态                  | 向量、四元数、矩阵、`alg_math_statistics_t` |
+| [`alg_filter`](alg_filter/README.md)         | 选择类型/工作区 → init → 每样本 update → reset       | 各滤波器对象中的输出和历史状态              |
+| [`alg_kalman`](alg_kalman/README.md)         | init → predict → correct → get_state/covariance      | 标量/线性/EKF 状态和协方差                  |
+| [`alg_attitude`](alg_attitude/README.md)     | config/init → IMU update → 可选航向修正 → get_euler  | 四元数、旋转矩阵和欧拉角                    |
+| [`alg_imu_ekf`](alg_imu_ekf/README.md)       | config/init → 初始对准 → update → getters            | 姿态、陀螺零偏、重力和诊断量                |
+| [`alg_pid`](alg_pid/README.md)               | config/init → input/update → get_terms → reset       | `alg_pid_terms_t` 和各控制器状态            |
+| [`alg_lqr`](alg_lqr/README.md)               | 建模/求增益 → controller init → 周期 update          | 控制向量、状态误差、Riccati/增益矩阵        |
+| [`alg_trajectory`](alg_trajectory/README.md) | config/init → set_target → 周期 update → is_finished | `alg_trajectory_state_t`                    |
+| [`alg_chassis`](alg_chassis/README.md)       | 约束 → solve → residual → wheel monitor              | `alg_chassis_solution_t` 和轮状态           |
+| [`alg_mecanum`](alg_mecanum/README.md)       | config/init → inverse/forward → 检查缩放和降级       | 四轮角速度、`alg_chassis_solution_t`        |
+| [`alg_omni`](alg_omni/README.md)             | 轮配置/init → inverse/forward → 检查缩放和降级       | 任意轮速数组、`alg_chassis_solution_t`      |
+| [`alg_swerve`](alg_swerve/README.md)         | 几何/init → calculate → optimize → module_swerve     | `alg_swerve_module_target_t[]`              |
+
+每个子模块 README 末尾均有“一页式使用顺序与可读信息”。算法对象中的内部历史状态只用于调试；业务代码优先读取函数返回值、输出参数和专用 getter。
+
 ## 4. 单位规范
 
 所有算法使用国际单位制（SI）并统一为单精度浮点数：
@@ -421,7 +440,3 @@
 | `alg_omni` 逆解 (N轮)          | O(N)         | 10 kHz+          |
 | `alg_swerve` 逆解 (N模块)      | O(N)         | 10 kHz+          |
 | `alg_mecanum/omni/swerve` 正解 | O(N×3²)      | 2-5 kHz          |
-
----
-
-**总结**：Algorithm 层是嵌入式软件架构中的**数值计算与算法核心**，为上层应用提供了完整、独立、可移植的数学、滤波、控制、运动学等基础能力。其零动态内存、纯 C11、硬件无关的设计使其可运行于任何 C11 环境中，从 Cortex-M 裸机到 Linux 系统均可无缝移植。配合 BSP/Module 层的传感器和执行器接口，可快速构建从底层控制到上层决策的完整机器人/自动化系统。

@@ -90,7 +90,7 @@ static void module_board_comm_prepare_remote_transaction(module_board_comm_t *me
         return;
     }
     // 新事务：重置 staging，保留计数器的当前值
-    me->remote_staging = (module_dr16_data_t){0};
+    me->remote_staging = (module_dr16_process_data_t){0};
     me->remote_staging.valid_frame_count = me->remote_data.valid_frame_count;
     me->remote_staging.invalid_frame_count = me->remote_data.invalid_frame_count;
     me->remote_assembly_sequence = sequence;
@@ -108,7 +108,7 @@ static void module_board_comm_prepare_gimbal_transaction(module_board_comm_t *me
     {
         return;
     }
-    me->gimbal_staging = (module_board_comm_gimbal_data_t){0};
+    me->gimbal_staging = (module_board_comm_gimbal_process_data_t){0};
     me->gimbal_assembly_sequence = sequence;
     me->gimbal_receive_mask = 0U;
 }
@@ -196,7 +196,7 @@ module_board_comm_status_t module_board_comm_init(module_board_comm_t *me,
  *       三帧使用相同的序列号，接收端组装
  */
 module_board_comm_status_t module_board_comm_send_remote(module_board_comm_t *me,
-                                                         const module_dr16_data_t *remote_data)
+                                                         const module_dr16_process_data_t *remote_data)
 {
     uint8_t payload[6];
     uint8_t flags;
@@ -260,7 +260,7 @@ module_board_comm_status_t module_board_comm_send_remote(module_board_comm_t *me
  */
 module_board_comm_status_t
 module_board_comm_send_gimbal(module_board_comm_t *me,
-                              const module_board_comm_gimbal_data_t *gimbal_data)
+                              const module_board_comm_gimbal_process_data_t *gimbal_data)
 {
     uint8_t payload[6];
     uint8_t flags;
@@ -313,7 +313,7 @@ module_board_comm_send_gimbal(module_board_comm_t *me,
  */
 module_board_comm_status_t
 module_board_comm_send_chassis(module_board_comm_t *me,
-                               const module_board_comm_chassis_data_t *chassis_data)
+                               const module_board_comm_chassis_process_data_t *chassis_data)
 {
     uint8_t payload[6];
     uint8_t flags;
@@ -353,7 +353,7 @@ module_board_comm_send_chassis(module_board_comm_t *me,
  */
 module_board_comm_status_t
 module_board_comm_send_shooter(module_board_comm_t *me,
-                               const module_board_comm_shooter_data_t *shooter_data)
+                               const module_board_comm_shooter_process_data_t *shooter_data)
 {
     uint8_t payload[6] = {0U};
     uint8_t sequence;
@@ -574,7 +574,7 @@ module_board_comm_status_t module_board_comm_handle_frame(module_board_comm_t *m
  * @param me Robot Link 对象
  * @return 遥控器数据指针，若离线或未初始化则返回 NULL
  */
-const module_dr16_data_t *module_board_comm_get_remote(const module_board_comm_t *me)
+const module_dr16_process_data_t *module_board_comm_get_remote(const module_board_comm_t *me)
 {
     return ((me != NULL) && me->is_initialized && me->remote_online) ? &me->remote_data : NULL;
 }
@@ -584,7 +584,7 @@ const module_dr16_data_t *module_board_comm_get_remote(const module_board_comm_t
  * @param me Robot Link 对象
  * @return 云台数据指针，若离线或未初始化则返回 NULL
  */
-const module_board_comm_gimbal_data_t *module_board_comm_get_gimbal(const module_board_comm_t *me)
+const module_board_comm_gimbal_process_data_t *module_board_comm_get_gimbal(const module_board_comm_t *me)
 {
     return ((me != NULL) && me->is_initialized && me->gimbal_online) ? &me->gimbal_data : NULL;
 }
@@ -594,7 +594,7 @@ const module_board_comm_gimbal_data_t *module_board_comm_get_gimbal(const module
  * @param me Robot Link 对象
  * @return 底盘数据指针，若离线或未初始化则返回 NULL
  */
-const module_board_comm_chassis_data_t *module_board_comm_get_chassis(const module_board_comm_t *me)
+const module_board_comm_chassis_process_data_t *module_board_comm_get_chassis(const module_board_comm_t *me)
 {
     return ((me != NULL) && me->is_initialized && me->chassis_online) ? &me->chassis_data : NULL;
 }
@@ -604,7 +604,7 @@ const module_board_comm_chassis_data_t *module_board_comm_get_chassis(const modu
  * @param me Robot Link 对象
  * @return 发射机构数据指针，若离线或未初始化则返回 NULL
  */
-const module_board_comm_shooter_data_t *module_board_comm_get_shooter(const module_board_comm_t *me)
+const module_board_comm_shooter_process_data_t *module_board_comm_get_shooter(const module_board_comm_t *me)
 {
     return ((me != NULL) && me->is_initialized && me->shooter_online) ? &me->shooter_data : NULL;
 }

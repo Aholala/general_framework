@@ -17,7 +17,6 @@
 #include "bsp_exti.h"     // EXTI 基类
 #include "bsp_pwm.h"      // PWM 基类
 #include "bsp_spi.h"      // SPI 基类
-#include "bsp_timebase.h" // Timebase 基类
 #include "bsp_usart.h"    // USART 基类
 #include "bsp_usb_vcp.h"  // USB VCP 基类
 #include "bsp_watchdog.h" // Watchdog 基类
@@ -137,12 +136,6 @@ extern "C"
      * @return bsp_usb_vcp_t* 基类指针
      */
     bsp_usb_vcp_t *bsp_stm32h723_port_get_usb_vcp(void);
-
-    /**
-     * @brief 获取 Timebase 基类指针
-     * @return bsp_timebase_t* 基类指针
-     */
-    bsp_timebase_t *bsp_stm32h723_port_get_timebase(void);
 
     /**
      * @brief 获取 Watchdog 基类指针

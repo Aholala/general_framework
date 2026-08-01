@@ -241,4 +241,11 @@ void led_off(led_t *led) {
 
 ---
 
-**总结**：`bsp_gpio` 提供了最基础、最轻量的数字 GPIO 抽象，适合 LED、蜂鸣器、片选、复位等简单控制场景。它不干涉硬件配置，将复杂部分留给平台端，同时通过可选的 `write`/`toggle` 接口适应不同硬件能力。配合 `bsp_common`，该模块保持了 BSP 层的一致性和可维护性，同时也为 `bsp_exti`（边沿中断）和 `bsp_pwm`（脉宽调制）等更复杂的 GPIO 相关模块提供了清晰的职责边界。
+## 一页式接入顺序与可读信息
+
+1. 平台实现 `bsp_gpio_driver_ops_t`，保存真实端口/引脚的 opaque handle。
+2. 填写 `bsp_gpio_config_t`，调用 `bsp_gpio_init()`；库不负责配置 CubeMX 引脚模式。
+3. 输出脚调用 `bsp_gpio_write()` 或 `toggle()`，输入脚调用 `bsp_gpio_read()`。
+4. 退出或重绑引脚前调用 `bsp_device_deinit(bsp_gpio_as_base())`。
+
+可读取信息是 `bsp_gpio_read()` 输出的 `bool is_high`，以及 `bsp_device_is_initialized()`。`bsp_gpio_config_t` 和 `bsp_gpio_t` 中的句柄/驱动表只用于装配和调试，不是业务数据。

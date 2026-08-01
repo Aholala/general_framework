@@ -114,7 +114,7 @@ extern "C"
         uint32_t sample_count;               // 成功采样总数
         uint32_t failed_sample_count;        // 失败采样总数
         bool is_valid;                       // 当前数据是否有效（上次读取成功）
-    } module_bmi088_data_t;
+    } module_bmi088_process_data_t;
 
     /* ======================== 回调函数类型 ======================== */
 
@@ -180,7 +180,7 @@ extern "C"
         module_bmi088_gyro_range_t angular_velocity_range; // 当前陀螺仪量程
         module_bmi088_axis_map_t axis_map[3];              // 轴映射表
         module_bmi088_raw_data_t raw_data;                 // 原始数据缓存
-        module_bmi088_data_t data;                         // 物理量数据缓存
+        module_bmi088_process_data_t data;                         // 物理量数据缓存
         float acceleration_scale_m_per_s2;                 // 加速度换算因子（LSB → m/s²）
         float angular_velocity_scale_rad_per_s;            // 角速度换算因子（LSB → rad/s）
         float angular_velocity_bias_rad_per_s[3];          // 陀螺仪零偏（rad/s）
@@ -256,7 +256,7 @@ extern "C"
      * @param me 设备对象
      * @return 数据指针（若未初始化或对象为空则返回 NULL）
      */
-    const module_bmi088_data_t *module_bmi088_get_data(const module_bmi088_t *const me);
+    const module_bmi088_process_data_t *module_bmi088_get_data(const module_bmi088_t *const me);
 
     /**
      * @brief 获取原始 AD 计数值指针

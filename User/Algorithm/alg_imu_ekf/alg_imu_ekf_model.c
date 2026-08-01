@@ -47,8 +47,9 @@ alg_kalman_status_t alg_imu_ekf_internal_state_function(const float *state, size
     if ((state == NULL) || (control_input == NULL) || (predicted_state == NULL) ||
         (state_dimension != ALG_IMU_EKF_STATE_DIMENSION) ||
         (control_dimension != ALG_IMU_EKF_CONTROL_DIMENSION) || !isfinite(delta_time_s) ||
-        (delta_time_s <= 0.0F))
+        (delta_time_s <= 0.0F)) {
         return ALG_KALMAN_STATUS_MODEL_ERROR;
+}
 
     // ---- 去除 X/Y 零偏 ----
     angular_rate_x = control_input[0] - state[4];
@@ -83,8 +84,9 @@ alg_kalman_status_t alg_imu_ekf_internal_state_function(const float *state, size
     quaternion_norm = sqrtf(
         (predicted_state[0] * predicted_state[0]) + (predicted_state[1] * predicted_state[1]) +
         (predicted_state[2] * predicted_state[2]) + (predicted_state[3] * predicted_state[3]));
-    if (!isfinite(quaternion_norm) || (quaternion_norm <= 1.0e-6F))
+    if (!isfinite(quaternion_norm) || (quaternion_norm <= 1.0e-6F)) {
         return ALG_KALMAN_STATUS_MODEL_ERROR;
+}
 
     predicted_state[0] /= quaternion_norm;
     predicted_state[1] /= quaternion_norm;
@@ -126,8 +128,9 @@ alg_kalman_status_t alg_imu_ekf_internal_state_jacobian(const float *state, size
     if ((state == NULL) || (control_input == NULL) || (state_jacobian == NULL) ||
         (state_dimension != ALG_IMU_EKF_STATE_DIMENSION) ||
         (control_dimension != ALG_IMU_EKF_CONTROL_DIMENSION) || !isfinite(delta_time_s) ||
-        (delta_time_s <= 0.0F))
+        (delta_time_s <= 0.0F)) {
         return ALG_KALMAN_STATUS_MODEL_ERROR;
+}
 
     angular_rate_x = control_input[0] - state[4];
     angular_rate_y = control_input[1] - state[5];
@@ -135,8 +138,9 @@ alg_kalman_status_t alg_imu_ekf_internal_state_jacobian(const float *state, size
     half_delta_time = 0.5F * delta_time_s;
 
     // ---- 清零雅可比矩阵 ----
-    for (index = 0U; index < (ALG_IMU_EKF_STATE_DIMENSION * ALG_IMU_EKF_STATE_DIMENSION); ++index)
+    for (index = 0U; index < (ALG_IMU_EKF_STATE_DIMENSION * ALG_IMU_EKF_STATE_DIMENSION); ++index) {
         state_jacobian[index] = 0.0F;
+}
 
     // ---- 使用宏简化矩阵填充 ----
 #define F(row, column) state_jacobian[((row) * ALG_IMU_EKF_STATE_DIMENSION) + (column)]
@@ -205,8 +209,9 @@ alg_kalman_status_t alg_imu_ekf_internal_measurement_function(const float *state
 
     if ((state == NULL) || (predicted_measurement == NULL) ||
         (state_dimension != ALG_IMU_EKF_STATE_DIMENSION) ||
-        (measurement_dimension != ALG_IMU_EKF_MEASUREMENT_DIMENSION))
+        (measurement_dimension != ALG_IMU_EKF_MEASUREMENT_DIMENSION)) {
         return ALG_KALMAN_STATUS_MODEL_ERROR;
+}
 
     // 重力在世界系中为 [0, 0, 1]（归一化后）
     // 旋转到机体系：g_body = R^T * [0, 0, 1]
@@ -243,13 +248,15 @@ alg_kalman_status_t alg_imu_ekf_internal_measurement_jacobian(const float *state
 
     if ((state == NULL) || (measurement_jacobian == NULL) ||
         (state_dimension != ALG_IMU_EKF_STATE_DIMENSION) ||
-        (measurement_dimension != ALG_IMU_EKF_MEASUREMENT_DIMENSION))
+        (measurement_dimension != ALG_IMU_EKF_MEASUREMENT_DIMENSION)) {
         return ALG_KALMAN_STATUS_MODEL_ERROR;
+}
 
     // ---- 清零雅可比矩阵 ----
     for (index = 0U; index < (ALG_IMU_EKF_MEASUREMENT_DIMENSION * ALG_IMU_EKF_STATE_DIMENSION);
-         ++index)
+         ++index) {
         measurement_jacobian[index] = 0.0F;
+}
 
     // ---- 使用宏简化矩阵填充 ----
 #define H(row, column) measurement_jacobian[((row) * ALG_IMU_EKF_STATE_DIMENSION) + (column)]

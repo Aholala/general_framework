@@ -49,22 +49,26 @@ static bool bsp_fdcan_is_data_length_valid(uint8_t data_length)
 static bool bsp_fdcan_is_frame_valid(const bsp_fdcan_frame_t *const frame)
 {
     // 帧指针和数据长度合法性
-    if ((frame == NULL) || !bsp_fdcan_is_data_length_valid(frame->data_length))
+    if ((frame == NULL) || !bsp_fdcan_is_data_length_valid(frame->data_length)) {
         return false;
+}
     // 枚举值合法性
     if (((frame->id_type != BSP_CAN_ID_STANDARD) && (frame->id_type != BSP_CAN_ID_EXTENDED)) ||
         ((frame->frame_type != BSP_CAN_FRAME_DATA) &&
          (frame->frame_type != BSP_CAN_FRAME_REMOTE)) ||
         ((frame->format != BSP_FDCAN_FORMAT_CLASSIC) &&
          (frame->format != BSP_FDCAN_FORMAT_FD_NO_BRS) &&
-         (frame->format != BSP_FDCAN_FORMAT_FD_BRS)))
+         (frame->format != BSP_FDCAN_FORMAT_FD_BRS))) {
         return false;
+}
     // Classic 帧长度不能超过 8 字节
-    if ((frame->format == BSP_FDCAN_FORMAT_CLASSIC) && (frame->data_length > 8U))
+    if ((frame->format == BSP_FDCAN_FORMAT_CLASSIC) && (frame->data_length > 8U)) {
         return false;
+}
     // ID 范围检查
-    if ((frame->id_type == BSP_CAN_ID_STANDARD) && (frame->identifier > 0x7FFU))
+    if ((frame->id_type == BSP_CAN_ID_STANDARD) && (frame->identifier > 0x7FFU)) {
         return false;
+}
     return !((frame->id_type == BSP_CAN_ID_EXTENDED) && (frame->identifier > 0x1FFFFFFFU));
 }
 
@@ -75,8 +79,9 @@ static bsp_status_t bsp_fdcan_device_deinit(bsp_device_t *const device_base)
 {
     bsp_fdcan_t *const fdcan_base = BSP_CONTAINER_OF(device_base, bsp_fdcan_t, super);
     bsp_fdcan_device_t *const me = bsp_fdcan_get_device(fdcan_base);
-    if (me->driver_ops->deinit == NULL)
+    if (me->driver_ops->deinit == NULL) {
         return BSP_STATUS_OK;
+}
     return me->driver_ops->deinit(device_base->device_handle);
 }
 
@@ -167,16 +172,18 @@ bsp_status_t bsp_fdcan_init(bsp_fdcan_device_t *const me, const bsp_fdcan_config
     if ((me == NULL) || (config == NULL) || (config->device_handle == NULL) ||
         (config->driver_ops == NULL) || (config->driver_ops->start == NULL) ||
         (config->driver_ops->stop == NULL) || (config->driver_ops->configure_filter == NULL) ||
-        (config->driver_ops->transmit == NULL) || (config->driver_ops->receive == NULL))
+        (config->driver_ops->transmit == NULL) || (config->driver_ops->receive == NULL)) {
         return BSP_STATUS_INVALID_ARGUMENT;
+}
 
     me->super.super.is_initialized = false;
     me->driver_ops = config->driver_ops;
     if (me->driver_ops->init != NULL)
     {
         status = me->driver_ops->init(config->device_handle);
-        if (status != BSP_STATUS_OK)
+        if (status != BSP_STATUS_OK) {
             return status;
+}
     }
     me->super.callback = config->callback;
     me->super.user_context = config->user_context;
@@ -196,8 +203,9 @@ bsp_fdcan_t *bsp_fdcan_as_base(bsp_fdcan_device_t *const me)
  */
 static bsp_status_t bsp_fdcan_validate(const bsp_fdcan_t *const me)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return BSP_STATUS_INVALID_ARGUMENT;
+}
     return bsp_device_is_initialized(&me->super) ? BSP_STATUS_OK : BSP_STATUS_NOT_INITIALIZED;
 }
 
@@ -241,8 +249,9 @@ bsp_status_t bsp_fdcan_configure_filter(bsp_fdcan_t *const me,
                                         const bsp_can_filter_t *filter_config)
 {
     bsp_status_t status = bsp_fdcan_validate(me);
-    if (status != BSP_STATUS_OK)
+    if (status != BSP_STATUS_OK) {
         return status;
+}
     // 校验 filter_config 参数
     if ((filter_config == NULL) ||
         ((filter_config->id_type != BSP_CAN_ID_STANDARD) &&
@@ -252,8 +261,9 @@ bsp_status_t bsp_fdcan_configure_filter(bsp_fdcan_t *const me,
         ((filter_config->id_type == BSP_CAN_ID_STANDARD) &&
          ((filter_config->identifier > 0x7FFU) || (filter_config->mask > 0x7FFU))) ||
         ((filter_config->id_type == BSP_CAN_ID_EXTENDED) &&
-         ((filter_config->identifier > 0x1FFFFFFFU) || (filter_config->mask > 0x1FFFFFFFU))))
+         ((filter_config->identifier > 0x1FFFFFFFU) || (filter_config->mask > 0x1FFFFFFFU)))) {
         return BSP_STATUS_INVALID_ARGUMENT;
+}
     return bsp_fdcan_get_ops(me)->configure_filter(me, filter_config);
 }
 
@@ -264,10 +274,12 @@ bsp_status_t bsp_fdcan_transmit(bsp_fdcan_t *const me, const bsp_fdcan_frame_t *
                                 uint32_t timeout_ms)
 {
     bsp_status_t status = bsp_fdcan_validate(me);
-    if (status != BSP_STATUS_OK)
+    if (status != BSP_STATUS_OK) {
         return status;
-    if (!bsp_fdcan_is_frame_valid(frame))
+}
+    if (!bsp_fdcan_is_frame_valid(frame)) {
         return BSP_STATUS_OUT_OF_RANGE;
+}
     return bsp_fdcan_get_ops(me)->transmit(me, frame, timeout_ms);
 }
 
@@ -278,14 +290,17 @@ bsp_status_t bsp_fdcan_receive(bsp_fdcan_t *const me, bsp_can_receive_fifo_t rec
                                bsp_fdcan_frame_t *frame)
 {
     bsp_status_t status = bsp_fdcan_validate(me);
-    if (status != BSP_STATUS_OK)
+    if (status != BSP_STATUS_OK) {
         return status;
+}
     if ((frame == NULL) ||
-        ((receive_fifo != BSP_CAN_RX_FIFO_0) && (receive_fifo != BSP_CAN_RX_FIFO_1)))
+        ((receive_fifo != BSP_CAN_RX_FIFO_0) && (receive_fifo != BSP_CAN_RX_FIFO_1))) {
         return BSP_STATUS_INVALID_ARGUMENT;
+}
     status = bsp_fdcan_get_ops(me)->receive(me, receive_fifo, frame);
-    if (status != BSP_STATUS_OK)
+    if (status != BSP_STATUS_OK) {
         return status;
+}
     // 接收后再次校验帧有效性
     return bsp_fdcan_is_frame_valid(frame) ? BSP_STATUS_OK : BSP_STATUS_IO_ERROR;
 }
@@ -297,12 +312,15 @@ bsp_status_t bsp_fdcan_get_protocol_status(const bsp_fdcan_t *const me,
                                            bsp_fdcan_protocol_status_t *protocol_status)
 {
     bsp_status_t status = bsp_fdcan_validate(me);
-    if (status != BSP_STATUS_OK)
+    if (status != BSP_STATUS_OK) {
         return status;
-    if (protocol_status == NULL)
+}
+    if (protocol_status == NULL) {
         return BSP_STATUS_INVALID_ARGUMENT;
-    if (bsp_fdcan_get_device_const(me)->driver_ops->get_protocol_status == NULL)
+}
+    if (bsp_fdcan_get_device_const(me)->driver_ops->get_protocol_status == NULL) {
         return BSP_STATUS_UNSUPPORTED;
+}
     return bsp_fdcan_get_ops(me)->get_protocol_status(me, protocol_status);
 }
 
@@ -312,12 +330,15 @@ bsp_status_t bsp_fdcan_get_protocol_status(const bsp_fdcan_t *const me,
 bsp_status_t bsp_fdcan_get_transmit_free_level(const bsp_fdcan_t *const me, uint32_t *free_level)
 {
     bsp_status_t status = bsp_fdcan_validate(me);
-    if (status != BSP_STATUS_OK)
+    if (status != BSP_STATUS_OK) {
         return status;
-    if (free_level == NULL)
+}
+    if (free_level == NULL) {
         return BSP_STATUS_INVALID_ARGUMENT;
-    if (bsp_fdcan_get_device_const(me)->driver_ops->get_transmit_free_level == NULL)
+}
+    if (bsp_fdcan_get_device_const(me)->driver_ops->get_transmit_free_level == NULL) {
         return BSP_STATUS_UNSUPPORTED;
+}
     return bsp_fdcan_get_ops(me)->get_transmit_free_level(me, free_level);
 }
 
@@ -327,6 +348,7 @@ bsp_status_t bsp_fdcan_get_transmit_free_level(const bsp_fdcan_t *const me, uint
 void bsp_fdcan_notify(bsp_fdcan_t *const me, bsp_event_t event, bsp_status_t status,
                       size_t transferred_size)
 {
-    if ((me != NULL) && bsp_device_is_initialized(&me->super) && (me->callback != NULL))
+    if ((me != NULL) && bsp_device_is_initialized(&me->super) && (me->callback != NULL)) {
         me->callback(event, status, transferred_size, me->user_context);
+}
 }

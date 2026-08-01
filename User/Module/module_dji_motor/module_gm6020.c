@@ -6,7 +6,7 @@
  * @date 2026-07-28
  * @copyright Copyright (c) 2026
  *
- * @note GM6020 电机的控制模式为 VOLTAGE、VELOCITY、POSITION，分别对应大疆通用电机的 DIRECT、VELOCITY、POSITION。
+ * @note GM6020 支持 VOLTAGE、CURRENT、VELOCITY、ANGLE 四种控制模式。
  *       所有功能通过转发到 module_dji_motor 实现。
  */
 
@@ -18,15 +18,16 @@ MODULE_MOTOR_STATIC_ASSERT_SUPER_FIRST(module_gm6020_t);
  * @brief 将 GM6020 控制模式映射到大疆通用控制模式
  * @param control_mode GM6020 控制模式
  * @return 对应的 module_dji_control_mode_t
- * @note VOLTAGE → DIRECT，VELOCITY → VELOCITY，POSITION → POSITION
+ * @note VOLTAGE/CURRENT/VELOCITY/ANGLE 与通用 DJI 控制模式一一对应
  */
 static module_dji_control_mode_t
 module_gm6020_map_control_mode(module_gm6020_control_mode_t control_mode)
 {
     static const module_dji_control_mode_t control_mode_map[] = {
-        MODULE_DJI_CONTROL_DIRECT,   // MODULE_GM6020_CONTROL_VOLTAGE
-        MODULE_DJI_CONTROL_VELOCITY, // MODULE_GM6020_CONTROL_VELOCITY
-        MODULE_DJI_CONTROL_POSITION, // MODULE_GM6020_CONTROL_POSITION
+        MODULE_DJI_CONTROL_DIRECT,
+        MODULE_DJI_CONTROL_CURRENT,
+        MODULE_DJI_CONTROL_VELOCITY,
+        MODULE_DJI_CONTROL_ANGLE,
     };
     return control_mode_map[control_mode];
 }
@@ -74,14 +75,14 @@ module_motor_status_t module_gm6020_init(module_gm6020_t *const me,
     module_dji_motor_config_t dji_motor_config;
 
     // 参数校验
-    if ((me == NULL) || (config == NULL) || (config->control_mode > MODULE_GM6020_CONTROL_POSITION))
+    if ((me == NULL) || (config == NULL) || (config->control_mode > MODULE_GM6020_CONTROL_ANGLE))
     {
         return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
     }
 
     // 构建大疆电机配置，固定型号为 GM6020
     dji_motor_config = (module_dji_motor_config_t){
-        .logical_name = config->logical_name,
+        .motor_name = config->motor_name,
         .registration_key = config->registration_key,
         .motor_bus = config->motor_bus,
         .motor_model = MODULE_DJI_MOTOR_GM6020, // 固定为 GM6020
@@ -90,11 +91,21 @@ module_motor_status_t module_gm6020_init(module_gm6020_t *const me,
         .direction_sign = config->direction_sign,
         .maximum_temperature_c = config->maximum_temperature_c,
         .current_scale_a_per_count = config->current_scale_a_per_count,
+        .current_pid_config = config->current_pid_config,
         .velocity_pid_config = config->velocity_pid_config,
-        .position_pid_config = config->position_pid_config,
+        .angle_pid_config = config->angle_pid_config,
     };
     // 调用大疆电机基类初始化
     return module_dji_motor_init(&me->super, &dji_motor_config);
+}
+
+module_motor_status_t module_gm6020_set_current_a(module_gm6020_t *const me, float current_a)
+{
+    const module_motor_status_t status =
+        module_gm6020_validate_control_mode(me, MODULE_GM6020_CONTROL_CURRENT);
+    return (status == MODULE_MOTOR_STATUS_OK)
+               ? module_motor_set_target(module_gm6020_as_motor(me), current_a)
+               : status;
 }
 
 /**
@@ -193,21 +204,21 @@ module_motor_status_t module_gm6020_set_velocity_rad_per_s(module_gm6020_t *cons
 }
 
 /**
- * @brief 设置位置目标（位置模式）
+ * @brief 设置角度目标（角度模式）
  * @param me 电机对象
- * @param position_rad 位置目标（弧度）
+ * @param angle_rad 角度目标（弧度）
  * @return 执行状态
- * @note 仅当控制模式为 POSITION 时有效，否则返回 UNSUPPORTED
+ * @note 仅当控制模式为 ANGLE 时有效，否则返回 UNSUPPORTED
  */
-module_motor_status_t module_gm6020_set_position_rad(module_gm6020_t *const me, float position_rad)
+module_motor_status_t module_gm6020_set_angle_rad(module_gm6020_t *const me, float angle_rad)
 {
     module_motor_status_t status =
-        module_gm6020_validate_control_mode(me, MODULE_GM6020_CONTROL_POSITION);
+        module_gm6020_validate_control_mode(me, MODULE_GM6020_CONTROL_ANGLE);
     if (status != MODULE_MOTOR_STATUS_OK)
     {
         return status;
     }
-    return module_motor_set_target(module_gm6020_as_motor(me), position_rad);
+    return module_motor_set_target(module_gm6020_as_motor(me), angle_rad);
 }
 
 /**

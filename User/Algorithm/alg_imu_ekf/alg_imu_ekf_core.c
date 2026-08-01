@@ -32,13 +32,15 @@ bool alg_imu_ekf_internal_is_finite_array(const float *values, size_t value_coun
 {
     size_t index;
 
-    if (values == NULL)
+    if (values == NULL) {
         return false;
+}
 
     for (index = 0U; index < value_count; ++index)
     {
-        if (!isfinite(values[index]))
+        if (!isfinite(values[index])) {
             return false;
+}
     }
     return true;
 }
@@ -75,8 +77,9 @@ alg_imu_ekf_status_t alg_imu_ekf_internal_map_kalman_status(alg_kalman_status_t 
 static void alg_imu_ekf_clear(float *values, size_t value_count)
 {
     size_t index;
-    for (index = 0U; index < value_count; ++index)
+    for (index = 0U; index < value_count; ++index) {
         values[index] = 0.0F;
+}
 }
 
 /**
@@ -93,14 +96,16 @@ static void alg_imu_ekf_reset_covariance(alg_imu_ekf_t *me)
     alg_imu_ekf_clear(me->covariance, ALG_IMU_EKF_STATE_DIMENSION * ALG_IMU_EKF_STATE_DIMENSION);
 
     // 四元数部分（索引 0~3）
-    for (index = 0U; index < 4U; ++index)
+    for (index = 0U; index < 4U; ++index) {
         me->covariance[(index * ALG_IMU_EKF_STATE_DIMENSION) + index] =
             me->config.initial_attitude_variance;
+}
 
     // 零偏部分（索引 4~5）
-    for (index = 4U; index < ALG_IMU_EKF_STATE_DIMENSION; ++index)
+    for (index = 4U; index < ALG_IMU_EKF_STATE_DIMENSION; ++index) {
         me->covariance[(index * ALG_IMU_EKF_STATE_DIMENSION) + index] =
             me->config.initial_gyro_bias_variance;
+}
 }
 
 /* ======================== 四元数归一化与协方差投影 ======================== */
@@ -126,8 +131,9 @@ alg_imu_ekf_status_t alg_imu_ekf_internal_normalize_and_project(alg_imu_ekf_t *m
     // ---- 1. 计算四元数模长并归一化 ----
     quaternion_norm = sqrtf((me->state[0] * me->state[0]) + (me->state[1] * me->state[1]) +
                             (me->state[2] * me->state[2]) + (me->state[3] * me->state[3]));
-    if (!isfinite(quaternion_norm) || (quaternion_norm <= ALG_IMU_EKF_MINIMUM_NORM))
+    if (!isfinite(quaternion_norm) || (quaternion_norm <= ALG_IMU_EKF_MINIMUM_NORM)) {
         return ALG_IMU_EKF_STATUS_NUMERICAL_ERROR;
+}
 
     // 归一化四元数
     for (row = 0U; row < 4U; ++row)
@@ -158,8 +164,9 @@ alg_imu_ekf_status_t alg_imu_ekf_internal_normalize_and_project(alg_imu_ekf_t *m
     }
 
     // 零偏部分（右下 2×2 块为单位矩阵）
-    for (row = 4U; row < ALG_IMU_EKF_STATE_DIMENSION; ++row)
+    for (row = 4U; row < ALG_IMU_EKF_STATE_DIMENSION; ++row) {
         normalization_jacobian[(row * ALG_IMU_EKF_STATE_DIMENSION) + row] = 1.0F;
+}
 
     // ---- 3. 协方差投影：P' = J * P * J^T ----
     // 计算 J * P
@@ -223,8 +230,9 @@ alg_imu_ekf_status_t alg_imu_ekf_internal_normalize_and_project(alg_imu_ekf_t *m
  */
 alg_imu_ekf_status_t alg_imu_ekf_config_init(alg_imu_ekf_config_t *config)
 {
-    if (config == NULL)
+    if (config == NULL) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
+}
 
     *config =
         (alg_imu_ekf_config_t){.gravity_m_s2 = ALG_IMU_EKF_STANDARD_GRAVITY_M_S2,
@@ -249,8 +257,9 @@ alg_imu_ekf_status_t alg_imu_ekf_config_init(alg_imu_ekf_config_t *config)
  */
 static alg_imu_ekf_status_t alg_imu_ekf_validate_config(const alg_imu_ekf_config_t *config)
 {
-    if (config == NULL)
+    if (config == NULL) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
+}
 
     // 检查所有参数为有限正数且满足约束
     if (!isfinite(config->gravity_m_s2) || (config->gravity_m_s2 <= 0.0F) ||
@@ -297,16 +306,18 @@ alg_imu_ekf_status_t alg_imu_ekf_init(alg_imu_ekf_t *me, const alg_imu_ekf_confi
     float accelerometer_variance;
     alg_filter_status_t filter_status;
 
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
+}
 
     // 先标记为未初始化
     me->is_initialized = false;
 
     // 验证配置
     status = alg_imu_ekf_validate_config(config);
-    if (status != ALG_IMU_EKF_STATUS_OK)
+    if (status != ALG_IMU_EKF_STATUS_OK) {
         return status;
+}
 
     // 保存配置
     me->config = *config;
@@ -326,17 +337,19 @@ alg_imu_ekf_status_t alg_imu_ekf_init(alg_imu_ekf_t *me, const alg_imu_ekf_confi
     // 测量噪声：加速度计方向噪声方差
     accelerometer_variance =
         config->accelerometer_direction_noise_std * config->accelerometer_direction_noise_std;
-    for (index = 0U; index < ALG_IMU_EKF_MEASUREMENT_DIMENSION; ++index)
+    for (index = 0U; index < ALG_IMU_EKF_MEASUREMENT_DIMENSION; ++index) {
         me->measurement_noise[(index * ALG_IMU_EKF_MEASUREMENT_DIMENSION) + index] =
             accelerometer_variance;
+}
 
     // ---- 初始化加速度计低通滤波器 ----
     for (index = 0U; index < 3U; ++index)
     {
         filter_status = alg_filter_low_pass_init(&me->accelerometer_filter[index],
                                                  config->accelerometer_lpf_cutoff_hz);
-        if (filter_status != ALG_FILTER_STATUS_OK)
+        if (filter_status != ALG_FILTER_STATUS_OK) {
             return ALG_IMU_EKF_STATUS_OUT_OF_RANGE;
+}
         me->filtered_accelerometer_m_s2[index] = 0.0F;
         me->innovation[index] = 0.0F;
     }
@@ -359,8 +372,9 @@ alg_imu_ekf_status_t alg_imu_ekf_init(alg_imu_ekf_t *me, const alg_imu_ekf_confi
         .user_context = me};
 
     kalman_status = alg_kalman_extended_init(&me->kalman, &kalman_config);
-    if (kalman_status != ALG_KALMAN_STATUS_OK)
+    if (kalman_status != ALG_KALMAN_STATUS_OK) {
         return alg_imu_ekf_internal_map_kalman_status(kalman_status);
+}
 
     // ---- 初始化诊断状态 ----
     me->last_accelerometer_norm_m_s2 = config->gravity_m_s2;
@@ -389,13 +403,16 @@ alg_imu_ekf_status_t alg_imu_ekf_reset(alg_imu_ekf_t *me,
 {
     size_t index;
 
-    if ((me == NULL) || (quaternion == NULL) || (gyro_bias_rad_s == NULL))
+    if ((me == NULL) || (quaternion == NULL) || (gyro_bias_rad_s == NULL)) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_IMU_EKF_STATUS_NOT_INITIALIZED;
+}
     if (!isfinite(quaternion->w) || !isfinite(quaternion->x) || !isfinite(quaternion->y) ||
-        !isfinite(quaternion->z) || !alg_imu_ekf_internal_is_finite_array(gyro_bias_rad_s, 2U))
+        !isfinite(quaternion->z) || !alg_imu_ekf_internal_is_finite_array(gyro_bias_rad_s, 2U)) {
         return ALG_IMU_EKF_STATUS_OUT_OF_RANGE;
+}
 
     // 设置状态
     me->state[0] = quaternion->w;
@@ -446,19 +463,23 @@ alg_imu_ekf_status_t alg_imu_ekf_reset_from_accelerometer(alg_imu_ekf_t *me,
     const float zero_bias[2] = {0.0F, 0.0F};
     alg_imu_ekf_status_t status;
 
-    if ((me == NULL) || (accelerometer_m_s2 == NULL))
+    if ((me == NULL) || (accelerometer_m_s2 == NULL)) {
         return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_IMU_EKF_STATUS_NOT_INITIALIZED;
-    if (!alg_imu_ekf_internal_is_finite_array(accelerometer_m_s2, 3U))
+}
+    if (!alg_imu_ekf_internal_is_finite_array(accelerometer_m_s2, 3U)) {
         return ALG_IMU_EKF_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 计算加速度模长 ----
     norm = sqrtf((accelerometer_m_s2[0] * accelerometer_m_s2[0]) +
                  (accelerometer_m_s2[1] * accelerometer_m_s2[1]) +
                  (accelerometer_m_s2[2] * accelerometer_m_s2[2]));
-    if (!isfinite(norm) || (norm <= ALG_IMU_EKF_MINIMUM_NORM))
+    if (!isfinite(norm) || (norm <= ALG_IMU_EKF_MINIMUM_NORM)) {
         return ALG_IMU_EKF_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 从加速度计算 Roll 和 Pitch ----
     // Roll：绕 X 轴旋转，由 Y 和 Z 分量决定
@@ -477,8 +498,9 @@ alg_imu_ekf_status_t alg_imu_ekf_reset_from_accelerometer(alg_imu_ekf_t *me,
 
     // ---- 重置 EKF ----
     status = alg_imu_ekf_reset(me, &quaternion, zero_bias);
-    if (status != ALG_IMU_EKF_STATUS_OK)
+    if (status != ALG_IMU_EKF_STATUS_OK) {
         return status;
+}
 
     // ---- 预置低通滤波器状态 ----
     (void)alg_filter_low_pass_reset(&me->accelerometer_filter[0], accelerometer_m_s2[0]);

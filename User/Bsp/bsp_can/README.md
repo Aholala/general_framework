@@ -274,4 +274,20 @@ typedef struct {
 
 ---
 
-**总结**：`bsp_can` 通过将硬件操作抽象为驱动表、将帧路由抽象为分发器，极大地降低了模块间的耦合度。开发者只需关注业务层的帧数据结构与回调逻辑，无需关心底层寄存器细节，非常适合需要多协议共存的高可靠嵌入式系统（如 RoboMaster 主控、车载 ECU 等）。
+## 一页式接入顺序与可读信息
+
+1. 平台配置 CAN 时序和引脚，注入 `bsp_can_driver_ops_t` 后 init。
+2. start 前配置硬件 filter；注册 callback 或初始化 dispatcher 路由表。
+3. 调用 start；发送使用 `bsp_can_frame_t`，阻塞等待由 timeout 控制。
+4. RX ISR 只 notify/置 pending；任务中调用 `bsp_can_dispatcher_process()` 分发给模块。
+5. 停机先停止上层发送，再 `stop → dispatcher_deinit → bsp_device_deinit`。
+
+| 可读取结构体       | 主要信息                                        |
+| ------------------ | ----------------------------------------------- |
+| `bsp_can_frame_t`  | ID、标准/扩展帧、数据/远程帧、DLC 和 8 字节数据 |
+| `bsp_can_filter_t` | ID、掩码、类型和目标 FIFO                       |
+| `bsp_can_route_t`  | 路由匹配条件、处理器、上下文和启用状态          |
+| TX 空闲量          | `bsp_can_get_transmit_free_level()`             |
+| dispatcher pending | `bsp_can_dispatcher_has_pending_receive()`      |
+
+模块处理器应在任务上下文解析帧；不要在 CAN ISR 中运行电机控制或协议状态机。

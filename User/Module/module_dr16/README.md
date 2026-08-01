@@ -105,7 +105,7 @@ module_device_t *remote_dev = module_dr16_as_device(&s_remote_control);
 ### 6.2 数据读取
 
 ```c
-const module_dr16_data_t *remote = module_dr16_get_data(&s_remote_control);
+const module_dr16_process_data_t *remote = module_dr16_get_data(&s_remote_control);
 
 if (remote->is_online) {
     float forward = remote->normalized_channel[3];   // 前进通道
@@ -135,7 +135,7 @@ void control_task(void *param) {
         module_dr16_process(&s_remote_control);
         module_dr16_update_time(&s_remote_control, dt);
 
-        const module_dr16_data_t *remote = module_dr16_get_data(&s_remote_control);
+        const module_dr16_process_data_t *remote = module_dr16_get_data(&s_remote_control);
         if (!remote->is_online) {
             motor_disable_all();  // 失联时安全停电机
         }
@@ -183,3 +183,43 @@ void control_task(void *param) {
 - [ ] 离线超时：停止发送后 `is_online` 变为 false
 - [ ] 离线恢复：重新收到帧后 `is_online` 变为 true
 - [ ] 接收覆盖计数递增（数据块未及时处理）
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 先按 DBUS 参数初始化 UART5/其他 USART BSP，再准备 DMA 双缓冲。 */
+static module_dr16_t remote;
+static uint8_t dma_buffer[2][MODULE_DR16_DMA_BUFFER_SIZE];
+
+/* 2. 配置中注入 USART、双缓冲、死区、离线超时和可选帧回调。 */
+module_dr16_status_t status = module_dr16_init(&remote, &remote_config);
+
+/* 3. 启动 Receive-to-Idle DMA 双缓冲接收。 */
+status = module_dr16_start(&remote);
+
+/* 4. 任务循环先处理 ISR 留下的数据，再推进离线计时。 */
+status = module_dr16_process(&remote);
+module_dr16_update_time(&remote, elapsed_time_ms);
+
+/* 5. 获取只读快照并根据 is_online 决定是否采纳遥控命令。 */
+const module_dr16_process_data_t *data = module_dr16_get_data(&remote);
+if ((data != NULL) && data->is_online) {
+    float forward = data->normalized_channel[1];
+}
+
+/* 6. 停机或重新配置 UART 前先 module_dr16_stop。 */
+```
+
+`module_dr16_process_data_t` 是主要可读结构体：
+
+| 字段 | 含义 |
+| --- | --- |
+| `channel[4]` / `normalized_channel[4]` | 摇杆原始去中心值和 `[-1, 1]` 归一化值 |
+| `left_switch` / `right_switch` | 左右三段开关 |
+| `mouse_x/y/z`、鼠标按键 | 鼠标输入 |
+| `keyboard` | 键盘位掩码；也可用 `module_dr16_is_key_pressed()` |
+| `dial` / `normalized_dial` | 拨轮原始值和归一化值 |
+| 帧计数和错误计数 | 有效帧、无效帧、覆盖和传输错误统计 |
+| `is_online` | 是否仍在离线超时窗口内 |
+
+`module_dr16_get_data()` 返回对象内部只读指针，不得释放或写入；下一次处理有效帧后内容会更新。

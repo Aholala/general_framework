@@ -56,8 +56,9 @@ alg_filter_status_t alg_filter_biquad_init(alg_filter_biquad_t *me, alg_filter_b
     float b1;
     float b2;
 
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
+}
 
     me->is_initialized = false;
 
@@ -65,8 +66,9 @@ alg_filter_status_t alg_filter_biquad_init(alg_filter_biquad_t *me, alg_filter_b
     if (!isfinite(sample_frequency_hz) || !isfinite(center_frequency_hz) ||
         !isfinite(quality_factor) || (sample_frequency_hz <= 0.0F) ||
         (center_frequency_hz <= 0.0F) || (center_frequency_hz >= (0.5F * sample_frequency_hz)) ||
-        (quality_factor <= 0.0F) || (type > ALG_FILTER_BIQUAD_NOTCH))
+        (quality_factor <= 0.0F) || (type > ALG_FILTER_BIQUAD_NOTCH)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 计算 Biquad 系数 ----
     // 预畸变角频率：omega = 2*pi*fc/fs
@@ -129,10 +131,12 @@ alg_filter_status_t alg_filter_biquad_init(alg_filter_biquad_t *me, alg_filter_b
 alg_filter_status_t alg_filter_biquad_set_coefficients(alg_filter_biquad_t *me, float b0, float b1,
                                                        float b2, float a1, float a2)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!alg_filter_biquad_are_finite(b0, b1, b2, a1, a2))
+}
+    if (!alg_filter_biquad_are_finite(b0, b1, b2, a1, a2)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     me->b0 = b0;
     me->b1 = b1;
@@ -152,10 +156,12 @@ alg_filter_status_t alg_filter_biquad_set_coefficients(alg_filter_biquad_t *me, 
  */
 alg_filter_status_t alg_filter_biquad_reset(alg_filter_biquad_t *me)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
+}
 
     me->state_1 = 0.0F;
     me->state_2 = 0.0F;
@@ -179,12 +185,15 @@ alg_filter_status_t alg_filter_biquad_update(alg_filter_biquad_t *me, float inpu
     float next_state_1;
     float next_state_2;
 
-    if ((me == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL)) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
-    if (!isfinite(input))
+}
+    if (!isfinite(input)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     // 直接 II 型转置结构
     current_output = (me->b0 * input) + me->state_1;
@@ -192,8 +201,9 @@ alg_filter_status_t alg_filter_biquad_update(alg_filter_biquad_t *me, float inpu
     next_state_2 = (me->b2 * input) - (me->a2 * current_output);
 
     // 检查数值稳定性
-    if (!alg_filter_biquad_are_finite(current_output, next_state_1, next_state_2, me->a1, me->a2))
+    if (!alg_filter_biquad_are_finite(current_output, next_state_1, next_state_2, me->a1, me->a2)) {
         return ALG_FILTER_STATUS_NUMERICAL_ERROR;
+}
 
     me->state_1 = next_state_1;
     me->state_2 = next_state_2;

@@ -259,4 +259,18 @@ alg_attitude_correct_yaw(&s_attitude, measured_yaw, correction_gain);
 
 ---
 
-**总结**：`alg_attitude` 提供了一套轻量、可靠的姿态估计算法，适用于算力受限或需要降级备份的场景。它通过加速度模长检测实现自动降级，支持外部航向注入，并提供了简洁的 API。配合 `module_bmi088` 等 IMU 模块，可快速构建完整的姿态估计系统。
+## 一页式使用顺序与可读信息
+
+1. 填写 `alg_attitude_config_t`，明确 Mahony/Madgwick、增益、加速度有效范围和时间步限制。
+2. 用单位四元数或已知初始姿态调用 `alg_attitude_init()`。
+3. 每个 IMU 周期先确认 BMI088 数据有效，再调用 `alg_attitude_update()`；陀螺仪必须是 rad/s，加速度必须是 m/s²。
+4. 需要磁力计/视觉航向修正时，再调用 `alg_attitude_correct_yaw()`，不要把航向修正混进原始陀螺输入。
+5. 用 `alg_attitude_get_euler()` 读取欧拉角；需要连续控制时优先读取对象中的四元数或旋转矩阵，避免欧拉角奇异。
+
+| 可读取结构体                     | 主要信息                                                                            |
+| -------------------------------- | ----------------------------------------------------------------------------------- |
+| `alg_attitude_quaternion_t`      | 当前姿态四元数                                                                      |
+| `alg_attitude_rotation_matrix_t` | 机体系与参考系之间的旋转矩阵                                                        |
+| `alg_attitude_t`                 | `quaternion`、`rotation_matrix`、roll/pitch/yaw、积分误差、更新计数和加速度拒绝计数 |
+
+读取输出前必须检查 `alg_attitude_update()` 返回值；时间步异常或输入非有限值时不要继续使用该周期的新结果。

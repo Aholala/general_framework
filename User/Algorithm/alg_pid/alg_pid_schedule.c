@@ -23,19 +23,23 @@ alg_pid_gain_schedule_validate_points(const alg_pid_gain_point_t *gain_points,
 {
     size_t i;
 
-    if (gain_points == NULL)
+    if (gain_points == NULL) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
-    if (gain_point_count == 0U)
+}
+    if (gain_point_count == 0U) {
         return ALG_PID_STATUS_OUT_OF_RANGE;
+}
 
     for (i = 0U; i < gain_point_count; ++i)
     {
         if (!isfinite(gain_points[i].operating_point) ||
             !isfinite(gain_points[i].proportional_gain) ||
-            !isfinite(gain_points[i].integral_gain) || !isfinite(gain_points[i].derivative_gain))
+            !isfinite(gain_points[i].integral_gain) || !isfinite(gain_points[i].derivative_gain)) {
             return ALG_PID_STATUS_OUT_OF_RANGE;
-        if ((i > 0U) && (gain_points[i].operating_point <= gain_points[i - 1U].operating_point))
+}
+        if ((i > 0U) && (gain_points[i].operating_point <= gain_points[i - 1U].operating_point)) {
             return ALG_PID_STATUS_OUT_OF_RANGE;
+}
     }
     return ALG_PID_STATUS_OK;
 }
@@ -81,9 +85,10 @@ static void alg_pid_gain_schedule_interpolate(const alg_pid_gain_schedule_t *me,
 
     // 计算插值因子
     factor = 0.0F;
-    if (upper != lower)
+    if (upper != lower) {
         factor = (operating_point - lower->operating_point) /
                  (upper->operating_point - lower->operating_point);
+}
 
     *kp = lower->proportional_gain + factor * (upper->proportional_gain - lower->proportional_gain);
     *ki = lower->integral_gain + factor * (upper->integral_gain - lower->integral_gain);
@@ -100,17 +105,20 @@ alg_pid_status_t alg_pid_gain_schedule_init(alg_pid_gain_schedule_t *me,
 {
     alg_pid_status_t status;
 
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
+}
 
     me->is_initialized = false;
     status = alg_pid_gain_schedule_validate_points(gain_points, gain_point_count);
-    if (status != ALG_PID_STATUS_OK)
+    if (status != ALG_PID_STATUS_OK) {
         return status;
+}
 
     status = alg_pid_init(&me->controller, base_config);
-    if (status != ALG_PID_STATUS_OK)
+    if (status != ALG_PID_STATUS_OK) {
         return status;
+}
 
     me->gain_points = gain_points;
     me->gain_point_count = gain_point_count;
@@ -124,12 +132,15 @@ alg_pid_status_t alg_pid_gain_schedule_init(alg_pid_gain_schedule_t *me,
 alg_pid_status_t alg_pid_gain_schedule_update(alg_pid_gain_schedule_t *me, float operating_point,
                                               const alg_pid_input_t *input, float *output)
 {
-    if ((me == NULL) || (input == NULL) || (output == NULL))
+    if ((me == NULL) || (input == NULL) || (output == NULL)) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_PID_STATUS_NOT_INITIALIZED;
-    if (!isfinite(operating_point))
+}
+    if (!isfinite(operating_point)) {
         return ALG_PID_STATUS_OUT_OF_RANGE;
+}
 
     // 插值得到当前增益
     alg_pid_gain_schedule_interpolate(me, operating_point, &me->controller.config.proportional_gain,
@@ -144,9 +155,11 @@ alg_pid_status_t alg_pid_gain_schedule_update(alg_pid_gain_schedule_t *me, float
 alg_pid_status_t alg_pid_gain_schedule_reset(alg_pid_gain_schedule_t *me, float measurement,
                                              float initial_output)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_PID_STATUS_NOT_INITIALIZED;
+}
     return alg_pid_reset(&me->controller, measurement, initial_output);
 }

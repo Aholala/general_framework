@@ -298,4 +298,12 @@ if (bsp_watchdog_get_timeout_ms(s_watchdog_ptr, &timeout_ms) == BSP_STATUS_OK) {
 
 ---
 
-**总结**：`bsp_watchdog` 提供了简洁、可移植的硬件看门狗抽象，是系统级故障恢复的关键组件。其核心价值在于统一的喂狗接口和复位原因检测，使得上层健康管理策略能够独立于具体硬件实现。正确喂狗策略（由健康监督任务根据关键任务心跳决定）确保看门狗能在真正需要时发挥作用，而非被错误地"骗过"。配合 `bsp_common`，该模块保持了 BSP 层的一致性和可维护性。
+## 一页式接入顺序与可读信息
+
+1. 平台确定看门狗窗口/超时并实现 driver ops。
+2. 启动早期调用 `bsp_watchdog_init()`，读取并保存复位原因。
+3. 关键任务分别提交心跳，由一个健康监督任务统一判断。
+4. 只有全部必要心跳正常时才调用 `bsp_watchdog_refresh()`。
+5. 看门狗一旦启动通常无法停止；不要在任意循环或 ISR 中无条件喂狗。
+
+可读取 `bsp_watchdog_get_timeout_ms()` 和 `bsp_watchdog_get_reset_detected()`。后者用于启动日志和故障追踪，不应在读取后自动清除业务层记录。

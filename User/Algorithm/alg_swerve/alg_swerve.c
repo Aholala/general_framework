@@ -25,11 +25,13 @@
  */
 float alg_swerve_wrap_angle_rad(float angle_rad)
 {
-    if (!isfinite(angle_rad))
+    if (!isfinite(angle_rad)) {
         return 0.0F;
+}
     angle_rad = fmodf(angle_rad + ALG_SWERVE_PI, ALG_SWERVE_TWO_PI);
-    if (angle_rad < 0.0F)
+    if (angle_rad < 0.0F) {
         angle_rad += ALG_SWERVE_TWO_PI;
+}
     return angle_rad - ALG_SWERVE_PI;
 }
 
@@ -41,8 +43,9 @@ alg_swerve_status_t alg_swerve_configure_rectangular_layout(
     float half_wheelbase_m, float half_track_width_m)
 {
     if ((module_geometry == NULL) || !isfinite(half_wheelbase_m) || (half_wheelbase_m <= 0.0F) ||
-        !isfinite(half_track_width_m) || (half_track_width_m <= 0.0F))
+        !isfinite(half_track_width_m) || (half_track_width_m <= 0.0F)) {
         return ALG_SWERVE_STATUS_INVALID_ARGUMENT;
+}
 
     // ---- 左前（+x, +y） ----
     module_geometry[ALG_SWERVE_MODULE_FRONT_LEFT] = (alg_swerve_module_geometry_t){
@@ -76,15 +79,17 @@ alg_swerve_status_t alg_swerve_init(alg_swerve_t *me,
 {
     size_t i;
     if ((me == NULL) || (module_geometry == NULL) || (module_count == 0U) ||
-        !isfinite(maximum_wheel_velocity_m_per_s) || (maximum_wheel_velocity_m_per_s <= 0.0F))
+        !isfinite(maximum_wheel_velocity_m_per_s) || (maximum_wheel_velocity_m_per_s <= 0.0F)) {
         return ALG_SWERVE_STATUS_INVALID_ARGUMENT;
+}
 
     me->is_initialized = false;
     for (i = 0U; i < module_count; ++i)
     {
         if (!isfinite(module_geometry[i].position_x_m) ||
-            !isfinite(module_geometry[i].position_y_m))
+            !isfinite(module_geometry[i].position_y_m)) {
             return ALG_SWERVE_STATUS_INVALID_ARGUMENT;
+}
     }
     me->module_geometry = module_geometry;
     me->module_count = module_count;
@@ -123,12 +128,15 @@ alg_swerve_status_t alg_swerve_calculate_with_availability(
         !isfinite(command->velocity_x_m_per_s) || !isfinite(command->velocity_y_m_per_s) ||
         !isfinite(command->angular_velocity_rad_per_s) ||
         !isfinite(command->reference_heading_rad) || !isfinite(command->center_of_rotation_x_m) ||
-        !isfinite(command->center_of_rotation_y_m))
+        !isfinite(command->center_of_rotation_y_m)) {
         return ALG_SWERVE_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_SWERVE_STATUS_NOT_INITIALIZED;
-    if (target_capacity < me->module_count)
+}
+    if (target_capacity < me->module_count) {
         return ALG_SWERVE_STATUS_INVALID_ARGUMENT;
+}
 
     // ---- 若命令相对参考航向，则旋转到车体系 ----
     body_vx = command->velocity_x_m_per_s;
@@ -164,20 +172,24 @@ alg_swerve_status_t alg_swerve_calculate_with_availability(
         if (available)
         {
             ++avail_count;
-            if (speed > max_calc_vel)
+            if (speed > max_calc_vel) {
                 max_calc_vel = speed;
+}
         }
     }
 
     // ---- 轮速统一缩放（若超限） ----
-    if (max_calc_vel > me->maximum_wheel_velocity_m_per_s)
+    if (max_calc_vel > me->maximum_wheel_velocity_m_per_s) {
         scale = me->maximum_wheel_velocity_m_per_s / max_calc_vel;
-    for (idx = 0U; idx < me->module_count; ++idx)
+}
+    for (idx = 0U; idx < me->module_count; ++idx) {
         module_targets[idx].wheel_velocity_m_per_s *= scale;
+}
 
     // ---- 返回状态 ----
-    if (avail_count == 0U)
+    if (avail_count == 0U) {
         return ALG_SWERVE_STATUS_INVALID_ARGUMENT;
+}
     return (avail_count < me->module_count) ? ALG_SWERVE_STATUS_DEGRADED : ALG_SWERVE_STATUS_OK;
 }
 
@@ -196,12 +208,15 @@ alg_chassis_status_t alg_swerve_forward(const alg_swerve_t *me,
 
     // ---- 参数检查 ----
     if ((me == NULL) || (measured_module_states == NULL) || (constraint_workspace == NULL) ||
-        (solution == NULL))
+        (solution == NULL)) {
         return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_CHASSIS_STATUS_NOT_INITIALIZED;
-    if (workspace_capacity < (2U * me->module_count))
+}
+    if (workspace_capacity < (2U * me->module_count)) {
         return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
+}
 
     // ---- 逐模块构建约束 ----
     for (idx = 0U; idx < me->module_count; ++idx)
@@ -212,8 +227,9 @@ alg_chassis_status_t alg_swerve_forward(const alg_swerve_t *me,
         const float weight = (odometry_weights == NULL) ? 1.0F : odometry_weights[idx];
 
         if (!isfinite(state->wheel_velocity_m_per_s) || !isfinite(state->steering_angle_rad) ||
-            !isfinite(weight) || (weight <= 0.0F))
+            !isfinite(weight) || (weight <= 0.0F)) {
             return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
+}
 
         // 将轮速分解为 x 和 y 两个约束
         const float vx = state->wheel_velocity_m_per_s * cosf(state->steering_angle_rad);
@@ -255,8 +271,9 @@ alg_swerve_status_t alg_swerve_optimize_target(float current_steering_angle_rad,
 
     if ((module_target == NULL) || !isfinite(current_steering_angle_rad) ||
         !isfinite(module_target->wheel_velocity_m_per_s) ||
-        !isfinite(module_target->steering_angle_rad))
+        !isfinite(module_target->steering_angle_rad)) {
         return ALG_SWERVE_STATUS_INVALID_ARGUMENT;
+}
 
     // ---- 计算误差并回绕到 [-π, π) ----
     angle_error =
@@ -287,12 +304,15 @@ alg_swerve_status_t alg_swerve_calculate_self_lock(const alg_swerve_t *me,
 {
     size_t idx;
 
-    if ((me == NULL) || (module_targets == NULL))
+    if ((me == NULL) || (module_targets == NULL)) {
         return ALG_SWERVE_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_SWERVE_STATUS_NOT_INITIALIZED;
-    if (target_capacity < me->module_count)
+}
+    if (target_capacity < me->module_count) {
         return ALG_SWERVE_STATUS_INVALID_ARGUMENT;
+}
 
     // ---- 每个模块舵角指向车体原点，轮速为零 ----
     for (idx = 0U; idx < me->module_count; ++idx)

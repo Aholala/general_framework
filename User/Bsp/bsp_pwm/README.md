@@ -231,4 +231,12 @@ bsp_pwm_get_frequency(s_servo_ptr, &freq);   // 返回当前频率
 
 ---
 
-**总结**：`bsp_pwm` 提供了简洁、可移植的 PWM 抽象，适用于舵机控制、电机调速、LED 调光等场景。其 tick 值与占空比的双层接口设计兼顾了底层硬件控制和上层应用便利性。配合 `bsp_common`，该模块保持了 BSP 层的一致性和可维护性。
+## 一页式接入顺序与可读信息
+
+1. 平台先配置定时器通道并实现 PWM driver ops。
+2. `bsp_pwm_init()` 绑定 handle、driver ops 和初始频率/脉宽。
+3. 调用 `set_frequency`，再按 ticks 或 `set_duty_cycle` 设置输出。
+4. `bsp_pwm_start()` 开启输出；运行中修改参数要考虑共享定时器的其他通道。
+5. 停机先设置安全占空比，再 stop/deinit。
+
+可读取 `bsp_pwm_get_frequency()`、`bsp_pwm_get_pulse()` 和 `bsp_pwm_get_duty_cycle()`。这些是命令/寄存器状态，不代表舵机角度或电机速度反馈。

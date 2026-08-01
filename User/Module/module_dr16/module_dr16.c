@@ -316,7 +316,7 @@ module_dr16_status_t module_dr16_init(module_dr16_t *const me,
     }
     me->usart = config->usart;
     me->dma_receive_buffer = config->dma_receive_buffer;
-    me->data = (module_dr16_data_t){0};
+    me->data = (module_dr16_process_data_t){0};
     me->frame_callback = config->frame_callback;
     me->user_context = config->user_context;
     (void)memset(me->dma_receive_buffer, 0, MODULE_DR16_DMA_BUFFER_SIZE * 2U);
@@ -505,7 +505,7 @@ void module_dr16_update_time(module_dr16_t *const me, uint32_t elapsed_time_ms)
  * @param me DR16 设备对象
  * @return 数据指针，未初始化返回 NULL
  */
-const module_dr16_data_t *module_dr16_get_data(const module_dr16_t *const me)
+const module_dr16_process_data_t *module_dr16_get_data(const module_dr16_t *const me)
 {
     return ((me != NULL) && module_device_is_initialized(&me->super)) ? &me->data : NULL;
 }

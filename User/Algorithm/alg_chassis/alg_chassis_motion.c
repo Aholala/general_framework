@@ -45,10 +45,12 @@ static bool alg_chassis_velocity_is_valid(const alg_chassis_velocity_t *velocity
 static float alg_chassis_get_velocity_component(const alg_chassis_velocity_t *velocity,
                                                 size_t component_index)
 {
-    if (component_index == 0U)
+    if (component_index == 0U) {
         return velocity->velocity_x_m_per_s;
-    if (component_index == 1U)
+}
+    if (component_index == 1U) {
         return velocity->velocity_y_m_per_s;
+}
     return velocity->angular_velocity_rad_per_s;
 }
 
@@ -61,12 +63,13 @@ static float alg_chassis_get_velocity_component(const alg_chassis_velocity_t *ve
 static void alg_chassis_set_velocity_component(alg_chassis_velocity_t *velocity,
                                                size_t component_index, float value)
 {
-    if (component_index == 0U)
+    if (component_index == 0U) {
         velocity->velocity_x_m_per_s = value;
-    else if (component_index == 1U)
+    } else if (component_index == 1U) {
         velocity->velocity_y_m_per_s = value;
-    else
+    } else {
         velocity->angular_velocity_rad_per_s = value;
+}
 }
 
 /**
@@ -78,10 +81,12 @@ static void alg_chassis_set_velocity_component(alg_chassis_velocity_t *velocity,
 static float alg_chassis_get_constraint_coefficient(const alg_chassis_constraint_t *constraint,
                                                     size_t component_index)
 {
-    if (component_index == 0U)
+    if (component_index == 0U) {
         return constraint->velocity_x_coefficient;
-    if (component_index == 1U)
+}
+    if (component_index == 1U) {
         return constraint->velocity_y_coefficient;
+}
     return constraint->angular_velocity_coefficient_m;
 }
 
@@ -130,10 +135,12 @@ static bool alg_chassis_qr_add_row(float upper_triangular[3][3], float transform
         size_t column_index;
 
         // 检查模长是否有效
-        if (!isfinite(hypotenuse))
+        if (!isfinite(hypotenuse)) {
             return false;
-        if (hypotenuse == 0.0F)
+}
+        if (hypotenuse == 0.0F) {
             continue; // 该列为零，跳过（无需旋转）
+}
 
         // 计算旋转参数：cos = a/h，sin = b/h
         cosine = existing_value / hypotenuse;
@@ -201,8 +208,9 @@ static bool alg_chassis_qr_back_substitute(float upper_triangular[3][3],
 
         // 除以对角线元素
         solution[row_index] = value / upper_triangular[row_index][row_index];
-        if (!isfinite(solution[row_index]))
+        if (!isfinite(solution[row_index])) {
             return false;
+}
     }
     return true;
 }
@@ -255,18 +263,21 @@ alg_chassis_status_t alg_chassis_solve_velocity(const alg_chassis_constraint_t *
 
     // ---- 2. 初始化解结构 ----
     *solution = (alg_chassis_solution_t){0};
-    if (known_velocity != NULL)
+    if (known_velocity != NULL) {
         solution->velocity = *known_velocity;
+}
 
     // ---- 3. 确定未知分量 ----
     for (component_index = 0U; component_index < ALG_CHASSIS_COMPONENT_COUNT; ++component_index)
     {
-        if ((known_component_mask & (1U << component_index)) == 0U)
+        if ((known_component_mask & (1U << component_index)) == 0U) {
             unknown_component_indices[unknown_component_count++] = component_index;
+}
     }
     solution->unknown_component_count = unknown_component_count;
-    if (unknown_component_count == 0U)
+    if (unknown_component_count == 0U) {
         return ALG_CHASSIS_STATUS_OK; // 所有分量已知，无需求解
+}
 
     // ---- 4. 计算列缩放因子（用于数值稳定性） ----
     for (constraint_index = 0U; constraint_index < constraint_count; ++constraint_index)
@@ -274,10 +285,12 @@ alg_chassis_status_t alg_chassis_solve_velocity(const alg_chassis_constraint_t *
         const alg_chassis_constraint_t *constraint = &constraints[constraint_index];
         size_t unknown_index;
 
-        if (!alg_chassis_constraint_is_valid(constraint))
+        if (!alg_chassis_constraint_is_valid(constraint)) {
             return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
-        if (!constraint->is_available || (constraint->weight == 0.0F))
+}
+        if (!constraint->is_available || (constraint->weight == 0.0F)) {
             continue; // 跳过不可用或权重为 0 的约束
+}
 
         // 累加列缩放：weight * coefficient^2
         for (unknown_index = 0U; unknown_index < unknown_component_count; ++unknown_index)
@@ -291,15 +304,17 @@ alg_chassis_status_t alg_chassis_solve_velocity(const alg_chassis_constraint_t *
     solution->used_constraint_count = used_constraint_count;
 
     // ---- 5. 检查是否欠定 ----
-    if (used_constraint_count < unknown_component_count)
+    if (used_constraint_count < unknown_component_count) {
         return ALG_CHASSIS_STATUS_UNDERDETERMINED;
+}
 
     // ---- 6. 归一化列缩放 ----
     for (component_index = 0U; component_index < unknown_component_count; ++component_index)
     {
         column_scales[component_index] = sqrtf(column_scales[component_index]);
-        if (!isfinite(column_scales[component_index]) || (column_scales[component_index] <= 0.0F))
+        if (!isfinite(column_scales[component_index]) || (column_scales[component_index] <= 0.0F)) {
             return ALG_CHASSIS_STATUS_SINGULAR;
+}
     }
 
     // ---- 7. 构建加权最小二乘矩阵（QR 分解） ----
@@ -311,8 +326,9 @@ alg_chassis_status_t alg_chassis_solve_velocity(const alg_chassis_constraint_t *
         float square_root_weight;
         size_t unknown_index;
 
-        if (!constraint->is_available || (constraint->weight == 0.0F))
+        if (!constraint->is_available || (constraint->weight == 0.0F)) {
             continue;
+}
 
         // 调整测量值：减去已知分量的贡献
         adjusted_measurement = constraint->measured_velocity_m_per_s;
@@ -342,14 +358,16 @@ alg_chassis_status_t alg_chassis_solve_velocity(const alg_chassis_constraint_t *
 
         // 添加到 QR 分解
         if (!alg_chassis_qr_add_row(upper_triangular, transformed_vector, weighted_row,
-                                    adjusted_measurement, unknown_component_count))
+                                    adjusted_measurement, unknown_component_count)) {
             return ALG_CHASSIS_STATUS_NUMERICAL_ERROR;
+}
     }
 
     // ---- 8. 回代求解 ----
     if (!alg_chassis_qr_back_substitute(upper_triangular, transformed_vector,
-                                        unknown_component_count, unknown_solution))
+                                        unknown_component_count, unknown_solution)) {
         return ALG_CHASSIS_STATUS_SINGULAR;
+}
 
     // ---- 9. 还原缩放并更新速度 ----
     for (component_index = 0U; component_index < unknown_component_count; ++component_index)
@@ -366,8 +384,9 @@ alg_chassis_status_t alg_chassis_solve_velocity(const alg_chassis_constraint_t *
         float predicted_velocity;
         float residual;
 
-        if (!constraint->is_available || (constraint->weight == 0.0F))
+        if (!constraint->is_available || (constraint->weight == 0.0F)) {
             continue;
+}
 
         // 预测速度 = sum(系数 * 速度分量)
         predicted_velocity =
@@ -385,8 +404,9 @@ alg_chassis_status_t alg_chassis_solve_velocity(const alg_chassis_constraint_t *
 
     // ---- 11. 检查结果有效性 ----
     if (!alg_chassis_velocity_is_valid(&solution->velocity) ||
-        !isfinite(solution->residual_root_mean_square_m_per_s))
+        !isfinite(solution->residual_root_mean_square_m_per_s)) {
         return ALG_CHASSIS_STATUS_NUMERICAL_ERROR;
+}
 
     // ---- 12. 判断是否降级 ----
     solution->is_degraded = used_constraint_count < nominal_constraint_count;
@@ -411,16 +431,18 @@ alg_chassis_status_t alg_chassis_calculate_constraint_residuals(
     // ---- 参数校验 ----
     if ((constraints == NULL) || (constraint_count == 0U) ||
         !alg_chassis_velocity_is_valid(velocity) || (residuals_m_per_s == NULL) ||
-        (residual_capacity < constraint_count))
+        (residual_capacity < constraint_count)) {
         return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
+}
 
     for (constraint_index = 0U; constraint_index < constraint_count; ++constraint_index)
     {
         const alg_chassis_constraint_t *constraint = &constraints[constraint_index];
         float predicted_velocity;
 
-        if (!alg_chassis_constraint_is_valid(constraint))
+        if (!alg_chassis_constraint_is_valid(constraint)) {
             return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
+}
 
         // 不可用或权重为零的约束残差置零
         if (!constraint->is_available || (constraint->weight == 0.0F))
@@ -438,8 +460,9 @@ alg_chassis_status_t alg_chassis_calculate_constraint_residuals(
         // 残差 = 预测 - 测量
         residuals_m_per_s[constraint_index] =
             predicted_velocity - constraint->measured_velocity_m_per_s;
-        if (!isfinite(residuals_m_per_s[constraint_index]))
+        if (!isfinite(residuals_m_per_s[constraint_index])) {
             return ALG_CHASSIS_STATUS_NUMERICAL_ERROR;
+}
     }
     return ALG_CHASSIS_STATUS_OK;
 }
@@ -463,8 +486,9 @@ alg_chassis_transform_reference_to_body(const alg_chassis_velocity_t *reference_
     float heading_sine;
 
     if (!alg_chassis_velocity_is_valid(reference_velocity) || !isfinite(reference_heading_rad) ||
-        (body_velocity == NULL))
+        (body_velocity == NULL)) {
         return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
+}
 
     heading_cosine = cosf(reference_heading_rad);
     heading_sine = sinf(reference_heading_rad);
@@ -497,8 +521,9 @@ alg_chassis_status_t alg_chassis_convert_center_velocity_to_origin(
     float center_of_rotation_y_m, alg_chassis_velocity_t *origin_velocity)
 {
     if (!alg_chassis_velocity_is_valid(center_velocity) || !isfinite(center_of_rotation_x_m) ||
-        !isfinite(center_of_rotation_y_m) || (origin_velocity == NULL))
+        !isfinite(center_of_rotation_y_m) || (origin_velocity == NULL)) {
         return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
+}
 
     // v_origin = v_center + w × (-r_center)
     // 其中 r_center 是旋转中心相对原点的位置
@@ -538,15 +563,17 @@ alg_chassis_status_t alg_chassis_scale_wheel_velocities(float *wheel_velocities,
 
     // ---- 参数校验 ----
     if ((wheel_velocities == NULL) || (wheel_count == 0U) || !isfinite(maximum_absolute_velocity) ||
-        (maximum_absolute_velocity <= 0.0F))
+        (maximum_absolute_velocity <= 0.0F)) {
         return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
+}
 
     // ---- 1. 计算最大轮速 ----
     for (wheel_index = 0U; wheel_index < wheel_count; ++wheel_index)
     {
         const bool is_available = (wheel_is_available == NULL) || wheel_is_available[wheel_index];
-        if (!isfinite(wheel_velocities[wheel_index]))
+        if (!isfinite(wheel_velocities[wheel_index])) {
             return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
+}
 
         if (!is_available)
         {
@@ -554,23 +581,28 @@ alg_chassis_status_t alg_chassis_scale_wheel_velocities(float *wheel_velocities,
             continue;
         }
         ++available_wheel_count;
-        if (fabsf(wheel_velocities[wheel_index]) > maximum_calculated_velocity)
+        if (fabsf(wheel_velocities[wheel_index]) > maximum_calculated_velocity) {
             maximum_calculated_velocity = fabsf(wheel_velocities[wheel_index]);
+}
     }
-    if (available_wheel_count == 0U)
+    if (available_wheel_count == 0U) {
         return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
+}
 
     // ---- 2. 计算缩放系数 ----
     // 如果最大轮速超过限制，统一缩小所有轮速
-    if (maximum_calculated_velocity > maximum_absolute_velocity)
+    if (maximum_calculated_velocity > maximum_absolute_velocity) {
         scale = maximum_absolute_velocity / maximum_calculated_velocity;
+}
 
     // ---- 3. 应用缩放 ----
-    for (wheel_index = 0U; wheel_index < wheel_count; ++wheel_index)
+    for (wheel_index = 0U; wheel_index < wheel_count; ++wheel_index) {
         wheel_velocities[wheel_index] *= scale;
+}
 
-    if (applied_scale != NULL)
+    if (applied_scale != NULL) {
         *applied_scale = scale;
+}
 
     // 有轮子不可用 → 降级
     return (available_wheel_count < wheel_count) ? ALG_CHASSIS_STATUS_DEGRADED
@@ -604,8 +636,9 @@ alg_chassis_integrate_odometry(alg_chassis_pose_t *me, const alg_chassis_velocit
     if ((me == NULL) || !alg_chassis_velocity_is_valid(body_velocity) ||
         !isfinite(me->position_x_m) || !isfinite(me->position_y_m) || !isfinite(me->heading_rad) ||
         !isfinite(delta_time_s) || (delta_time_s <= 0.0F) ||
-        (integration_method > ALG_CHASSIS_INTEGRATION_EXACT))
+        (integration_method > ALG_CHASSIS_INTEGRATION_EXACT)) {
         return ALG_CHASSIS_STATUS_INVALID_ARGUMENT;
+}
 
     // ---- 1. 计算航向变化 ----
     heading_change_rad = body_velocity->angular_velocity_rad_per_s * delta_time_s;

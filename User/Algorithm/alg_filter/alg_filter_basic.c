@@ -38,8 +38,9 @@ static bool alg_filter_basic_is_positive_finite(float value)
  */
 alg_filter_status_t alg_filter_low_pass_init(alg_filter_low_pass_t *me, float cutoff_frequency_hz)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
+}
 
     // 先标记为未初始化，防止中途失败留下半成品
     me->is_initialized = false;
@@ -47,8 +48,9 @@ alg_filter_status_t alg_filter_low_pass_init(alg_filter_low_pass_t *me, float cu
     me->output = 0.0F;
 
     // 校验截止频率
-    if (!alg_filter_basic_is_positive_finite(cutoff_frequency_hz))
+    if (!alg_filter_basic_is_positive_finite(cutoff_frequency_hz)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     me->cutoff_frequency_hz = cutoff_frequency_hz;
     me->is_initialized = true;
@@ -64,12 +66,15 @@ alg_filter_status_t alg_filter_low_pass_init(alg_filter_low_pass_t *me, float cu
 alg_filter_status_t alg_filter_low_pass_set_cutoff(alg_filter_low_pass_t *me,
                                                    float cutoff_frequency_hz)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
-    if (!alg_filter_basic_is_positive_finite(cutoff_frequency_hz))
+}
+    if (!alg_filter_basic_is_positive_finite(cutoff_frequency_hz)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     me->cutoff_frequency_hz = cutoff_frequency_hz;
     return ALG_FILTER_STATUS_OK;
@@ -83,12 +88,15 @@ alg_filter_status_t alg_filter_low_pass_set_cutoff(alg_filter_low_pass_t *me,
  */
 alg_filter_status_t alg_filter_low_pass_reset(alg_filter_low_pass_t *me, float initial_output)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
-    if (!isfinite(initial_output))
+}
+    if (!isfinite(initial_output)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     me->output = initial_output;
     me->has_previous_sample = true;
@@ -112,12 +120,15 @@ alg_filter_status_t alg_filter_low_pass_update(alg_filter_low_pass_t *me, float 
     float time_constant_s;
     float smoothing_factor;
 
-    if ((me == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL)) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
-    if (!isfinite(input) || !alg_filter_basic_is_positive_finite(delta_time_s))
+}
+    if (!isfinite(input) || !alg_filter_basic_is_positive_finite(delta_time_s)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     // 首次采样：直接赋值
     if (!me->has_previous_sample)
@@ -135,8 +146,9 @@ alg_filter_status_t alg_filter_low_pass_update(alg_filter_low_pass_t *me, float 
         me->output += smoothing_factor * (input - me->output);
     }
 
-    if (!isfinite(me->output))
+    if (!isfinite(me->output)) {
         return ALG_FILTER_STATUS_NUMERICAL_ERROR;
+}
 
     *output = me->output;
     return ALG_FILTER_STATUS_OK;
@@ -152,16 +164,18 @@ alg_filter_status_t alg_filter_low_pass_update(alg_filter_low_pass_t *me, float 
  */
 alg_filter_status_t alg_filter_high_pass_init(alg_filter_high_pass_t *me, float cutoff_frequency_hz)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
+}
 
     me->is_initialized = false;
     me->has_previous_sample = false;
     me->previous_input = 0.0F;
     me->output = 0.0F;
 
-    if (!alg_filter_basic_is_positive_finite(cutoff_frequency_hz))
+    if (!alg_filter_basic_is_positive_finite(cutoff_frequency_hz)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     me->cutoff_frequency_hz = cutoff_frequency_hz;
     me->is_initialized = true;
@@ -174,12 +188,15 @@ alg_filter_status_t alg_filter_high_pass_init(alg_filter_high_pass_t *me, float 
 alg_filter_status_t alg_filter_high_pass_set_cutoff(alg_filter_high_pass_t *me,
                                                     float cutoff_frequency_hz)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
-    if (!alg_filter_basic_is_positive_finite(cutoff_frequency_hz))
+}
+    if (!alg_filter_basic_is_positive_finite(cutoff_frequency_hz)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     me->cutoff_frequency_hz = cutoff_frequency_hz;
     return ALG_FILTER_STATUS_OK;
@@ -193,12 +210,15 @@ alg_filter_status_t alg_filter_high_pass_set_cutoff(alg_filter_high_pass_t *me,
  */
 alg_filter_status_t alg_filter_high_pass_reset(alg_filter_high_pass_t *me, float initial_input)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
-    if (!isfinite(initial_input))
+}
+    if (!isfinite(initial_input)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     me->previous_input = initial_input;
     me->output = 0.0F;
@@ -223,12 +243,15 @@ alg_filter_status_t alg_filter_high_pass_update(alg_filter_high_pass_t *me, floa
     float time_constant_s;
     float smoothing_factor;
 
-    if ((me == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL)) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
-    if (!isfinite(input) || !alg_filter_basic_is_positive_finite(delta_time_s))
+}
+    if (!isfinite(input) || !alg_filter_basic_is_positive_finite(delta_time_s)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     // 首次采样：输出 0，记录输入
     if (!me->has_previous_sample)
@@ -247,8 +270,9 @@ alg_filter_status_t alg_filter_high_pass_update(alg_filter_high_pass_t *me, floa
         me->previous_input = input;
     }
 
-    if (!isfinite(me->output))
+    if (!isfinite(me->output)) {
         return ALG_FILTER_STATUS_NUMERICAL_ERROR;
+}
 
     *output = me->output;
     return ALG_FILTER_STATUS_OK;
@@ -266,15 +290,17 @@ alg_filter_status_t alg_filter_high_pass_update(alg_filter_high_pass_t *me, floa
 alg_filter_status_t alg_filter_exponential_init(alg_filter_exponential_t *me,
                                                 float smoothing_factor)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
+}
 
     me->is_initialized = false;
     me->has_previous_sample = false;
     me->output = 0.0F;
 
-    if (!isfinite(smoothing_factor) || (smoothing_factor <= 0.0F) || (smoothing_factor > 1.0F))
+    if (!isfinite(smoothing_factor) || (smoothing_factor <= 0.0F) || (smoothing_factor > 1.0F)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     me->smoothing_factor = smoothing_factor;
     me->is_initialized = true;
@@ -287,12 +313,15 @@ alg_filter_status_t alg_filter_exponential_init(alg_filter_exponential_t *me,
 alg_filter_status_t alg_filter_exponential_set_factor(alg_filter_exponential_t *me,
                                                       float smoothing_factor)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
-    if (!isfinite(smoothing_factor) || (smoothing_factor <= 0.0F) || (smoothing_factor > 1.0F))
+}
+    if (!isfinite(smoothing_factor) || (smoothing_factor <= 0.0F) || (smoothing_factor > 1.0F)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     me->smoothing_factor = smoothing_factor;
     return ALG_FILTER_STATUS_OK;
@@ -306,12 +335,15 @@ alg_filter_status_t alg_filter_exponential_set_factor(alg_filter_exponential_t *
  */
 alg_filter_status_t alg_filter_exponential_reset(alg_filter_exponential_t *me, float initial_output)
 {
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
-    if (!isfinite(initial_output))
+}
+    if (!isfinite(initial_output)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     me->output = initial_output;
     me->has_previous_sample = true;
@@ -330,12 +362,15 @@ alg_filter_status_t alg_filter_exponential_reset(alg_filter_exponential_t *me, f
 alg_filter_status_t alg_filter_exponential_update(alg_filter_exponential_t *me, float input,
                                                   float *output)
 {
-    if ((me == NULL) || (output == NULL))
+    if ((me == NULL) || (output == NULL)) {
         return ALG_FILTER_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_FILTER_STATUS_NOT_INITIALIZED;
-    if (!isfinite(input))
+}
+    if (!isfinite(input)) {
         return ALG_FILTER_STATUS_OUT_OF_RANGE;
+}
 
     // 首次采样：直接赋值
     if (!me->has_previous_sample)
@@ -349,8 +384,9 @@ alg_filter_status_t alg_filter_exponential_update(alg_filter_exponential_t *me, 
         me->output += me->smoothing_factor * (input - me->output);
     }
 
-    if (!isfinite(me->output))
+    if (!isfinite(me->output)) {
         return ALG_FILTER_STATUS_NUMERICAL_ERROR;
+}
 
     *output = me->output;
     return ALG_FILTER_STATUS_OK;

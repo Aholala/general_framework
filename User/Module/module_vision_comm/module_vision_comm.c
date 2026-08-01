@@ -275,7 +275,7 @@ module_vision_comm_status_t module_vision_comm_feed_data(module_vision_comm_t *c
  * @note 若从未收到有效帧，返回 NO_DATA
  */
 module_vision_comm_status_t module_vision_comm_get_data(const module_vision_comm_t *const me,
-                                              module_vision_comm_data_t *const received_data)
+                                              module_vision_comm_process_data_t *const received_data)
 {
     // 参数校验
     if ((me == NULL) || (received_data == NULL))

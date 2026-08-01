@@ -268,4 +268,12 @@ bsp_dac_stop(s_dac_ptr);
 
 ---
 
-**总结**：`bsp_dac` 为硬件 DAC 提供了统一、安全的抽象接口，支持静态电压控制和 DMA 波形生成。应用层只需关注业务逻辑，底层细节由平台驱动封装。结合 `bsp_common`，它保持了 BSP 层的一致性和可移植性，特别适合需要高精度模拟输出的嵌入式系统（如电机控制、音频播放、可编程电源等）。
+## 一页式接入顺序与可读信息
+
+1. 平台配置 DAC 通道/DMA，提供参考电压和分辨率对应的 driver ops。
+2. `bsp_dac_init()` 后按需要注册异步 callback。
+3. 先用 `set_raw/set_normalized/set_voltage` 设置安全初值，再 start。
+4. 连续波形使用调用者提供的 sample buffer 调用 `start_dma()`。
+5. ISR 调用 `bsp_dac_notify()`；停机按 `stop_dma → 安全输出 → stop → deinit`。
+
+`bsp_dac_get_raw()` 可读取当前命令原始值；归一化/电压是写入接口，不代表外部实际模拟电压。DMA buffer 在传输结束前必须保持有效。

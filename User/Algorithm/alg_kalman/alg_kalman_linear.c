@@ -32,22 +32,26 @@ alg_kalman_linear_validate_config(const alg_kalman_linear_config_t *config)
     if ((config == NULL) || (config->state == NULL) || (config->covariance == NULL) ||
         (config->transition_matrix == NULL) || (config->process_noise == NULL) ||
         (config->measurement_matrix == NULL) || (config->measurement_noise == NULL) ||
-        (config->workspace == NULL))
+        (config->workspace == NULL)) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
+}
 
     // ---- 维度检查 ----
-    if ((config->state_dimension == 0U) || (config->measurement_dimension == 0U))
+    if ((config->state_dimension == 0U) || (config->measurement_dimension == 0U)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 控制矩阵检查 ----
-    if ((config->control_dimension > 0U) && (config->control_matrix == NULL))
+    if ((config->control_dimension > 0U) && (config->control_matrix == NULL)) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
+}
 
     // ---- 工作区大小检查 ----
     required_workspace =
         ALG_KALMAN_WORKSPACE_SIZE(config->state_dimension, config->measurement_dimension);
-    if (config->workspace_size < required_workspace)
+    if (config->workspace_size < required_workspace) {
         return ALG_KALMAN_STATUS_INSUFFICIENT_WORKSPACE;
+}
 
     // ---- 矩阵内容检查 ----
     state_square = config->state_dimension * config->state_dimension;
@@ -65,13 +69,15 @@ alg_kalman_linear_validate_config(const alg_kalman_linear_config_t *config)
         !alg_kalman_internal_has_nonnegative_diagonal(config->process_noise,
                                                       config->state_dimension) ||
         !alg_kalman_internal_has_nonnegative_diagonal(config->measurement_noise,
-                                                      config->measurement_dimension))
+                                                      config->measurement_dimension)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     if ((config->control_dimension > 0U) &&
         !alg_kalman_internal_is_finite_array(config->control_matrix,
-                                             config->state_dimension * config->control_dimension))
+                                             config->state_dimension * config->control_dimension)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     return ALG_KALMAN_STATUS_OK;
 }
@@ -87,14 +93,16 @@ alg_kalman_status_t alg_kalman_linear_init(alg_kalman_linear_t *me,
 {
     alg_kalman_status_t status;
 
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
+}
 
     me->is_initialized = false;
 
     status = alg_kalman_linear_validate_config(config);
-    if (status != ALG_KALMAN_STATUS_OK)
+    if (status != ALG_KALMAN_STATUS_OK) {
         return status;
+}
 
     me->config = *config;
     alg_kalman_internal_symmetrize(me->config.covariance, me->config.state_dimension);
@@ -115,17 +123,20 @@ alg_kalman_status_t alg_kalman_linear_reset(alg_kalman_linear_t *me, const float
 {
     size_t state_square;
 
-    if ((me == NULL) || (initial_state == NULL) || (initial_covariance == NULL))
+    if ((me == NULL) || (initial_state == NULL) || (initial_covariance == NULL)) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
+}
 
     state_square = me->config.state_dimension * me->config.state_dimension;
     if (!alg_kalman_internal_is_finite_array(initial_state, me->config.state_dimension) ||
         !alg_kalman_internal_is_finite_array(initial_covariance, state_square) ||
         !alg_kalman_internal_has_nonnegative_diagonal(initial_covariance,
-                                                      me->config.state_dimension))
+                                                      me->config.state_dimension)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     alg_kalman_internal_copy(me->config.state, initial_state, me->config.state_dimension);
     alg_kalman_internal_copy(me->config.covariance, initial_covariance, state_square);
@@ -152,19 +163,23 @@ alg_kalman_status_t alg_kalman_linear_predict(alg_kalman_linear_t *me, const flo
     float *temporary_covariance;
     float *predicted_covariance;
 
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
+}
 
     config = &me->config;
 
     // 控制输入检查
-    if ((config->control_dimension > 0U) && (control_input == NULL))
+    if ((config->control_dimension > 0U) && (control_input == NULL)) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
+}
     if ((config->control_dimension > 0U) &&
-        !alg_kalman_internal_is_finite_array(control_input, config->control_dimension))
+        !alg_kalman_internal_is_finite_array(control_input, config->control_dimension)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     state_square = config->state_dimension * config->state_dimension;
     predicted_state = config->workspace;
@@ -198,15 +213,17 @@ alg_kalman_status_t alg_kalman_linear_predict(alg_kalman_linear_t *me, const flo
                                                  config->state_dimension, config->transition_matrix,
                                                  config->state_dimension, predicted_covariance);
 
-    for (state_index = 0U; state_index < state_square; ++state_index)
+    for (state_index = 0U; state_index < state_square; ++state_index) {
         predicted_covariance[state_index] += config->process_noise[state_index];
+}
 
     alg_kalman_internal_symmetrize(predicted_covariance, config->state_dimension);
 
     // ---- 检查结果有效性 ----
     if (!alg_kalman_internal_is_finite_array(predicted_state, config->state_dimension) ||
-        !alg_kalman_internal_is_finite_array(predicted_covariance, state_square))
+        !alg_kalman_internal_is_finite_array(predicted_covariance, state_square)) {
         return ALG_KALMAN_STATUS_NUMERICAL_ERROR;
+}
 
     // ---- 提交更新 ----
     alg_kalman_internal_copy(config->state, predicted_state, config->state_dimension);
@@ -227,14 +244,17 @@ alg_kalman_status_t alg_kalman_linear_correct(alg_kalman_linear_t *me, const flo
     const alg_kalman_linear_config_t *config;
     float *predicted_measurement;
 
-    if ((me == NULL) || (measurement == NULL))
+    if ((me == NULL) || (measurement == NULL)) {
         return ALG_KALMAN_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_KALMAN_STATUS_NOT_INITIALIZED;
+}
 
     config = &me->config;
-    if (!alg_kalman_internal_is_finite_array(measurement, config->measurement_dimension))
+    if (!alg_kalman_internal_is_finite_array(measurement, config->measurement_dimension)) {
         return ALG_KALMAN_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 计算预测测量值 z_pred = H*x ----
     predicted_measurement = config->workspace;

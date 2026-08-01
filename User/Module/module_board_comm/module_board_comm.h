@@ -72,7 +72,7 @@ extern "C"
         float pitch_velocity_rad_per_s; // 俯仰角速度（rad/s）
         bool imu_valid;                 // IMU 数据是否有效
         bool motors_online;             // 电机是否在线
-    } module_board_comm_gimbal_data_t;
+    } module_board_comm_gimbal_process_data_t;
 
     /**
      * @brief 底盘数据
@@ -84,7 +84,7 @@ extern "C"
         float angular_velocity_rad_per_s; // 角速度（rad/s）
         bool motors_online;               // 电机是否在线
         bool self_lock_active;            // 自锁是否激活
-    } module_board_comm_chassis_data_t;
+    } module_board_comm_chassis_process_data_t;
 
     /**
      * @brief 发射机构数据
@@ -95,7 +95,7 @@ extern "C"
         float feeder_position_rad;         // 拨弹盘位置（弧度）
         uint8_t state;                     // 发射机构状态
         uint8_t jam_retry_count;           // 卡弹重试次数
-    } module_board_comm_shooter_data_t;
+    } module_board_comm_shooter_process_data_t;
 
     /* ======================== 配置结构体 ======================== */
 
@@ -121,12 +121,12 @@ extern "C"
         uint32_t base_identifier;                       // CAN ID 基址
         uint32_t transmit_timeout_ms;                   // 发送超时
         uint32_t offline_timeout_ms;                    // 离线超时
-        module_dr16_data_t remote_data;                 // 遥控器已提交数据（供外部读取）
-        module_dr16_data_t remote_staging;              // 遥控器暂存数据（分片组装中）
-        module_board_comm_gimbal_data_t gimbal_data;    // 云台已提交数据
-        module_board_comm_gimbal_data_t gimbal_staging; // 云台暂存数据
-        module_board_comm_chassis_data_t chassis_data;  // 底盘数据（单帧）
-        module_board_comm_shooter_data_t shooter_data;  // 发射机构数据（单帧）
+        module_dr16_process_data_t remote_data;                 // 遥控器已提交数据（供外部读取）
+        module_dr16_process_data_t remote_staging;              // 遥控器暂存数据（分片组装中）
+        module_board_comm_gimbal_process_data_t gimbal_data;    // 云台已提交数据
+        module_board_comm_gimbal_process_data_t gimbal_staging; // 云台暂存数据
+        module_board_comm_chassis_process_data_t chassis_data;  // 底盘数据（单帧）
+        module_board_comm_shooter_process_data_t shooter_data;  // 发射机构数据（单帧）
         uint32_t remote_elapsed_time_ms;                // 遥控器距上次接收的时间（ms）
         uint32_t gimbal_elapsed_time_ms;                // 云台距上次接收的时间（ms）
         uint32_t chassis_elapsed_time_ms;               // 底盘距上次接收的时间（ms）
@@ -161,7 +161,7 @@ extern "C"
      * @return 执行状态
      */
     module_board_comm_status_t module_board_comm_send_remote(module_board_comm_t *me,
-                                                             const module_dr16_data_t *remote_data);
+                                                             const module_dr16_process_data_t *remote_data);
 
     /**
      * @brief 发送云台数据（两帧分片）
@@ -171,7 +171,7 @@ extern "C"
      */
     module_board_comm_status_t
     module_board_comm_send_gimbal(module_board_comm_t *me,
-                                  const module_board_comm_gimbal_data_t *gimbal_data);
+                                  const module_board_comm_gimbal_process_data_t *gimbal_data);
 
     /**
      * @brief 发送底盘数据（单帧）
@@ -181,7 +181,7 @@ extern "C"
      */
     module_board_comm_status_t
     module_board_comm_send_chassis(module_board_comm_t *me,
-                                   const module_board_comm_chassis_data_t *chassis_data);
+                                   const module_board_comm_chassis_process_data_t *chassis_data);
 
     /**
      * @brief 发送发射机构数据（单帧）
@@ -191,7 +191,7 @@ extern "C"
      */
     module_board_comm_status_t
     module_board_comm_send_shooter(module_board_comm_t *me,
-                                   const module_board_comm_shooter_data_t *shooter_data);
+                                   const module_board_comm_shooter_process_data_t *shooter_data);
 
     /**
      * @brief 发送心跳帧
@@ -225,14 +225,14 @@ extern "C"
      * @param me Robot Link 对象
      * @return 遥控器数据指针，若离线则返回 NULL
      */
-    const module_dr16_data_t *module_board_comm_get_remote(const module_board_comm_t *me);
+    const module_dr16_process_data_t *module_board_comm_get_remote(const module_board_comm_t *me);
 
     /**
      * @brief 获取云台数据（只读）
      * @param me Robot Link 对象
      * @return 云台数据指针，若离线则返回 NULL
      */
-    const module_board_comm_gimbal_data_t *
+    const module_board_comm_gimbal_process_data_t *
     module_board_comm_get_gimbal(const module_board_comm_t *me);
 
     /**
@@ -240,7 +240,7 @@ extern "C"
      * @param me Robot Link 对象
      * @return 底盘数据指针，若离线则返回 NULL
      */
-    const module_board_comm_chassis_data_t *
+    const module_board_comm_chassis_process_data_t *
     module_board_comm_get_chassis(const module_board_comm_t *me);
 
     /**
@@ -248,7 +248,7 @@ extern "C"
      * @param me Robot Link 对象
      * @return 发射机构数据指针，若离线则返回 NULL
      */
-    const module_board_comm_shooter_data_t *
+    const module_board_comm_shooter_process_data_t *
     module_board_comm_get_shooter(const module_board_comm_t *me);
 
 #ifdef __cplusplus

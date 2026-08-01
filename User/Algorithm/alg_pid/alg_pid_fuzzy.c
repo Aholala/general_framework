@@ -20,11 +20,14 @@
 static bool alg_pid_fuzzy_is_finite_table(const float *table, size_t element_count)
 {
     size_t i;
-    if (table == NULL)
+    if (table == NULL) {
         return false;
-    for (i = 0U; i < element_count; ++i)
-        if (!isfinite(table[i]))
+}
+    for (i = 0U; i < element_count; ++i) {
+        if (!isfinite(table[i])) {
             return false;
+}
+}
     return true;
 }
 
@@ -44,10 +47,12 @@ static float alg_pid_fuzzy_interpolate_table(const float *table, size_t axis_poi
     float lower, upper;
 
     // 边界修正
-    if (e_low >= (axis_point_count - 1U))
+    if (e_low >= (axis_point_count - 1U)) {
         e_low = axis_point_count - 1U;
-    if (r_low >= (axis_point_count - 1U))
+}
+    if (r_low >= (axis_point_count - 1U)) {
         r_low = axis_point_count - 1U;
+}
     e_high = (e_low + 1U < axis_point_count) ? e_low + 1U : e_low;
     r_high = (r_low + 1U < axis_point_count) ? r_low + 1U : r_low;
     e_frac = ec - (float)e_low;
@@ -71,26 +76,31 @@ alg_pid_status_t alg_pid_fuzzy_init(alg_pid_fuzzy_t *me, const alg_pid_fuzzy_con
     size_t table_size;
     alg_pid_status_t status;
 
-    if ((me == NULL) || (config == NULL))
+    if ((me == NULL) || (config == NULL)) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
+}
 
     me->is_initialized = false;
     if ((config->axis_point_count < 2U) || !isfinite(config->error_normalization) ||
         !isfinite(config->error_rate_normalization) || (config->error_normalization <= 0.0F) ||
-        (config->error_rate_normalization <= 0.0F))
+        (config->error_rate_normalization <= 0.0F)) {
         return ALG_PID_STATUS_OUT_OF_RANGE;
+}
 
-    if (config->axis_point_count > (SIZE_MAX / config->axis_point_count))
+    if (config->axis_point_count > (SIZE_MAX / config->axis_point_count)) {
         return ALG_PID_STATUS_OUT_OF_RANGE;
+}
     table_size = config->axis_point_count * config->axis_point_count;
     if (!alg_pid_fuzzy_is_finite_table(config->proportional_adjustment_table, table_size) ||
         !alg_pid_fuzzy_is_finite_table(config->integral_adjustment_table, table_size) ||
-        !alg_pid_fuzzy_is_finite_table(config->derivative_adjustment_table, table_size))
+        !alg_pid_fuzzy_is_finite_table(config->derivative_adjustment_table, table_size)) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
+}
 
     status = alg_pid_init(&me->controller, &config->base_config);
-    if (status != ALG_PID_STATUS_OK)
+    if (status != ALG_PID_STATUS_OK) {
         return status;
+}
 
     me->config = *config;
     me->previous_error = 0.0F;
@@ -106,10 +116,12 @@ alg_pid_status_t alg_pid_fuzzy_reset(alg_pid_fuzzy_t *me, float measurement, flo
 {
     alg_pid_status_t status;
 
-    if (me == NULL)
+    if (me == NULL) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_PID_STATUS_NOT_INITIALIZED;
+}
 
     status = alg_pid_reset(&me->controller, measurement, initial_output);
     if (status == ALG_PID_STATUS_OK)
@@ -131,13 +143,16 @@ alg_pid_status_t alg_pid_fuzzy_update(alg_pid_fuzzy_t *me, const alg_pid_input_t
     alg_pid_status_t status;
 
     // ---- 参数检查 ----
-    if ((me == NULL) || (input == NULL) || (output == NULL))
+    if ((me == NULL) || (input == NULL) || (output == NULL)) {
         return ALG_PID_STATUS_INVALID_ARGUMENT;
-    if (!me->is_initialized)
+}
+    if (!me->is_initialized) {
         return ALG_PID_STATUS_NOT_INITIALIZED;
+}
     if (!isfinite(input->setpoint) || !isfinite(input->measurement) ||
-        !isfinite(input->delta_time_s) || (input->delta_time_s <= 0.0F))
+        !isfinite(input->delta_time_s) || (input->delta_time_s <= 0.0F)) {
         return ALG_PID_STATUS_OUT_OF_RANGE;
+}
 
     // ---- 计算误差和误差变化率 ----
     error = input->setpoint - input->measurement;

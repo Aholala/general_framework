@@ -226,4 +226,18 @@ void control_loop(float dt) {
 
 ---
 
-**总结**：`alg_trajectory` 提供了轻量级、高性能的一维轨迹生成及多轴同步能力，适用于各种运动控制场景（云台、底盘、机械臂等）。其零动态内存、纯 C11 的实现和丰富的规划选项，使其成为嵌入式实时运动控制的理想基础模块。
+## 一页式使用顺序与可读信息
+
+1. 填写 `alg_trajectory_config_t` 的速度、加速度、减速度和 jerk 限制。
+2. 用初始 `alg_trajectory_state_t` 和剖面类型调用 `alg_trajectory_init()`。
+3. 调用 `set_position_target()` 或 `set_velocity_target()`，一次只选择一种目标语义。
+4. 每个固定周期调用 `alg_trajectory_update()`，把返回状态作为控制器设定值。
+5. 用 `alg_trajectory_is_finished()` 判断完成；模式切换时 reset。多轴同步使用 group 的 `init → set_target → update`。
+
+| 可读取结构体             | 主要信息                                         |
+| ------------------------ | ------------------------------------------------ |
+| `alg_trajectory_state_t` | 当前规划位置、速度和加速度                       |
+| `alg_trajectory_t`       | 目标、阶段、方向、当前状态和完成标志；仅调试读取 |
+| `alg_trajectory_group_t` | 多轴对象数组、轴数和同步状态                     |
+
+轨迹输出是设定值，不是执行器反馈；到达目标必须同时结合传感器误差和执行器状态判断。

@@ -233,4 +233,19 @@ ret = alg_omni_forward(&chassis, measured_omega, available,
 
 ---
 
-**总结**：`alg_omni` 提供了极高灵活性的全向轮运动学解决方案，不限于特定轮数或布局，可适应各种异构底盘。其轻量级、无动态内存的实现使其成为嵌入式实时控制的理想选择。配合 `alg_chassis_motion` 的通用求解器，可实现可靠的正逆运动学及故障容错。
+## 一页式使用顺序与可读信息
+
+1. 为每个轮子填写 `alg_omni_wheel_config_t`：位置、驱动方向、轮半径和权重；规则布局可先用 tangential helper 生成。
+2. 调用 `alg_omni_init()` 绑定轮配置、轮数和最大轮角速度。
+3. 控制方向调用 `alg_omni_inverse()`；偏置旋转中心使用 `inverse_with_center_of_rotation()`。
+4. 把目标交给电机，并采集实际轮速和轮可用性。
+5. 调用 `alg_omni_forward()` 读取 `alg_chassis_solution_t`，用于里程计和轮故障残差。
+
+| 可读取结构体                | 主要信息                               |
+| --------------------------- | -------------------------------------- |
+| `alg_omni_wheel_config_t[]` | 每轮几何、驱动方向、半径和权重         |
+| `alg_omni_t`                | 轮配置引用、轮数、约束工作区和轮速上限 |
+| 轮角速度数组                | 逆解输出或正解输入                     |
+| `alg_chassis_solution_t`    | 车体速度、残差和降级状态               |
+
+配置数组由对象长期引用，初始化后不能释放或在运行中无同步地改写。

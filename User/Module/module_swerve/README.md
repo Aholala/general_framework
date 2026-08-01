@@ -181,3 +181,32 @@ module_swerve_disable(&s_wheel_front_left);
 ---
 
 **总结**：`module_swerve` 提供了完整的舵轮执行控制，将运动学目标安全可靠地转换为电机控制指令。它通过 `module_motor` 基类与具体电机解耦，通过 `alg_swerve` 与运动学算法解耦，职责清晰。配合 `alg_swerve` 运动学库和底盘控制器，可构建完整的舵轮机器人运动控制系统。
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 驱动和舵向电机必须先初始化、注册，并具有有效反馈。 */
+static module_swerve_t wheel_module;
+
+/* 2. 注入两个 module_motor_t、轮半径、减速比和舵向零偏。 */
+module_swerve_status_t status = module_swerve_init(&wheel_module, &swerve_config);
+
+/* 3. 电机在线后使能舵轮。 */
+status = module_swerve_enable(&wheel_module);
+
+/* 4. 先由 alg_swerve 计算 module target，再交给执行模块。 */
+alg_swerve_module_target_t target;
+/* alg_swerve_inverse(..., &target); */
+status = module_swerve_apply_target(&wheel_module, &target, delta_time_s);
+
+/* 5. 每个控制周期更新两个电机；停机调用 disable。 */
+```
+
+| 可读取信息 | 推荐读取方式 | 说明 |
+| --- | --- | --- |
+| 当前舵向角 | `module_swerve_get_steering_angle(me, &angle)` | 已扣除配置零偏后的机械角度 |
+| 运动学目标 | `alg_swerve_module_target_t` | 目标轮速、舵角及优化后的方向 |
+| 两个电机反馈 | `module_motor_get_feedback()` | 驱动速度、舵向位置、温度、在线状态 |
+| `module_swerve_t` | 调试器只读查看 | 配置引用和最近执行状态，不应由 App 直接改写 |
+
+调用顺序必须是“运动学解算 → `module_swerve_apply_target`”，不要让本模块承担底盘整体运动学。

@@ -239,4 +239,19 @@ alg_chassis_integrate_odometry(&pose, &body_vel, 0.01F, ALG_CHASSIS_INTEGRATION_
 
 ---
 
-**总结**：`alg_chassis_motion` 提供麦轮、全向轮和舵轮共用的底盘运动计算，`alg_chassis_wheel_monitor` 提供基于残差的车轮状态监测。其无动态内存设计适合嵌入式实时控制系统。
+## 一页式使用顺序与可读信息
+
+1. 各运动学模块先把轮速转换成 `alg_chassis_constraint_t[]`，并给出可用轮标志。
+2. 调用 `alg_chassis_solve_velocity()` 得到 `alg_chassis_solution_t`；约束不足时检查降级标志而不是盲用全部速度分量。
+3. 用 `alg_chassis_calculate_constraint_residuals()` 计算逐轮残差。
+4. 把残差交给 `alg_chassis_wheel_monitor_update()`，经过故障/恢复防抖后得到轮可用性。
+5. 下一周期把新的可用性反馈给麦轮、全向轮或舵轮解算，形成降级闭环。
+
+| 可读取结构体                              | 主要信息                                             |
+| ----------------------------------------- | ---------------------------------------------------- |
+| `alg_chassis_velocity_t`                  | X/Y 线速度和 Z 角速度                                |
+| `alg_chassis_pose_t`                      | 里程计位置和偏航角                                   |
+| `alg_chassis_solution_t`                  | 解算速度、RMS 残差、使用约束数、未知分量数和降级标志 |
+| `alg_chassis_wheel_monitor_wheel_state_t` | 每轮故障/恢复计数和故障标志                          |
+
+残差和轮故障只是估计结果，最终停机或降级策略由 App 决定。

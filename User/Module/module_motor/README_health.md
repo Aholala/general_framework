@@ -235,3 +235,35 @@ void chassis_update(bool *motor_available, float *cmd_vel) {
 ---
 
 **总结**：`module_motor_health` 提供了完整的多电机健康监控框架，通过原因位掩码精确定位问题，通过故障/恢复防抖避免误报，通过 `observer` 回调支持任意电机派生类的扩展诊断。配合运动学算法，可实现底盘降级控制和安全决策。
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 所有电机先初始化并注册；通过 as_motor 填入基类指针数组。 */
+static module_motor_t *motors[2];
+static module_motor_health_state_t health_states[2];
+static module_motor_health_t motor_health;
+motors[0] = module_m3508_as_motor(&motor_0);
+motors[1] = module_m3508_as_motor(&motor_1);
+
+/* 2. 配置需要启用的阈值数组；不需要的检查传 NULL。 */
+module_motor_health_status_t status =
+    module_motor_health_init(&motor_health, &health_config);
+
+/* 3. 若 manage_feedback_time=true，只由本模块推进反馈超时，避免重复累计。 */
+status = module_motor_health_update(&motor_health, elapsed_time_ms);
+
+/* 4. 读取每个电机状态，或一次性输出可用性数组交给运动学降级。 */
+const module_motor_health_state_t *state =
+    module_motor_health_get_state(&motor_health, motor_index);
+status = module_motor_health_get_availability(
+    &motor_health, motor_is_available, MOTOR_COUNT);
+```
+
+| 可读取结构体 | 重点字段 |
+| --- | --- |
+| `module_motor_health_state_t` | `reason_mask`、故障/恢复/堵转/饱和时间、上次编码器和总线错误、`is_available` |
+| `module_motor_health_observation_t` | 命令输出、跟踪误差、输出限幅、总线错误计数和有效标志 |
+| `module_motor_feedback_t` | 模块内部同时参考的在线、温度、电流、速度和原始位置 |
+
+`reason_mask` 可同时包含多个原因，必须按位判断，不能把它当作单值枚举。

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_EXTENSIONS ON)
+set(CMAKE_C_EXTENSIONS OFF)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
@@ -276,10 +276,9 @@ set(bsp_include_directories
     User/Bsp/bsp_dac
     User/Bsp/bsp_usb_vcp
     User/Bsp/bsp_watchdog
-    User/Bsp/bsp_timebase
+    User/Bsp/bsp_dwt
     User/Bsp/bsp_stm32h723_port
     User/Bsp/bsp_crc
-    User/Bsp/bsp_rng
     User/Bsp/bsp_rtc
 )
 
@@ -302,10 +301,9 @@ add_library(bsp OBJECT
     User/Bsp/bsp_dac/bsp_dac.c
     User/Bsp/bsp_usb_vcp/bsp_usb_vcp.c
     User/Bsp/bsp_watchdog/bsp_watchdog.c
-    User/Bsp/bsp_timebase/bsp_timebase.c
+    User/Bsp/bsp_dwt/bsp_dwt.c
     User/Bsp/bsp_stm32h723_port/bsp_stm32h723_port.c
     User/Bsp/bsp_crc/bsp_crc.c
-    User/Bsp/bsp_rng/bsp_rng.c
     User/Bsp/bsp_rtc/bsp_rtc.c
 )
 target_include_directories(bsp PUBLIC ${bsp_include_directories})

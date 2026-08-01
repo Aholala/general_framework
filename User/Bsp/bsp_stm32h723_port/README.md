@@ -28,7 +28,7 @@
 | **EXTI**        | 2        | BMI088 陀螺仪中断、加速度计中断                  |
 | **PWM**         | 5        | TIM3（4 通道）+ TIM1（蜂鸣器）                   |
 | **USB VCP**     | 1        | USB 虚拟串口（CDC）                              |
-| **Timebase**    | 1        | DWT 周期计数器（高精度时间基准）                 |
+| **DWT**         | 内核唯一 | 周期计数器（性能测量和微秒短延时）               |
 | **Watchdog**    | 1        | 独立看门狗 IWDG1（可选）                         |
 
 ## 3. 对象模型
@@ -118,8 +118,9 @@ bsp_pwm_t *pwm_aux1 = bsp_stm32h723_port_get_pwm(BSP_STM32H723_PWM_AUXILIARY_1);
 // 获取 USB VCP
 bsp_usb_vcp_t *usb_vcp = bsp_stm32h723_port_get_usb_vcp();
 
-// 获取 Timebase
-bsp_timebase_t *timebase = bsp_stm32h723_port_get_timebase();
+// DWT 是内核唯一资源，不通过端口 getter 获取
+uint32_t current_cycle_count;
+bsp_dwt_get_cycle_count(&current_cycle_count);
 
 // 获取 Watchdog（需先启用）
 bsp_watchdog_t *watchdog = bsp_stm32h723_port_get_watchdog();
@@ -135,7 +136,6 @@ bsp_stm32h723_port_init(&port_config);
 bsp_can_t *can = bsp_stm32h723_port_get_can(BSP_STM32H723_CAN_1);
 bsp_spi_t *spi = bsp_stm32h723_port_get_bmi088_spi();
 bsp_exti_t *exti = bsp_stm32h723_port_get_exti(BSP_STM32H723_EXTI_BMI088_GYROSCOPE);
-bsp_timebase_t *tb = bsp_stm32h723_port_get_timebase();
 
 // 3. 配置 CAN 过滤器
 bsp_can_filter_t filter = { ... };
@@ -145,8 +145,9 @@ bsp_can_start(can);
 // 4. 配置 BMI088 模块（片选由模块控制）
 // 模块内部会使用 spi 和 exti
 
-// 5. 启动时间基准
-bsp_timebase_reset(tb);
+// 5. DWT 已由 port_init 初始化；需要性能测量时直接记录时间点
+bsp_dwt_time_point_t start_time;
+bsp_dwt_now(&start_time);
 ```
 
 ## 5. 外设配置详情
@@ -212,7 +213,7 @@ bsp_timebase_reset(tb);
 - **中断使能**：通过 `bsp_exti_enable` 使能 NVIC。
 - **回调**：`HAL_GPIO_EXTI_Callback` 根据引脚号路由到对应 EXTI 对象。
 
-### 5.6 Timebase (DWT)
+### 5.6 DWT
 
 - **原理**：使用 DWT 周期计数器（CYCCNT），精度为 CPU 周期级。
 - **频率**：`SystemCoreClock`（CPU 主频）。
@@ -325,10 +326,20 @@ bsp_timebase_reset(tb);
 - [ ] EXTI 中断触发后回调正确执行。
 - [ ] PWM 输出波形正确（频率、占空比）。
 - [ ] USB VCP 收发正常。
-- [ ] Timebase 读数准确（验证微秒级延时）。
+- [ ] DWT 读数准确（验证周期换算和微秒级短延时）。
 - [ ] 看门狗复位检测功能正常。
 - [ ] 重复调用端口初始化返回 `BUSY`。
 
 ---
 
-**总结**：`bsp_stm32h723_port` 是通用 BSP 与 STM32H723 硬件之间的桥梁，通过集中管理设备对象、驱动操作表和 HAL 回调路由，实现了硬件与业务逻辑的彻底解耦。上层 Module 只需通过 getter 获取基类指针，无需关心 HAL 细节，极大地提高了代码的可移植性和可维护性。
+## 一页式板级装配顺序与可读信息
+
+1. CubeMX 先生成并初始化 GPIO、DMA、FDCAN、USART、SPI、TIM、USB 等 HAL 外设。
+2. 在 `bsp_stm32h723_port_config_t` 中填写这些 HAL handle 与必要的通道/上下文映射。
+3. 只调用一次 `bsp_stm32h723_port_init()`；任一必要设备失败时不要启动 Module。
+4. App/Module 通过 `get_can/get_usart/get_bmi088_spi/get_pwm/...` 获取通用 BSP 指针。
+5. HAL callback 统一转给本 port，再由它路由到具体 `bsp_xxx_notify()`。
+
+可读取 `bsp_stm32h723_port_is_initialized()` 和各 getter 返回的 BSP 对象；索引枚举明确逻辑设备与实例映射。上层不得保存或直接操作本 port 内部 HAL handle。
+
+本文件属于具体 STM32H723 项目适配器；移植到其他 MCU 时替换 port，不修改 Algorithm 和 Module。

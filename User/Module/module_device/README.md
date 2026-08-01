@@ -168,10 +168,51 @@ for (size_t i = 0; i < ARRAY_SIZE(devices); i++) {
 - [ ] 构造成功后 `is_initialized` 为 `true`
 - [ ] 构造失败调用 `abort_init` 后对象被清零
 - [ ] 未初始化对象调用 `start/stop/update` 返回 `NOT_INITIALIZED`
-- [ ] 虚表函数为 `NULL` 时返回 `UNSUPPORTED`
+- [ ] `init_base` 在任一生命周期虚函数为 `NULL` 时拒绝构造
 - [ ] 逻辑名称和注册键值可通过 getter 正确获取
 - [ ] 多个派生设备可通过统一数组管理
 
 ---
 
 **总结**：`module_device` 为所有模块设备提供了轻量、零依赖的基类，统一了生命周期管理和多态接口。派生模块只需遵循两阶段构造和虚表约定，即可接入统一的调度框架，便于系统级设备管理和日志诊断。
+
+## 一页式派生顺序与可读信息
+
+```c
+/* 1. 派生对象首成员必须是 module_device_t super。 */
+typedef struct {
+    module_device_t super;
+    /* 派生实例自己的依赖和运行状态。 */
+} module_example_t;
+
+/* 2. 在 .c 中检查布局，并定义完整的只读生命周期虚表。 */
+MODULE_STATIC_ASSERT_SUPER_FIRST(module_example_t);
+static const module_device_ops_t s_example_ops = {
+    .start = example_start_virtual,
+    .stop = example_stop_virtual,
+    .update = example_update_virtual,
+};
+
+/* 3. 构造第一阶段只绑定基类；任一虚函数为空都会失败。 */
+status = module_device_init_base(&me->super, &s_example_ops,
+                                 config->logical_name, config->registration_key);
+
+/* 4. 初始化派生资源。失败时必须 module_device_abort_init。 */
+
+/* 5. 所有派生资源成功后再提交对象。 */
+status = module_device_complete_init(&me->super);
+
+/* 6. 上层可通过基类统一 start/update/stop。 */
+module_device_start(&me->super);
+module_device_update(&me->super, elapsed_time_ms);
+module_device_stop(&me->super);
+```
+
+| 可读取信息 | API | 说明 |
+| --- | --- | --- |
+| 初始化状态 | `module_device_is_initialized()` | 魔数、虚表、名称和提交状态均有效才返回 true |
+| 逻辑名称 | `module_device_get_logical_name()` | 日志和诊断使用的稳定字符串 |
+| 注册键 | `module_device_get_registration_key()` | 由 App/Board 分配的稳定数字标识 |
+| `module_device_t` | 仅由基类 API 管理 | `vptr`、魔数和初始化标志禁止派生类直接修改 |
+
+`module_device_t` 不是所有 Module 的强制父类；只有需要统一 `start/stop/update` 调度的设备才使用它。

@@ -26,14 +26,14 @@
 | 到期事件回调通知                 | 自动重装模式、单次/连续模式（由平台端配置）          |
 | 计数器与周期值的读写             | IRQ 优先级配置                                       |
 | 频率查询                         | 输出比较、输入捕获（使用 `bsp_pwm` / `bsp_encoder`） |
-| 多态对象管理                     | 微秒级延时（使用 `bsp_timebase`）                    |
+| 多态对象管理                     | 微秒级短延时和性能测量（使用 `bsp_dwt`）             |
 
 **与其他模块的区别**：
 | 模块 | 用途 |
 | :--- | :--- |
 | `bsp_pwm` | PWM 输出（占空比、频率） |
 | `bsp_encoder` | 正交编码器计数 |
-| `bsp_timebase` | 高精度时间测量和短延时 |
+| `bsp_dwt` | Cortex-M7 周期级性能测量和短延时 |
 | `bsp_timer` | 固定周期调度和通用计数 |
 
 ## 3. 对象模型与继承关系
@@ -296,4 +296,17 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
 ---
 
-**总结**：`bsp_timer` 提供了简洁、可移植的基本定时器抽象，适用于固定周期调度和通用计数场景。其完整的启停、计数、周期控制接口配合 ISR 回调机制，能够很好地支持实时控制任务。配合 `bsp_common`，该模块保持了 BSP 层的一致性和可维护性。
+## 一页式接入顺序与可读信息
+
+1. 平台配置定时器时钟和中断，并实现 `bsp_timer_driver_ops_t`。
+2. 填写 `bsp_timer_config_t` 后 init；需要周期事件时注册 callback。
+3. 设置 period/counter 后调用 start。
+4. HAL 周期中断只调用 `bsp_timer_notify_elapsed()`，业务回调保持非阻塞。
+5. 停机按 `stop → 解除回调使用关系 → bsp_device_deinit`。
+
+| 可读取信息   | API                           |
+| ------------ | ----------------------------- |
+| 当前计数     | `bsp_timer_get_counter()`     |
+| 自动重装周期 | `bsp_timer_get_period()`      |
+| 计数频率     | `bsp_timer_get_frequency()`   |
+| 周期事件     | 注册的 `bsp_event_callback_t` |

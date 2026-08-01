@@ -100,7 +100,7 @@ void usb_vcp_receive_callback(const uint8_t *data, size_t size, void *ctx) {
 }
 
 // 在任务中定期检查最新数据
-module_vision_comm_data_t rx_data;
+module_vision_comm_process_data_t rx_data;
 if (module_vision_comm_get_data(&s_vision, &rx_data) == MODULE_VISION_COMM_STATUS_OK) {
     // 使用 rx_data.data_first, rx_data.data_second
     // rx_data.update_count 可用于检测是否更新
@@ -125,7 +125,7 @@ module_vision_comm_feed_data(&s_vision, test_frame, sizeof(test_frame));
 
 - **USB 发送忙**：调用 `send_data` 前模块会检查 USB 是否忙，若忙则返回 `BUSY`，**不会**阻塞或覆盖发送缓冲区。
 - **发送缓冲区**：`module_vision_comm_t` 内部有一个 5 字节发送缓冲区，因此调用 `send_data` 后数据会被立即复制并发送，调用者可安全释放源数据。
-- **接收数据有效期**：`get_data` 返回的 `module_vision_comm_data_t` 在下次有效帧到来前保持不变，`update_count` 可辅助判断是否更新。
+- **接收数据有效期**：`get_data` 返回的 `module_vision_comm_process_data_t` 在下次有效帧到来前保持不变，`update_count` 可辅助判断是否更新。
 - **CRC 工具**：`module_vision_comm_crc8` 是公开函数，可用于其他需要 CRC8 的场景。
 - **帧头冲突**：数据字节若为 `0xA5` 或 `0x5A` 不影响解析，因为帧头是两个连续字节，解析器会正确区分。
 
@@ -144,3 +144,29 @@ module_vision_comm_feed_data(&s_vision, test_frame, sizeof(test_frame));
 ---
 
 **总结**：`module_vision_comm` 提供了极简、可靠的视觉通信基础，适用于需要低延迟、高可靠性的实时视觉数据（如目标检测结果、舵机角度等）。固定帧格式和 CRC 校验确保了数据完整性，流式解析器能稳定处理实际通信中的各种异常情况。
+
+## 一页式接入顺序与可读信息
+
+```c
+/* 1. 先初始化 USB VCP BSP。 */
+static module_vision_comm_t vision_comm;
+
+/* 2. 注入 USB VCP 和发送超时。 */
+module_vision_comm_status_t status =
+    module_vision_comm_init(&vision_comm, &vision_config);
+
+/* 3. USB 接收回调只把收到的字节流交给解析器。 */
+status = module_vision_comm_feed_data(&vision_comm, receive_data, data_size);
+
+/* 4. 任务中读取最新一帧；NO_DATA 表示还没有有效帧。 */
+module_vision_comm_process_data_t data;
+status = module_vision_comm_get_data(&vision_comm, &data);
+if ((status == MODULE_VISION_COMM_STATUS_OK) && data.is_valid) {
+    uint8_t first = data.data_first;
+}
+
+/* 5. 发送时只传两个数据字节，模块自动添加 A5 5A 和 CRC8。 */
+status = module_vision_comm_send(&vision_comm, data_first, data_second);
+```
+
+`module_vision_comm_process_data_t` 是唯一业务数据结构体：`data_first`、`data_second` 是最近有效帧的数据位，`update_count` 用来判断是否收到新帧，`is_valid` 表示是否至少成功解析过一帧。`module_vision_comm_get_data()` 会复制快照，调用者可以安全保存该副本。
