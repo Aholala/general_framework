@@ -82,9 +82,13 @@ Algorithm, App, BSP and Module work unless the user explicitly overrides them.
   an opaque `device_handle` and a `const driver_ops` table.
 - A low-level port implements only the driver operation table once per platform.
   It must not reimplement the BSP object model or public API.
-- All board instance selection, pins, channels, handles, IRQ mappings and
-  logical device names belong in `User/Bsp/board_config.h`.
-- `board_config.h` assembles instances; it must not contain business logic.
+- The generic BSP stays under `User/Bsp`. Concrete pins, peripheral instances,
+  CubeMX handle binding, MCU/HAL operation tables and callback routing belong
+  in the project-level `User/board_config.h/.c` files.
+- `User/board_config.h/.c` may include vendor HAL details because it is project
+  adaptation code, not part of the reusable BSP library.
+- CubeMX-generated `Core`, `USB_DEVICE`, startup, linker and IOC files keep
+  their generated locations and must not be moved by library refactors.
 - App and Module code depend only on base BSP interfaces and receive base-class
   pointers through configuration or constructors.
 - No BSP object may depend on CubeMX-generated global names such as `huart1`,

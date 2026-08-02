@@ -12,8 +12,6 @@
 - 逐电机阈值配置（数组方式）
 - 通过 `observer` 回调获取控制器内部状态
 
-**设计哲学**：
-
 - **原因位掩码**：使用位掩码表示多个健康原因，便于诊断和遥测
 - **防抖机制**：故障确认时间和恢复确认时间，避免瞬时状态变化导致误判
 - **可扩展性**：通过 `observer` 回调获取任意电机派生类的内部状态
@@ -260,10 +258,10 @@ status = module_motor_health_get_availability(
     &motor_health, motor_is_available, MOTOR_COUNT);
 ```
 
-| 可读取结构体 | 重点字段 |
-| --- | --- |
-| `module_motor_health_state_t` | `reason_mask`、故障/恢复/堵转/饱和时间、上次编码器和总线错误、`is_available` |
-| `module_motor_health_observation_t` | 命令输出、跟踪误差、输出限幅、总线错误计数和有效标志 |
-| `module_motor_feedback_t` | 模块内部同时参考的在线、温度、电流、速度和原始位置 |
+| 可读取结构体                        | 重点字段                                                                     |
+| ----------------------------------- | ---------------------------------------------------------------------------- |
+| `module_motor_health_state_t`       | `reason_mask`、故障/恢复/堵转/饱和时间、上次编码器和总线错误、`is_available` |
+| `module_motor_health_observation_t` | 命令输出、跟踪误差、输出限幅、总线错误计数和有效标志                         |
+| `module_motor_feedback_t`           | 模块内部同时参考的在线、温度、电流、速度和原始位置                           |
 
 `reason_mask` 可同时包含多个原因，必须按位判断，不能把它当作单值枚举。

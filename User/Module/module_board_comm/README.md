@@ -15,7 +15,7 @@
 
 | **模块负责**                          | **模块不负责**                           |
 | :------------------------------------ | :--------------------------------------- |
-| CAN 协议编解码（8 种消息类型）        | DR16 数据的采集（由 `module_dr16` 负责） |
+| CAN 协议编解码（8 种消息类型）        | 具体遥控器的采集与归一化（由输入模块/App负责） |
 | 分片组装（遥控器 3 帧、云台 2 帧）    | 云台/底盘/发射机构的实际控制逻辑         |
 | 各数据组独立在线超时检测              | 板卡角色和硬件安装位置的配置             |
 | 数据快照管理（staging → committed）   | CAN 硬件初始化和过滤器配置               |
@@ -136,7 +136,7 @@ module_board_comm_status_t module_board_comm_handle_frame(
 
 | 函数                            | 返回类型                                   | 说明                   |
 | :------------------------------ | :----------------------------------------- | :--------------------- |
-| `module_board_comm_get_remote`  | `const module_dr16_process_data_t *`               | 遥控器数据（若在线）   |
+| `module_board_comm_get_remote`  | `const module_board_comm_remote_process_data_t *`  | 遥控输入（若在线）     |
 | `module_board_comm_get_gimbal`  | `const module_board_comm_gimbal_process_data_t *`  | 云台数据（若在线）     |
 | `module_board_comm_get_chassis` | `const module_board_comm_chassis_process_data_t *` | 底盘数据（若在线）     |
 | `module_board_comm_get_shooter` | `const module_board_comm_shooter_process_data_t *` | 发射机构数据（若在线） |
@@ -219,9 +219,25 @@ void can_rx_callback(const bsp_can_frame_t *frame) {
 ### 7.3 发送数据（云台板发送遥控器数据到底盘板）
 
 ```c
-const module_dr16_process_data_t *remote = module_dr16_get_data(&dr16);
-if (remote != NULL && remote->is_online) {
-    module_board_comm_send_remote(&s_robot_link, remote);
+const module_dr16_process_data_t *dr16_data = module_dr16_get_data(&dr16);
+if (dr16_data != NULL && dr16_data->is_online) {
+    module_board_comm_remote_process_data_t link_remote = {
+        .channel = {
+            dr16_data->channel[0], dr16_data->channel[1],
+            dr16_data->channel[2], dr16_data->channel[3],
+        },
+        .left_switch = (module_board_comm_switch_t)dr16_data->left_switch,
+        .right_switch = (module_board_comm_switch_t)dr16_data->right_switch,
+        .mouse_x = dr16_data->mouse_x,
+        .mouse_y = dr16_data->mouse_y,
+        .mouse_z = dr16_data->mouse_z,
+        .mouse_left_pressed = dr16_data->mouse_left_pressed,
+        .mouse_right_pressed = dr16_data->mouse_right_pressed,
+        .keyboard = dr16_data->keyboard,
+        .dial = dr16_data->dial,
+        .is_online = true,
+    };
+    module_board_comm_send_remote(&s_robot_link, &link_remote);
 }
 
 // 发送云台状态
@@ -244,11 +260,12 @@ void control_loop(void) {
     module_board_comm_update_time(&s_robot_link, dt_ms);
 
     // 2. 获取遥控器数据
-    const module_dr16_process_data_t *remote = module_board_comm_get_remote(&s_robot_link);
+    const module_board_comm_remote_process_data_t *remote =
+        module_board_comm_get_remote(&s_robot_link);
     if (remote != NULL) {
-        // 使用遥控器数据控制底盘
-        float forward = remote->normalized_channel[3];
-        float strafe = remote->normalized_channel[2];
+        // 板间协议保留原始输入；归一化策略由 App 决定。
+        float forward = (float)remote->channel[3] / 660.0F;
+        float strafe = (float)remote->channel[2] / 660.0F;
         // ...
     }
 
@@ -331,7 +348,7 @@ void control_loop(void) {
 
 ---
 
-**总结**：`module_board_comm` 提供了完整的云台-底盘 CAN 通信协议，支持多帧分片组装、独立在线超时和原子数据提交。其设计适合多板分布式控制系统，确保关键数据在 CAN 总线上可靠、实时地传输。配合 `module_dr16` 和 `bsp_can_dispatcher`，可快速构建双板通信方案。
+**总结**：`module_board_comm` 提供云台板和底盘板之间的 Classic CAN 协议，支持多帧分片、独立在线超时和原子数据提交。模块不依赖 DR16；任意遥控器或上位机输入都可由 App 映射到板间遥控结构体。
 
 ## 一页式接入顺序与可读信息
 
@@ -359,7 +376,7 @@ const module_board_comm_chassis_process_data_t *chassis =
 
 | 可读取结构体 | Getter | 主要信息 |
 | --- | --- | --- |
-| `module_dr16_process_data_t` | `module_board_comm_get_remote()` | 跨板转发的遥控器完整输入 |
+| `module_board_comm_remote_process_data_t` | `module_board_comm_get_remote()` | 跨板转发的摇杆、开关、鼠标、键盘和拨轮输入 |
 | `module_board_comm_gimbal_process_data_t` | `module_board_comm_get_gimbal()` | 云台角度/角速度、IMU 和电机在线状态 |
 | `module_board_comm_chassis_process_data_t` | `module_board_comm_get_chassis()` | 车体速度、自锁和电机在线状态 |
 | `module_board_comm_shooter_process_data_t` | `module_board_comm_get_shooter()` | 摩擦轮、拨弹盘、发射状态和卡弹次数 |

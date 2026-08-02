@@ -99,6 +99,7 @@ flowchart TD
 
 | 组件                   | 主要结构体                                                                                                                                                                                                   | 输入                                         | 输出或可观察数据                                            |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- | ----------------------------------------------------------- |
+| `alg_crc`              | `alg_crc_config_t`                                                                                                                                                                                           | 数据、位宽、多项式、初值、位序               | 统一 CRC8/CRC16/CRC32 结果                                  |
 | `alg_math`             | `alg_math_vector2_t`、`alg_math_vector3_t`、`alg_math_quaternion_t`、`alg_math_matrix_t`、`alg_math_statistics_t`                                                                                            | 标量、向量、矩阵、样本                       | 向量/矩阵结果，均值、方差、标准差；含一维查表与双线性插值   |
 | `alg_filter`           | `alg_filter_low_pass_t`、`alg_filter_high_pass_t`、`alg_filter_exponential_t`、`alg_filter_moving_average_t`、`alg_filter_median_t`、`alg_filter_fir_t`、`alg_filter_biquad_t`、`alg_filter_complementary_t` | 新采样值、时间步长                           | 滤波输出以及对象内部历史状态                                |
 | `alg_kalman`           | `alg_kalman_scalar_t`、`alg_kalman_linear_t`、`alg_kalman_extended_t`                                                                                                                                        | 状态、测量、模型函数、噪声矩阵               | 状态估计、协方差和创新计算结果                              |
@@ -176,6 +177,9 @@ flowchart TD
 ## BSP 层
 
 BSP 目录为 `User/Bsp`。通用 BSP 对象不决定使用哪个外设实例或引脚。
+当前 H723 的引脚、HAL 操作表、CubeMX 句柄绑定、对象存储和回调路由集中在
+`User/board_config.h/.c`，因此具体工程配置没有放进 BSP 层。F405 暂不创建
+引脚配置或占位适配代码。
 
 | BSP                      | 主要结构体                                                               | 能读取或观察的数据                             |
 | ------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------- |
@@ -196,10 +200,40 @@ BSP 目录为 `User/Bsp`。通用 BSP 对象不决定使用哪个外设实例或
 | `bsp_dac`                | `bsp_dac_t`、`bsp_dac_config_t`                                          | 当前原始输出值                                 |
 | `bsp_usb_vcp`            | `bsp_usb_vcp_t`、`bsp_usb_vcp_config_t`                                  | 连接状态、忙状态和接收事件                     |
 | `bsp_watchdog`           | `bsp_watchdog_t`、`bsp_watchdog_config_t`                                | 超时时间和看门狗复位标志                       |
-| `bsp_dwt`                | `bsp_dwt_time_point_t`                                                    | DWT 周期计数、计数频率和时间差                  |
-| `bsp_crc`                | `bsp_crc_t`、`bsp_crc_config_t`                                          | 硬件 CRC 计算结果                              |
+| `bsp_dwt`                | `bsp_dwt_t`、`bsp_dwt_config_t`、`bsp_dwt_time_point_t`                  | 平台注入的 DWT 周期计数、计数频率和时间差       |
 | `bsp_rtc`                | `bsp_rtc_t`、`bsp_rtc_time_t`                                            | 日期时间和 Unix 时间                           |
-| `bsp_stm32h723_port`     | `bsp_stm32h723_port_config_t`                                            | 将 STM32 HAL 句柄、回调和通用 BSP 接口连接起来 |
+
+板级可读对象通过 `board_config_get_can()`、`board_config_get_usart()` 等 getter
+获得。通用 BSP 本身不提供任何具体开发板 getter。
+
+### H723 `board_config` 使用顺序
+
+CubeMX 完成 HAL 外设初始化后，再初始化板级 BSP 对象：
+
+```c
+#include "board_config.h"
+
+const board_config_init_t board_init = {
+    .initialize_watchdog = false, /* 调试阶段先不启动 IWDG */
+};
+
+if (board_config_init(&board_init) != BSP_STATUS_OK)
+{
+    /* 任一必要对象装配失败，不启动上层 Module。 */
+}
+
+/* getter 返回通用 BSP 基类；Module 不接触 hfdcan1、huart5 等 HAL 句柄。 */
+bsp_can_t *can1 = board_config_get_can(BOARD_CONFIG_CAN_1);
+bsp_usart_t *dr16_uart = board_config_get_usart(BOARD_CONFIG_UART_DR16);
+bsp_spi_t *bmi088_spi = board_config_get_bmi088_spi();
+bsp_usb_vcp_t *usb_vcp = board_config_get_usb_vcp();
+bsp_dwt_t *dwt = board_config_get_dwt();
+```
+
+当前 H723 装配包括 3 路 FDCAN Classic、5 路 UART/USART、BMI088 SPI2、
+2 路 BMI088 EXTI、5 路 PWM、USB CDC、DWT 和可选 Watchdog。具体引脚、时钟、
+协议参数和资源上限均可直接查看 [`User/board_config.h`](User/board_config.h)；
+`board_config_is_initialized()` 可读取整体装配状态，各 getter 返回对应 BSP 对象。
 
 ## Module 层
 
@@ -229,14 +263,13 @@ Module 目录为 `User/Module`。模块负责设备协议、状态机和业务�
 | `module_buzzer`       | `module_buzzer_note_t`、`module_buzzer_t`                                                                  | 音符、频率和时序播放                        | 是否正在播放                                     |
 | `module_ws2812`       | `module_ws2812_color_t`、`module_ws2812_effect_state_t`、`module_ws2812_t`                                 | 灯珠帧缓冲和内置效果                        | 忙状态和效果运行状态                             |
 | `module_oled`         | `module_oled_t`、`module_oled_config_t`                                                                    | I2C 单色页式 OLED 帧缓冲                    | 对象内帧缓冲和初始化状态                         |
-| `module_bluetooth`    | `module_bluetooth_t`、`module_bluetooth_config_t`                                                          | 串口蓝牙收发、超时与回调                    | 在线状态                                         |
-| `module_nrf24l01`     | `module_nrf24l01_packet_t`、`module_nrf24l01_t`                                                            | nRF24L01 点对点收发和 ACE 协议封包          | 收到的数据包、管道号和重发/丢包统计寄存器        |
-| `module_vision_comm`       | `module_vision_comm_process_data_t`、`module_vision_comm_t`                                                                  | USB VCP 固定帧视觉通信                      | 两个数据字节、更新计数和有效标志                 |
-| `module_board_comm`   | `module_board_comm_gimbal_process_data_t`、`module_board_comm_chassis_process_data_t`、`module_board_comm_shooter_process_data_t`  | 云台板与底盘板 CAN 通信                     | 遥控、云台、底盘、发射机构数据和各链路在线状态   |
+| `module_nrf24l01`     | `module_nrf24l01_t`、`module_nrf24l01_ace_link_t`、`module_nrf24l01_ace_link_packet_t`                    | nRF24L01 原始收发与独立 ACE 链路协议        | 收到的数据包、序号、管道号和重发/丢包统计        |
+| `module_uart_comm`     | `module_uart_comm_process_data_t`、`module_uart_comm_t`                                                    | 普通 UART 独立固定帧协议                    | 原始数据区、更新计数和 CRC 统计                  |
+| `module_usb_comm`      | `module_usb_comm_data_t`、`module_usb_comm_t`                                                              | USB CDC 视觉 mode/ID 协议                   | mode、ID、扩展区和解析统计                       |
+| `module_board_comm`   | `module_board_comm_remote_process_data_t`、`module_board_comm_gimbal_process_data_t`、`module_board_comm_chassis_process_data_t`   | 云台板与底盘板 Classic CAN 通信             | 遥控、云台、底盘、发射机构数据和各链路在线状态   |
 | `module_referee`      | `module_referee_t`、`module_referee_statistics_t`                                                          | 裁判系统流式接收、CRC 和命令路由            | 在线状态和解析统计                               |
 | `module_referee_data` | `module_referee_process_data_t` 及各子数据结构                                                                     | 裁判系统强类型数据仓库                      | 比赛、机器人、功率热量、位置、受击、射击、弹量等 |
 | `module_referee / module_referee_ui` | `module_referee_ui_graphic_t`、`module_referee_ui_t`                                         | 裁判系统客户端图形打包                      | 图形配置及发送状态                               |
-| `module_device / module_diagnostic` | `module_diagnostic_entry_t`、`module_diagnostic_state_t`、`module_diagnostic_t`                         | 通用探针注册、确认、恢复和锁存              | 故障详情、次数、活动状态和最高严重等级           |
 
 ## 主要可读数据
 
@@ -341,20 +374,21 @@ IMU EKF 通过 getter 提供：
 
 ### 视觉通信
 
-`module_vision_comm_get_data()` 返回：
+`module_usb_comm_get_data()` 返回：
 
-| 字段           | 含义                     |
-| -------------- | ------------------------ |
-| `data_first`   | 数据位 1                 |
-| `data_second`  | 数据位 2                 |
-| `update_count` | 有效帧更新计数           |
-| `is_valid`     | 是否至少收到过一个有效帧 |
+| 字段                   | 含义                     |
+| ---------------------- | ------------------------ |
+| `data.mode`            | 当前模式                 |
+| `data.id`              | 目标 ID，范围 1~7        |
+| `data.extra_data[]`    | 宏启用后的预留扩展数据区 |
+| `update_count`         | 有效帧更新计数           |
+| `is_valid`             | 是否至少收到过一个有效帧 |
 
 ### 板间通信
 
 `module_board_comm` 提供以下只读数据：
 
-- `module_board_comm_get_remote()`：完整 `module_dr16_process_data_t`
+- `module_board_comm_get_remote()`：与具体接收设备无关的 `module_board_comm_remote_process_data_t`
 - `module_board_comm_get_gimbal()`：yaw、pitch、两轴角速度、IMU 有效性和电机在线状态
 - `module_board_comm_get_chassis()`：`vx`、`vy`、`wz`、电机在线状态和自锁状态
 - `module_board_comm_get_shooter()`：摩擦轮速度、拨弹位置、发射状态和卡弹次数
@@ -386,7 +420,7 @@ IMU EKF 通过 getter 提供：
 
 通过 `module_referee_data_has_update()` 检查指定命令是否更新，处理后调用 `module_referee_data_clear_updates()`。
 
-### 健康与诊断
+### 电机健康
 
 `module_motor_health_state_t` 每个电机记录：
 
@@ -397,40 +431,41 @@ IMU EKF 通过 getter 提供：
 
 原因位可表示未初始化、未使能、离线、驱动故障、过温、编码器异常、跟踪误差、堵转、输出饱和和总线错误。
 
-`module_diagnostic_state_t` 每个诊断项记录：
-
-- `detail_code`
-- 故障和恢复累计时间
-- `occurrence_count`
-- `is_active`
-- `is_latched`
-
 ## 通信协议
 
-### 视觉协议
-
-固定 5 字节：
+### USB CDC 视觉协议
 
 ```text
-[0xA5] [0x5A] [data_first] [data_second] [CRC8]
+[0xA5] [0x5A] [mode] [id] [extra_data × N] [CRC8]
 ```
 
-- CRC8 覆盖前 4 字节。
-- 初值 `0xFF`。
-- 多项式 `0x8C`，LSB first。
-- USB CDC 虚拟串口双向使用相同格式。
+- 当前只定义 mode 和 ID，ID 范围 1~7。
+- `MODULE_USB_COMM_EXTRA_DATA_SIZE` 控制预留扩展区，默认 0。
+- CRC8 初值 `0xFF`、多项式 `0x8C`、LSB first。
 
-### nRF24L01 ACE 点对点协议
+### 普通 UART 协议
 
 ```text
-[0xA5] [0x5A] [message_type] [sequence] [data_size] [data...] [CRC16_L] [CRC16_H]
+[0xA5] [0x5A] [data × N] [CRC8]
 ```
 
-- CRC16-CCITT-FALSE 覆盖帧头到最后一个有效数据字节。
-- 最大射频载荷 32 字节，协议开销 7 字节，最大应用数据 25 字节。
-- 默认 ACE 公共链路地址为 `module_nrf24l01_ace_address`，地址宽度 3 字节。
-- 两端必须使用相同频道、地址宽度、链路地址、载荷长度和数据率。
+- `N = MODULE_UART_COMM_DATA_SIZE`，默认 8。
+- USB、UART 和 nRF24 三种协议彼此独立。
+- 三种协议和裁判系统的 CRC 参数不同，但软件计算都统一调用 `alg_crc`；BSP 层不再承担 CRC 计算。
+
+### nRF24L01 ACE 链路
+
+- nRF24L01 原始驱动允许固定 `payload_size` 为 1~32；ACE 链路协议要求 7~32。
+- 默认 ACE 公共链路地址为 `module_nrf24l01_ace_link_address`，地址宽度 3 字节。
+- 两端必须使用相同频道、地址宽度、链路地址、固定载荷长度和数据率。
 - 具体 CE/CSN/IRQ 引脚及 SPI 实例由 App/板级配置决定。
+
+### F405 与 H723 的 CAN 边界
+
+- F405 的 bxCAN 和 H723 的 FDCAN Classic 模式统一通过 `bsp_can_t` 向 Module 提供 0~8 字节 Classic CAN 帧。
+- H723 的平台端使用 HAL FDCAN 实现 `bsp_can_driver_ops_t`，不要求电机或板间通信改用芯片专用类型。
+- 只有使用 12~64 字节 CAN FD 帧、BRS 或 FDCAN 协议状态时，才使用 `bsp_fdcan_t` 扩展接口。
+- F405 不能接收 CAN FD 帧；两种 MCU 互通时 H723 必须发送 Classic CAN 帧。
 
 ### DR16/DBUS
 
@@ -482,7 +517,8 @@ Debug 和 Release 使用同一固件输出路径，后执行的构建会覆盖�
 ## 当前完整性
 
 - Algorithm：已包含数学、滤波、Kalman、Mahony/Madgwick、IMU EKF、PID、LQR、轨迹，以及 PID/LQR 各自的角度控制封装和麦轮、全向轮、舵轮解算。
-- BSP：已包含常见控制器外设抽象和 STM32H723 平台端口。
+- BSP：已包含厂商无关的常见控制器外设抽象。
+- 板级适配：`User/board_config.h/.c` 包含当前 H723 引脚、HAL 操作表、对象装配和回调路由。
 - Module：已包含主要 RoboMaster 电机、DM4310、BMI088、DR16、裁判系统、视觉、板间通信、NRF24、显示与执行功能模块。
 - App：有意不实现具体机器人逻辑，等待最终项目创建实例、分配引脚并进行编排。
 
@@ -494,7 +530,7 @@ Debug 和 Release 使用同一固件输出路径，后执行的构建会覆盖�
 - [Algorithm 层说明](User/Algorithm/README.md)
 - [App 层说明](User/App/README.md)
 - [BSP 层说明](User/Bsp/README.md)
-- [STM32H723VET6 板级引脚](User/Bsp/BOARD_PINOUT.md)
+- [STM32H723 板级配置](User/board_config.h)
 - [Module 层说明](User/Module/README.md)
 
 每个具体组件目录中的 README 继续描述该组件的职责边界、初始化、运行流程、内存要求、并发限制和移植注意事项；公开结构体的字段、单位和函数状态码以同目录头文件为最终依据。

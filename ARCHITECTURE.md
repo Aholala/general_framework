@@ -90,8 +90,23 @@ BMI088、DR16、板间链路或发射机构。模块保存自身状态，通过 
 依赖，公共非虚接口完成校验和分发，私有虚实现通过 `container_of` 恢复派生
 对象。硬件依赖按实例注入，禁止用可变文件级单例替代对象状态。
 
-## 项目装配
+## 项目板级装配
 
-`board_config.h` 只描述实例容量、逻辑名称、引脚、通道和总线映射。实际
-CubeMX 句柄、HAL 操作表、DMA 缓存维护和中断回调路由放在项目平台适配器。
-这样更换 MCU 时只替换适配器和板级配置，Algorithm 与 Module 不重写。
+代码分成三个明确边界：
+
+```text
+User/Bsp/                 厂商无关的外设对象和公共接口
+User/board_config.h/.c    当前 H723 工程的引脚和 HAL 适配
+Core/、USB_DEVICE/、IOC   CubeMX 生成内容，保持生成位置
+```
+
+`User/board_config.h` 描述实例容量、逻辑名称、引脚、通道和总线映射；
+`User/board_config.c` 实现当前 H723 的 HAL 操作表，持有 BSP 对象存储，并将
+CubeMX 句柄注入对象，同时负责 HAL 回调路由。它们是具体工程适配代码，不属于
+通用 BSP。更换开发板或 MCU 时替换这两个文件，Algorithm、Module 和
+`User/Bsp` 均不重写，也不移动 CubeMX 生成目录。
+
+Classic CAN 是 F405 与 H723 的共同边界：F405 bxCAN 端口和 H723 FDCAN
+Classic 端口都实现 `bsp_can_driver_ops_t`。只有明确使用 CAN FD 长帧、BRS
+或协议状态时，上层才依赖可选的 `bsp_fdcan_t` 扩展接口。DWT 同样通过
+`bsp_dwt_driver_ops_t` 注入寄存器操作，通用 DWT 代码不包含具体 MCU 头文件。

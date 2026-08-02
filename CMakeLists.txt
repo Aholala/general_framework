@@ -14,6 +14,20 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 project(${CMAKE_PROJECT_NAME} LANGUAGES C ASM)
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
+set(MODULE_USB_COMM_EXTRA_DATA_SIZE 0 CACHE STRING
+    "USB vision protocol optional extra data bytes (0..250)")
+if(NOT MODULE_USB_COMM_EXTRA_DATA_SIZE MATCHES "^[0-9]+$" OR
+   MODULE_USB_COMM_EXTRA_DATA_SIZE GREATER 250)
+    message(FATAL_ERROR "MODULE_USB_COMM_EXTRA_DATA_SIZE must be in range 0..250")
+endif()
+
+set(MODULE_UART_COMM_DATA_SIZE 8 CACHE STRING
+    "UART fixed protocol data bytes (1..252)")
+if(NOT MODULE_UART_COMM_DATA_SIZE MATCHES "^[1-9][0-9]*$" OR
+   MODULE_UART_COMM_DATA_SIZE GREATER 252)
+    message(FATAL_ERROR "MODULE_UART_COMM_DATA_SIZE must be in range 1..252")
+endif()
+
 add_executable(${CMAKE_PROJECT_NAME})
 set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/firmware"
@@ -151,6 +165,10 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${stm32_application_sources})
 # Algorithm layer
 # ---------------------------------------------------------------------------
 
+add_library(alg_crc OBJECT User/Algorithm/alg_crc/alg_crc.c)
+target_include_directories(alg_crc PUBLIC User/Algorithm/alg_crc)
+framework_configure_library(alg_crc)
+
 add_library(alg_math OBJECT
     User/Algorithm/alg_math/alg_math_scalar.c
     User/Algorithm/alg_math/alg_math_statistics.c
@@ -260,7 +278,6 @@ endforeach()
 # ---------------------------------------------------------------------------
 
 set(bsp_include_directories
-    User/Bsp
     User/Bsp/bsp_common
     User/Bsp/bsp_gpio
     User/Bsp/bsp_exti
@@ -277,13 +294,10 @@ set(bsp_include_directories
     User/Bsp/bsp_usb_vcp
     User/Bsp/bsp_watchdog
     User/Bsp/bsp_dwt
-    User/Bsp/bsp_stm32h723_port
-    User/Bsp/bsp_crc
     User/Bsp/bsp_rtc
 )
 
 add_library(bsp OBJECT
-    User/Bsp/board_config.h
     User/Bsp/bsp_common/bsp_common.c
     User/Bsp/bsp_gpio/bsp_gpio.c
     User/Bsp/bsp_exti/bsp_exti.c
@@ -302,14 +316,27 @@ add_library(bsp OBJECT
     User/Bsp/bsp_usb_vcp/bsp_usb_vcp.c
     User/Bsp/bsp_watchdog/bsp_watchdog.c
     User/Bsp/bsp_dwt/bsp_dwt.c
-    User/Bsp/bsp_stm32h723_port/bsp_stm32h723_port.c
-    User/Bsp/bsp_crc/bsp_crc.c
     User/Bsp/bsp_rtc/bsp_rtc.c
 )
 target_include_directories(bsp PUBLIC ${bsp_include_directories})
-target_include_directories(bsp SYSTEM PRIVATE ${stm32_include_directories})
-target_compile_definitions(bsp PRIVATE ${stm32_definitions})
 framework_configure_library(bsp)
+
+# ---------------------------------------------------------------------------
+# Concrete H723 board configuration (outside the generic BSP layer)
+# ---------------------------------------------------------------------------
+
+add_library(board_config OBJECT
+    User/board_config.c
+    User/board_config.h
+)
+target_include_directories(board_config
+    PUBLIC User
+    PRIVATE ${bsp_include_directories}
+)
+target_include_directories(board_config SYSTEM PRIVATE ${stm32_include_directories})
+target_compile_definitions(board_config PRIVATE ${stm32_definitions})
+target_link_libraries(board_config PUBLIC bsp stm32cubemx)
+framework_configure_library(board_config)
 
 # ---------------------------------------------------------------------------
 # Module layer
@@ -324,10 +351,10 @@ set(module_include_directories
     User/Module/module_dr16
     User/Module/module_swerve
     User/Module/module_board_comm
-    User/Module/module_vision_comm
+    User/Module/module_uart_comm
+    User/Module/module_usb_comm
     User/Module/module_shooter
     User/Module/module_buzzer
-    User/Module/module_bluetooth
     User/Module/module_oled
     User/Module/module_ws2812
     User/Module/module_nrf24l01
@@ -337,7 +364,6 @@ set(module_include_directories
 
 add_library(module OBJECT
     User/Module/module_device/module_device.c
-    User/Module/module_device/module_diagnostic.c
     User/Module/module_motor/module_motor.c
     User/Module/module_motor/module_motor_health.c
     User/Module/module_dji_motor/module_dji_motor.c
@@ -351,13 +377,14 @@ add_library(module OBJECT
     User/Module/module_dr16/module_dr16.c
     User/Module/module_swerve/module_swerve.c
     User/Module/module_board_comm/module_board_comm.c
-    User/Module/module_vision_comm/module_vision_comm.c
+    User/Module/module_uart_comm/module_uart_comm.c
+    User/Module/module_usb_comm/module_usb_comm.c
     User/Module/module_shooter/module_shooter.c
     User/Module/module_buzzer/module_buzzer.c
-    User/Module/module_bluetooth/module_bluetooth.c
     User/Module/module_oled/module_oled.c
     User/Module/module_ws2812/module_ws2812.c
     User/Module/module_nrf24l01/module_nrf24l01.c
+    User/Module/module_nrf24l01/module_nrf24l01_ace_link.c
     User/Module/module_referee/module_referee.c
     User/Module/module_referee/module_referee_crc.c
     User/Module/module_referee/module_referee_data.c
@@ -365,7 +392,11 @@ add_library(module OBJECT
     User/Module/module_servo/module_servo.c
 )
 target_include_directories(module PUBLIC ${module_include_directories})
-target_link_libraries(module PUBLIC bsp alg_pid alg_swerve)
+target_compile_definitions(module PUBLIC
+    MODULE_USB_COMM_EXTRA_DATA_SIZE=${MODULE_USB_COMM_EXTRA_DATA_SIZE}U
+    MODULE_UART_COMM_DATA_SIZE=${MODULE_UART_COMM_DATA_SIZE}U
+)
+target_link_libraries(module PUBLIC bsp alg_crc alg_pid alg_swerve)
 framework_configure_library(module)
 
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
@@ -374,6 +405,8 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     freertos
     stm32_usb_device
     bsp
+    board_config
+    alg_crc
     alg_math
     alg_trajectory
     alg_attitude

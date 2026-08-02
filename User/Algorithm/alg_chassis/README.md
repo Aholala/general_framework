@@ -132,7 +132,7 @@ alg_chassis_convert_center_velocity_to_origin(&center_velocity, cx, cy, &origin_
 ### 5.3 使用示例
 
 ```c
-static alg_chassis_wheel_monitor_state_t wheel_states[4];
+static alg_chassis_wheel_monitor_wheel_state_t wheel_states[4];
 static alg_chassis_wheel_monitor_t wheel_monitor;
 
 alg_chassis_wheel_monitor_init(&wheel_monitor, &monitor_config);

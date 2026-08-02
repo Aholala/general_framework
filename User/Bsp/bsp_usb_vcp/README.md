@@ -220,18 +220,21 @@ USB 虚拟串口的发送是异步的，有以下关键点：
 ```c
 // 使用对象内部持久缓冲区，而不是栈数组
 typedef struct {
+    bsp_usb_vcp_t *usb_vcp;
     uint8_t tx_buffer[256];
     bool tx_pending;
-} module_vision_comm_t;
+} app_usb_sender_t;
 
-static void module_vision_comm_send(module_vision_comm_t *mod, const uint8_t *data, size_t len) {
-    if (len > sizeof(mod->tx_buffer)) return;
-    memcpy(mod->tx_buffer, data, len);
-    if (bsp_usb_vcp_transmit(mod->usb_vcp, mod->tx_buffer, len, 0) != BSP_STATUS_OK) {
+static void app_usb_sender_send(app_usb_sender_t *sender, const uint8_t *data, size_t len) {
+    if (len > sizeof(sender->tx_buffer)) {
+        return;
+    }
+    memcpy(sender->tx_buffer, data, len);
+    if (bsp_usb_vcp_transmit(sender->usb_vcp, sender->tx_buffer, len, 0) != BSP_STATUS_OK) {
         // 发送忙或失败，丢弃或重试
-        mod->tx_pending = false;
+        sender->tx_pending = false;
     } else {
-        mod->tx_pending = true;
+        sender->tx_pending = true;
     }
 }
 ```

@@ -8,6 +8,7 @@
  */
 
 #include "module_referee_crc.h" // 包含 CRC 头文件
+#include "alg_crc.h"
 #include <stddef.h>             // 提供 NULL
 
 /**
@@ -20,26 +21,10 @@
  */
 uint8_t module_referee_crc8_calculate(const uint8_t *data, size_t data_size)
 {
-    uint8_t crc = 0xFFU; // 初始值 0xFF
-    size_t data_index;   // 数据索引
-
-    // 数据为空但长度非零 => 参数非法，返回 0
-    if ((data == NULL) && (data_size != 0U))
-    {
-        return 0U;
-    }
-    // 逐字节处理
-    for (data_index = 0U; data_index < data_size; ++data_index)
-    {
-        uint8_t bit_index;
-        crc ^= data[data_index]; // 与当前字节异或
-        for (bit_index = 0U; bit_index < 8U; ++bit_index)
-        {
-            // 检查最低位，右移并根据情况异或多项式 0x8C
-            crc = ((crc & 0x01U) != 0U) ? (uint8_t)((crc >> 1U) ^ 0x8CU) : (uint8_t)(crc >> 1U);
-        }
-    }
-    return crc;
+    uint32_t result = 0U;
+    return alg_crc_calculate(&alg_crc8_0x8c_ff_config, data, data_size, &result)
+               ? (uint8_t)result
+               : 0U;
 }
 
 /**
@@ -52,27 +37,11 @@ uint8_t module_referee_crc8_calculate(const uint8_t *data, size_t data_size)
  */
 uint16_t module_referee_crc16_calculate(const uint8_t *data, size_t data_size)
 {
-    uint16_t crc = 0xFFFFU; // 初始值 0xFFFF
-    size_t data_index;      // 数据索引
-
-    // 数据为空但长度非零 => 参数非法，返回 0
-    if ((data == NULL) && (data_size != 0U))
-    {
-        return 0U;
-    }
-    // 逐字节处理
-    for (data_index = 0U; data_index < data_size; ++data_index)
-    {
-        uint8_t bit_index;
-        crc ^= data[data_index]; // 与当前字节异或
-        for (bit_index = 0U; bit_index < 8U; ++bit_index)
-        {
-            // 检查最低位，右移并根据情况异或多项式 0x8408
-            crc =
-                ((crc & 0x0001U) != 0U) ? (uint16_t)((crc >> 1U) ^ 0x8408U) : (uint16_t)(crc >> 1U);
-        }
-    }
-    return crc;
+    uint32_t result = 0U;
+    return alg_crc_calculate(&alg_crc16_0x8408_ff_config, data, data_size,
+                             &result)
+               ? (uint16_t)result
+               : 0U;
 }
 
 /**

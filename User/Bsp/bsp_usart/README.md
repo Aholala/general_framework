@@ -4,6 +4,8 @@
 
 `bsp_usart` 提供了对 USART/UART 串行通信接口的通用抽象，支持固定长度接收、空闲线接收（不定长协议）、阻塞/中断/DMA 传输、中止和忙状态查询。该模块遵循 BSP 通用基础设施（`bsp_common`）的设计规范，通过虚表实现多态，并完全采用静态内存分配。
 
+蓝牙串口透传模块直接作为普通 UART 使用本 BSP：AT 配置阶段和正常通信阶段都调用 `bsp_usart_transmit()`/接收接口。UART 只定义波特率、数据位、校验位和停止位；需要固定帧头、宏定义数据区和 CRC8 时，在本 BSP 之上使用独立的 [`module_uart_comm`](../../Module/module_uart_comm/README.md)。
+
 **核心功能**：
 
 - **发送（Transmit）**：支持阻塞/中断/DMA 三种模式发送数据。

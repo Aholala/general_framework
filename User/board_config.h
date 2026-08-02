@@ -1,6 +1,15 @@
 #ifndef BOARD_CONFIG_H
 #define BOARD_CONFIG_H
 
+#include "bsp_can.h"
+#include "bsp_dwt.h"
+#include "bsp_exti.h"
+#include "bsp_pwm.h"
+#include "bsp_spi.h"
+#include "bsp_usart.h"
+#include "bsp_usb_vcp.h"
+#include "bsp_watchdog.h"
+
 /*
  * STM32H723VET6 board-level resource map.
  *
@@ -266,5 +275,56 @@
 #if BOARD_CONFIG_PWM_INSTANCE_COUNT > BOARD_CONFIG_BSP_PWM_MAX_INSTANCES
 #error "PWM instance count exceeds the BSP capacity"
 #endif
+
+typedef enum
+{
+    BOARD_CONFIG_CAN_1 = 0,
+    BOARD_CONFIG_CAN_2,
+    BOARD_CONFIG_CAN_3,
+    BOARD_CONFIG_CAN_COUNT
+} board_config_can_index_t;
+
+typedef enum
+{
+    BOARD_CONFIG_USART_2 = 0,
+    BOARD_CONFIG_USART_6,
+    BOARD_CONFIG_UART_7,
+    BOARD_CONFIG_UART_8,
+    BOARD_CONFIG_UART_DR16,
+    BOARD_CONFIG_USART_COUNT
+} board_config_usart_index_t;
+
+typedef enum
+{
+    BOARD_CONFIG_EXTI_BMI088_GYROSCOPE = 0,
+    BOARD_CONFIG_EXTI_BMI088_ACCELEROMETER,
+    BOARD_CONFIG_EXTI_COUNT
+} board_config_exti_index_t;
+
+typedef enum
+{
+    BOARD_CONFIG_PWM_AUXILIARY_1 = 0,
+    BOARD_CONFIG_PWM_AUXILIARY_2,
+    BOARD_CONFIG_PWM_AUXILIARY_3,
+    BOARD_CONFIG_PWM_AUXILIARY_4,
+    BOARD_CONFIG_PWM_BUZZER,
+    BOARD_CONFIG_PWM_COUNT
+} board_config_pwm_index_t;
+
+typedef struct
+{
+    bool initialize_watchdog;
+} board_config_init_t;
+
+bsp_status_t board_config_init(const board_config_init_t *config);
+bsp_can_t *board_config_get_can(board_config_can_index_t index);
+bsp_usart_t *board_config_get_usart(board_config_usart_index_t index);
+bsp_spi_t *board_config_get_bmi088_spi(void);
+bsp_exti_t *board_config_get_exti(board_config_exti_index_t index);
+bsp_pwm_t *board_config_get_pwm(board_config_pwm_index_t index);
+bsp_usb_vcp_t *board_config_get_usb_vcp(void);
+bsp_watchdog_t *board_config_get_watchdog(void);
+bsp_dwt_t *board_config_get_dwt(void);
+bool board_config_is_initialized(void);
 
 #endif /* BOARD_CONFIG_H */

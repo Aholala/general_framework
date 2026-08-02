@@ -8,10 +8,17 @@ BSP（Board Support Package）层提供了一套**与芯片厂商无关、可多
 
 - **无 HAL 依赖**：通用 BSP 头文件不包含任何厂商 HAL 头文件（如 `stm32h7xx_hal.h`）。
 - **无全局句柄**：不保存 CubeMX 生成的全局外设句柄（如 `hfdcan1`）。
-- **无引脚硬编码**：不决定实际引脚和外设实例，由板级配置文件描述。
+- **无引脚硬编码**：不决定实际引脚和外设实例，由 `User/board_config.h/.c` 描述。
 - **静态内存**：所有对象由调用者静态分配，不使用 `malloc`。
 
-当前 STM32H723VET6 板级资源、引脚冲突修正和移植检查见 [`BOARD_PINOUT.md`](BOARD_PINOUT.md)，对应的机器可读常量集中在 [`board_config.h`](board_config.h)。
+当前仓库的 H723 引脚、HAL 操作表、对象存储、CubeMX 句柄绑定和回调路由集中
+在 [`User/board_config.h`](../board_config.h) 与
+[`User/board_config.c`](../board_config.c)。它们位于 `User` 根目录，不属于
+通用 `User/Bsp`。CubeMX 生成的 `Core`、`USB_DEVICE`、IOC 和启动文件保持原位。
+
+Classic CAN 的跨芯片边界固定为 `bsp_can_t`：F405 使用 bxCAN 实现，H723
+使用 FDCAN Classic 模式实现。`bsp_fdcan_t` 作为可选扩展保留，用于只有
+H723 等支持 CAN FD 的目标才具备的长帧、BRS 和协议状态能力。
 
 ## 2. 目录结构
 
@@ -52,12 +59,8 @@ bsp_fdcan/                        # CAN FD 外设
 | [`bsp_dac`](bsp_dac/README.md)                       | DAC 原始码和电压输出                 |
 | [`bsp_usb_vcp`](bsp_usb_vcp/README.md)               | USB CDC 虚拟串口异步收发             |
 | [`bsp_watchdog`](bsp_watchdog/README.md)             | 硬件看门狗刷新与复位来源             |
-| [`bsp_dwt`](bsp_dwt/README.md)                       | Cortex-M7 DWT 周期计数和微秒短延时   |
-| [`bsp_crc`](bsp_crc/README.md)                       | 硬件 CRC 计算接口                    |
+| [`bsp_dwt`](bsp_dwt/README.md)                       | Cortex-M4/M7 可注入 DWT 周期计数和微秒短延时 |
 | [`bsp_rtc`](bsp_rtc/README.md)                       | 结构化日期时间与 Unix 时间           |
-| [`bsp_stm32h723_port`](bsp_stm32h723_port/README.md) | H723 HAL 句柄到通用 BSP 对象的适配层 |
-
-> `bsp_stm32h723_port` 不修改 `Core` 生成的代码，也不替 CubeMX 创建 DMA、缓存或中断配置；它只使用项目已经生成的 HAL 句柄。
 
 ### 3.1 快速接入和数据读取索引
 
@@ -69,19 +72,17 @@ bsp_fdcan/                        # CAN FD 外设
 | [`bsp_timer`](bsp_timer/README.md)                   | init → period/callback → start → ISR notify → stop             | counter、period、frequency                |
 | [`bsp_pwm`](bsp_pwm/README.md)                       | init → frequency/pulse → start → safe stop                     | 频率、脉宽和占空比命令                    |
 | [`bsp_encoder`](bsp_encoder/README.md)               | init/start → 建立基准 → 周期 count/delta → stop                | 计数、回绕安全增量和方向                  |
-| [`bsp_dwt`](bsp_dwt/README.md)                       | init → now → elapsed/convert                                   | cycle count、frequency、time point        |
+| [`bsp_dwt`](bsp_dwt/README.md)                       | 平台 ops → init → now → elapsed/convert                        | `bsp_dwt_t`、cycle count、frequency       |
 | [`bsp_watchdog`](bsp_watchdog/README.md)             | init → 汇总任务心跳 → 条件 refresh                             | timeout 和复位检测                        |
 | [`bsp_rtc`](bsp_rtc/README.md)                       | init → 可选校时 → get_time/unix                                | `bsp_rtc_time_t`、Unix 时间               |
 | [`bsp_adc`](bsp_adc/README.md)                       | init/calibrate → start → read 或 DMA/notify → stop             | 原始值、归一化值、电压、DMA 样本          |
 | [`bsp_dac`](bsp_dac/README.md)                       | init → 安全初值 → start → set 或 DMA/notify → stop             | 当前原始输出命令                          |
-| [`bsp_crc`](bsp_crc/README.md)                       | init → calculate → 读取 result                                 | CRC 计算结果                              |
 | [`bsp_can`](bsp_can/README.md)                       | init/filter/callback → start → ISR notify → task dispatcher    | `bsp_can_frame_t`、TX 空闲和 pending 状态 |
 | [`bsp_fdcan`](bsp_fdcan/README.md)                   | init/filter/callback → start → transmit/receive/notify         | FD 帧、协议状态和 TX 空闲量               |
 | [`bsp_i2c`](bsp_i2c/README.md)                       | init/callback → transaction → notify/get_busy → abort          | 接收 buffer、ready 和 busy 状态           |
 | [`bsp_spi`](bsp_spi/README.md)                       | init/callback → 片选 → transfer → notify/get_busy → abort      | 接收 buffer 和 busy 状态                  |
 | [`bsp_usart`](bsp_usart/README.md)                   | init/callback → receive/idle/double buffer → notify → restart  | 接收 buffer、事件、长度和 busy 状态       |
 | [`bsp_usb_vcp`](bsp_usb_vcp/README.md)               | USB 栈 → init/callback/receive → CDC notify                    | connected、busy、接收数据和长度           |
-| [`bsp_stm32h723_port`](bsp_stm32h723_port/README.md) | HAL 就绪 → port config/init → BSP getters → HAL callback route | 端口初始化状态和各逻辑 BSP 对象           |
 
 每个子模块 README 末尾均有“一页式接入顺序与可读信息”。异步接口的数据缓冲区归调用者所有，完成回调前不得释放或复用。
 
@@ -139,8 +140,8 @@ static bsp_status_t bsp_uart_send(bsp_uart_t *base, ...) {
 └─────────────────────────────────────────────────────────────┘
                               ↓ device_handle + driver_ops
 ┌─────────────────────────────────────────────────────────────┐
-│                   平台 Port 层                               │
-│      （bsp_stm32h723_port：HAL 句柄映射、IRQ 路由）            │
+│                  项目 board_config                          │
+│       （引脚、HAL ops、对象存储、句柄绑定、IRQ 路由）           │
 └─────────────────────────────────────────────────────────────┘
                               ↓ HAL / LL / register
 ┌─────────────────────────────────────────────────────────────┐
@@ -153,8 +154,7 @@ static bsp_status_t bsp_uart_send(bsp_uart_t *base, ...) {
 
 | 层级               | 职责                                                    |
 | :----------------- | :------------------------------------------------------ |
-| **board_config.h** | 逻辑设备名称、容量、通道、引脚编码、板级选择            |
-| **平台 Port**      | HAL 操作表、CubeMX 句柄映射、IRQ 路由、DMA 和缓存一致性 |
+| **board_config**   | 引脚、HAL 操作表、对象存储、句柄绑定和 IRQ 路由         |
 | **通用 BSP**       | 多态接口、参数校验、事件回调、对象生命周期              |
 | **Module / App**   | 业务逻辑、协议解析、控制算法                            |
 
@@ -293,6 +293,4 @@ static bsp_status_t bsp_uart_send(bsp_uart_t *base, ...) {
 |                 | `bsp_fdcan`          | CAN FD + Classic 适配器                |
 |                 | `bsp_usb_vcp`        | USB 虚拟串口                           |
 | **安全/可靠性** | `bsp_watchdog`       | 看门狗刷新、复位检测                   |
-|                 | `bsp_crc`            | 硬件 CRC 计算                          |
 | **时间**        | `bsp_rtc`            | 实时时钟（结构化时间/Unix 时间戳）     |
-| **芯片适配**    | `bsp_stm32h723_port` | H723 HAL 到 BSP 的适配层               |

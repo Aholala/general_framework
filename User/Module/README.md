@@ -83,10 +83,10 @@ Module 层位于 BSP 层之上，是业务逻辑与硬件抽象之间的桥梁�
 
 | 模块                                                 | 说明                                                             |
 | :--------------------------------------------------- | :--------------------------------------------------------------- |
+| [`module_uart_comm`](module_uart_comm/README.md)     | 普通 UART 独立固定长度协议                                       |
 | [`module_board_comm`](module_board_comm/README.md)   | 云台板/底盘板 CAN 数据协议：DR16/云台/底盘/发射机构/心跳         |
-| [`module_vision_comm`](module_vision_comm/README.md) | 视觉通信协议：5 字节固定帧（0xA5 0x5A + 2 数据 + CRC8），USB VCP |
-| [`module_bluetooth`](module_bluetooth/README.md)     | 蓝牙串口透传：双缓冲接收、在线超时、AT 命令发送                  |
-| [`module_nrf24l01`](module_nrf24l01/README.md)       | nRF24L01+ 2.4GHz 收发器：点对点协议、CRC16-CCITT                 |
+| [`module_usb_comm`](module_usb_comm/README.md)       | USB CDC 视觉 mode/ID 协议                                       |
+| [`module_nrf24l01`](module_nrf24l01/README.md)       | nRF24L01+ 驱动与独立 ACE 数据包协议                              |
 
 ### 3.5 功能设备
 
@@ -97,7 +97,6 @@ Module 层位于 BSP 层之上，是业务逻辑与硬件抽象之间的桥梁�
 | [`module_buzzer`](module_buzzer/README.md)                | 蜂鸣器：非阻塞音调序列、循环播放                                |
 | [`module_oled`](module_oled/README.md)                    | 单色 OLED：I2C 帧缓冲、像素/直线/矩形/位图绘制                  |
 | [`module_ws2812`](module_ws2812/README.md)                | RGB 灯带：SPI 编码、全局亮度、闪烁/流水/呼吸/彩虹）             |
-| [`module_diagnostic`](module_device/README_diagnostic.md) | 通用诊断基础设施，与设备基类共同位于 `module_device/`           |
 
 ### 3.6 快速接入和数据读取索引
 
@@ -106,7 +105,6 @@ Module 层位于 BSP 层之上，是业务逻辑与硬件抽象之间的桥梁�
 | 模块                                                      | 必须遵守的接入顺序                                                                             | 主要可读结构体或状态                                           |
 | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | [`module_device`](module_device/README.md)                | `init_base → 派生资源初始化 → complete_init → start/update/stop`                               | 初始化状态、逻辑名称、注册键                                   |
-| [`module_diagnostic`](module_device/README_diagnostic.md) | 定义条目和状态存储 → init → start → 周期 update                                                | `module_diagnostic_state_t`、活动数量、最高等级                |
 | [`module_motor`](module_motor/README.md)                  | 注册表初始化 → 具体电机 init/register → 反馈 → enable → set_target/update → disable/unregister | 名称、协议 ID、dt、运行时间、状态及完整反馈                    |
 | [`module_motor_health`](module_motor/README_health.md)    | 电机就绪 → 阈值/状态数组配置 → init → 周期 update → 查询可用性                                 | `module_motor_health_state_t`、原因位掩码                      |
 | [`module_dji_motor`](module_dji_motor/README.md)          | CAN/总线/注册表 → 配置三级 PID → 型号 init/register → 反馈 → enable/target/update → bus_flush  | 三级 PID、各级目标、通用反馈、原始命令及编码器状态             |
@@ -117,12 +115,12 @@ Module 层位于 BSP 层之上，是业务逻辑与硬件抽象之间的桥梁�
 | [`DM4310`](module_dm_motor/README_DM4310.md)              | 从实际电机读取协议参数 → init/register → 反馈 → enable → 匹配模式命令                          | 通用反馈、故障、MOS 温度、协议 limits                          |
 | [`module_bmi088`](module_bmi088/README.md)                | SPI/片选/延时 → init/start → 可选校准 → 周期 read                                              | `module_bmi088_process_data_t`、`module_bmi088_raw_data_t`     |
 | [`module_dr16`](module_dr16/README.md)                    | DBUS USART/DMA 双缓冲 → init/start → process/update_time                                       | `module_dr16_process_data_t`                                   |
-| [`module_nrf24l01`](module_nrf24l01/README.md)            | 两端统一无线参数 → init/start → RX 或 TX → 周期接收/发送轮询                                   | `module_nrf24l01_packet_t`、重发/丢包计数                      |
+| [`module_nrf24l01`](module_nrf24l01/README.md)            | 原始驱动 init/start → ACE link init → RX/TX → 周期接收/发送轮询                                 | `module_nrf24l01_ace_link_packet_t`、重发/丢包计数             |
 | [`module_referee`](module_referee/README.md)              | USART/四类缓冲区/路由 → init/start → 周期 update → 消费 update_mask                            | `module_referee_process_data_t`、`module_referee_statistics_t` |
 | [`module_referee_ui`](module_referee/README_UI.md)        | 裁判模块在线 → 队列配置 → init/start → enqueue → 周期 update                                   | `module_referee_ui_graphic_t`、队列和丢弃计数                  |
 | [`module_board_comm`](module_board_comm/README.md)        | 两板统一 CAN ID → init/路由 → 发送/接收 → update_time                                          | 遥控、云台、底盘和发射机构数据结构体                           |
-| [`module_vision_comm`](module_vision_comm/README.md)      | USB VCP → init → 接收 feed/发送 send → get_data                                                | `module_vision_comm_process_data_t`                            |
-| [`module_bluetooth`](module_bluetooth/README.md)          | USART/双缓冲 → init/start → 周期 update → transmit/stop                                        | 接收回调、在线状态、接收错误计数                               |
+| [`module_uart_comm`](module_uart_comm/README.md)          | USART BSP → init → send/feed → get_data                                                       | 原始数据区、更新计数和 CRC 统计                                |
+| [`module_usb_comm`](module_usb_comm/README.md)            | USB VCP → init → 接收 feed/发送 send → get_data                                                | `module_usb_comm_process_data_t`                               |
 | [`module_shooter`](module_shooter/README.md)              | 三电机就绪 → init/enable → friction → request_shots → 周期 update                              | 状态、待发数量、卡弹重试次数                                   |
 | [`module_swerve`](module_swerve/README.md)                | 两电机就绪 → init/enable → 运动学 target → apply_target                                        | 舵向角和两个电机反馈                                           |
 | [`module_servo`](module_servo/README.md)                  | PWM → init/start → 选择一种单位设置目标 → stop                                                 | 当前命令角度（无机械反馈）                                     |

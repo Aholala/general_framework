@@ -28,16 +28,6 @@ extern "C"
 #define MODULE_NRF24L01_MAXIMUM_PAYLOAD_SIZE (32U)
 /** @brief 最大地址大小（5 字节） */
 #define MODULE_NRF24L01_MAXIMUM_ADDRESS_SIZE (5U)
-/** @brief ACE 公共链路地址的宽度 */
-#define MODULE_NRF24L01_ACE_ADDRESS_SIZE (3U)
-/** @brief 点对点协议帧头 */
-#define MODULE_NRF24L01_PACKET_HEADER_FIRST (0xA5U)
-#define MODULE_NRF24L01_PACKET_HEADER_SECOND (0x5AU)
-/** @brief 点对点协议固定开销：帧头2 + 类型1 + 序号1 + 长度1 + CRC16 2 */
-#define MODULE_NRF24L01_PACKET_OVERHEAD_SIZE (7U)
-/** @brief 使用 32 字节射频载荷时的最大应用数据长度 */
-#define MODULE_NRF24L01_MAXIMUM_PACKET_DATA_SIZE                                             \
-    (MODULE_NRF24L01_MAXIMUM_PAYLOAD_SIZE - MODULE_NRF24L01_PACKET_OVERHEAD_SIZE)
 
     /* ======================== 状态码枚举 ======================== */
 
@@ -54,9 +44,7 @@ extern "C"
         MODULE_NRF24L01_STATUS_NOT_INITIALIZED,    // 对象未初始化
         MODULE_NRF24L01_STATUS_NOT_STARTED,        // 未启动
         MODULE_NRF24L01_STATUS_TRANSPORT_ERROR,    // SPI 传输错误
-        MODULE_NRF24L01_STATUS_DEVICE_NOT_FOUND,   // 设备不存在（读取配置不匹配）
-        MODULE_NRF24L01_STATUS_INVALID_PACKET,     // 协议帧头或长度错误
-        MODULE_NRF24L01_STATUS_CHECKSUM_ERROR      // 协议 CRC16 校验错误
+        MODULE_NRF24L01_STATUS_DEVICE_NOT_FOUND    // 设备不存在（读取配置不匹配）
     } module_nrf24l01_status_t;
 
     /* ======================== 数据率枚举 ======================== */
@@ -132,21 +120,6 @@ extern "C"
         uint32_t registration_key;                   // 注册键值
     } module_nrf24l01_config_t;
 
-    /**
-     * @brief 点对点应用协议数据包
-     *
-     * 空中格式：
-     * [0xA5][0x5A][message_type][sequence][data_size][data...][CRC16低][CRC16高]
-     * CRC16-CCITT-FALSE 覆盖从第一个帧头到最后一个有效数据字节。
-     */
-    typedef struct
-    {
-        uint8_t message_type;
-        uint8_t sequence;
-        uint8_t data_size;
-        uint8_t data[MODULE_NRF24L01_MAXIMUM_PACKET_DATA_SIZE];
-    } module_nrf24l01_packet_t;
-
     /* ======================== 对象结构体 ======================== */
 
     /**
@@ -154,15 +127,14 @@ extern "C"
      */
     typedef struct
     {
-        module_device_t super;                       // 设备基类
-        bsp_spi_t *spi;                              // SPI BSP 基类
-        bsp_gpio_t *chip_enable_gpio;                // CE GPIO
-        bsp_gpio_t *chip_select_gpio;                // CSN GPIO
-        uint8_t channel;                             // 频道
-        uint8_t address_size;                        // 地址宽度
+        module_device_t super;        // 设备基类
+        bsp_spi_t *spi;               // SPI BSP 基类
+        bsp_gpio_t *chip_enable_gpio; // CE GPIO
+        bsp_gpio_t *chip_select_gpio; // CSN GPIO
+        uint8_t channel;              // 频道
+        uint8_t address_size;         // 地址宽度
         uint8_t link_address[MODULE_NRF24L01_MAXIMUM_ADDRESS_SIZE];
-        uint8_t payload_size;                        // 载荷大小
-        uint8_t next_transmit_sequence;              // 下一协议包发送序号
+        uint8_t payload_size;                        // 固定载荷大小
         uint8_t configuration_register;              // 配置寄存器缓存
         uint8_t radio_frequency_setup_register;      // RF 设置寄存器缓存
         uint8_t automatic_retransmit_setup_register; // 自动重发设置寄存器缓存
@@ -175,9 +147,6 @@ extern "C"
     } module_nrf24l01_t;
 
     /* ======================== 公共 API ======================== */
-
-    /** @brief 默认 ACE 链路地址，内容为 ASCII {'A', 'C', 'E'} */
-    extern const uint8_t module_nrf24l01_ace_address[MODULE_NRF24L01_ACE_ADDRESS_SIZE];
 
     /**
      * @brief 初始化 nRF24L01 设备
@@ -249,7 +218,7 @@ extern "C"
      * @brief 发送数据
      * @param me 设备对象
      * @param payload 载荷数据
-     * @param payload_size 载荷大小（需与配置一致）
+     * @param payload_size 载荷大小（必须与配置一致）
      * @return 执行状态
      * @note 启动发送后需轮询 poll_transmit 确认完成
      */
@@ -268,44 +237,12 @@ extern "C"
      * @brief 接收数据
      * @param me 设备对象
      * @param payload 输出载荷
-     * @param payload_capacity 载荷缓冲区容量（>= payload_size）
+     * @param payload_capacity 载荷缓冲区容量（>= 配置载荷长度）
      * @param pipe_index 输出管道索引（可为 NULL）
      * @return OK=收到数据，NO_DATA=FIFO 空
      */
     module_nrf24l01_status_t module_nrf24l01_receive(module_nrf24l01_t *me, uint8_t *payload,
                                                      size_t payload_capacity, uint8_t *pipe_index);
-
-    /**
-     * @brief 按点对点协议发送应用数据
-     * @param me 设备对象
-     * @param message_type 应用消息类型
-     * @param packet_data 应用数据，data_size 为 0 时可为 NULL
-     * @param data_size 应用数据长度，最大为 payload_size - 7
-     * @return 执行状态；发送后仍需轮询 module_nrf24l01_poll_transmit()
-     */
-    module_nrf24l01_status_t module_nrf24l01_send_packet(module_nrf24l01_t *me,
-                                                          uint8_t message_type,
-                                                          const uint8_t *packet_data,
-                                                          size_t data_size);
-
-    /**
-     * @brief 接收并校验一个点对点协议数据包
-     * @param me 设备对象
-     * @param packet 输出数据包
-     * @param pipe_index 输出接收管道，可为 NULL
-     * @return OK、NO_DATA、INVALID_PACKET、CHECKSUM_ERROR 或底层错误
-     */
-    module_nrf24l01_status_t module_nrf24l01_receive_packet(module_nrf24l01_t *me,
-                                                             module_nrf24l01_packet_t *packet,
-                                                             uint8_t *pipe_index);
-
-    /**
-     * @brief 计算协议使用的 CRC16-CCITT-FALSE
-     * @param packet_data 输入数据
-     * @param data_size 输入长度
-     * @return CRC16，初值 0xFFFF，多项式 0x1021
-     */
-    uint16_t module_nrf24l01_crc16(const uint8_t *packet_data, size_t data_size);
 
     /**
      * @brief 获取发送观察统计

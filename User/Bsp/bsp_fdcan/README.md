@@ -4,6 +4,10 @@
 
 `bsp_fdcan` 提供了与芯片厂商无关的 **CAN FD（CAN with Flexible Data-Rate）** 通用抽象，同时在同一目录下提供了 **Classic CAN 适配器**，使得基于 FDCAN 硬件的设备能够无缝兼容现有的 Classic CAN 上层模块（如 `bsp_can_dispatcher`、电机控制模块等）。
 
+该接口是可选扩展，不是所有 Module 的共同依赖。需要与 F405 bxCAN 共用的
+协议应依赖 `bsp_can_t`；只有 CAN FD 长帧、BRS 和协议状态等能力才依赖
+`bsp_fdcan_t`。F405 平台不实现本扩展接口。
+
 目录结构：
 
 - `bsp_fdcan.h/.c`：CAN FD 基类、驱动注入、多态接口、帧校验、协议状态查询和事件通知。

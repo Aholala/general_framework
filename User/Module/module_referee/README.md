@@ -19,7 +19,7 @@
 | 文件                         | 说明                                      | 详细文档 |
 | :--------------------------- | :---------------------------------------- | :------- |
 | `module_referee.h/.c`        | 核心框架：流解析、路由、发送和生命周期    | 本文档 |
-| `module_referee_crc.h/.c`    | CRC8 与 CRC16 计算、验证和追加            | 本文档 |
+| `module_referee_crc.h/.c`    | 裁判协议 CRC 验证/追加接口，底层计算调用 `alg_crc` | 本文档 |
 | `module_referee_data.h/.c`   | 强类型比赛、机器人、功率和射击数据仓库    | 本文档 |
 | `module_referee_ui.h/.c`     | 客户端图形编码、队列、批量发送和发送限频  | [README_UI.md](README_UI.md) |
 

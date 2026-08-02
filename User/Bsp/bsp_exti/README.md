@@ -137,7 +137,7 @@ void board_exti_init(void) {
 static void imu_data_ready_callback(bsp_exti_t *me, void *ctx) {
     imu_t *imu = (imu_t *)ctx;
     // 仅记录时间戳或释放信号量
-    bsp_dwt_get_cycle_count(&imu->last_irq_cycle_count);
+    bsp_dwt_get_cycle_count(imu->dwt, &imu->last_irq_cycle_count);
     xSemaphoreGiveFromISR(imu->data_sem, NULL);
 }
 

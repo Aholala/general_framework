@@ -89,10 +89,9 @@ static void module_board_comm_prepare_remote_transaction(module_board_comm_t *me
     {
         return;
     }
-    // 新事务：重置 staging，保留计数器的当前值
-    me->remote_staging = (module_dr16_process_data_t){0};
-    me->remote_staging.valid_frame_count = me->remote_data.valid_frame_count;
-    me->remote_staging.invalid_frame_count = me->remote_data.invalid_frame_count;
+    // 新事务：重置 staging，保留已提交的更新计数
+    me->remote_staging = (module_board_comm_remote_process_data_t){0};
+    me->remote_staging.update_count = me->remote_data.update_count;
     me->remote_assembly_sequence = sequence;
     me->remote_receive_mask = 0U;
 }
@@ -195,8 +194,9 @@ module_board_comm_status_t module_board_comm_init(module_board_comm_t *me,
  * @note 分三帧发送：主通道、辅助通道、按键/鼠标
  *       三帧使用相同的序列号，接收端组装
  */
-module_board_comm_status_t module_board_comm_send_remote(module_board_comm_t *me,
-                                                         const module_dr16_process_data_t *remote_data)
+module_board_comm_status_t
+module_board_comm_send_remote(module_board_comm_t *me,
+                              const module_board_comm_remote_process_data_t *remote_data)
 {
     uint8_t payload[6];
     uint8_t flags;
@@ -204,7 +204,9 @@ module_board_comm_status_t module_board_comm_send_remote(module_board_comm_t *me
     module_board_comm_status_t status;
 
     // 参数校验
-    if ((me == NULL) || (remote_data == NULL))
+    if ((me == NULL) || (remote_data == NULL) ||
+        (remote_data->left_switch > MODULE_BOARD_COMM_SWITCH_MIDDLE) ||
+        (remote_data->right_switch > MODULE_BOARD_COMM_SWITCH_MIDDLE))
     {
         return MODULE_BOARD_COMM_STATUS_INVALID_ARGUMENT;
     }
@@ -478,8 +480,9 @@ module_board_comm_status_t module_board_comm_handle_frame(module_board_comm_t *m
         me->remote_staging.mouse_y = module_board_comm_decode_int16(&payload[2]);
         me->remote_staging.mouse_z = module_board_comm_decode_int16(&payload[4]);
         // 从标志字节提取开关和按键状态
-        me->remote_staging.left_switch = (module_dr16_switch_t)(frame->data[1] & 0x03U);
-        me->remote_staging.right_switch = (module_dr16_switch_t)((frame->data[1] >> 2U) & 0x03U);
+        me->remote_staging.left_switch = (module_board_comm_switch_t)(frame->data[1] & 0x03U);
+        me->remote_staging.right_switch =
+            (module_board_comm_switch_t)((frame->data[1] >> 2U) & 0x03U);
         me->remote_staging.mouse_left_pressed = (frame->data[1] & (1U << 4U)) != 0U;
         me->remote_staging.mouse_right_pressed = (frame->data[1] & (1U << 5U)) != 0U;
         me->remote_staging.is_online = (frame->data[1] & (1U << 7U)) != 0U;
@@ -535,19 +538,9 @@ module_board_comm_status_t module_board_comm_handle_frame(module_board_comm_t *m
     /* -------- 遥控器分片组装：收到全部 3 个分片后提交 -------- */
     if (me->remote_receive_mask == 7U) // 二进制 111
     {
-        size_t channel_index;
-        // 计算归一化通道值
-        for (channel_index = 0U; channel_index < MODULE_DR16_CHANNEL_COUNT; ++channel_index)
+        if (me->remote_staging.update_count != UINT32_MAX)
         {
-            me->remote_staging.normalized_channel[channel_index] =
-                module_dr16_normalize_channel_value(me->remote_staging.channel[channel_index]);
-        }
-        me->remote_staging.normalized_dial =
-            module_dr16_normalize_channel_value(me->remote_staging.dial);
-        // 递增有效帧计数
-        if (me->remote_staging.valid_frame_count != UINT32_MAX)
-        {
-            ++me->remote_staging.valid_frame_count;
+            ++me->remote_staging.update_count;
         }
         me->remote_data = me->remote_staging; // 原子提交
         me->remote_elapsed_time_ms = 0U;
@@ -574,7 +567,8 @@ module_board_comm_status_t module_board_comm_handle_frame(module_board_comm_t *m
  * @param me Robot Link 对象
  * @return 遥控器数据指针，若离线或未初始化则返回 NULL
  */
-const module_dr16_process_data_t *module_board_comm_get_remote(const module_board_comm_t *me)
+const module_board_comm_remote_process_data_t *
+module_board_comm_get_remote(const module_board_comm_t *me)
 {
     return ((me != NULL) && me->is_initialized && me->remote_online) ? &me->remote_data : NULL;
 }
@@ -584,7 +578,8 @@ const module_dr16_process_data_t *module_board_comm_get_remote(const module_boar
  * @param me Robot Link 对象
  * @return 云台数据指针，若离线或未初始化则返回 NULL
  */
-const module_board_comm_gimbal_process_data_t *module_board_comm_get_gimbal(const module_board_comm_t *me)
+const module_board_comm_gimbal_process_data_t *
+module_board_comm_get_gimbal(const module_board_comm_t *me)
 {
     return ((me != NULL) && me->is_initialized && me->gimbal_online) ? &me->gimbal_data : NULL;
 }
@@ -594,7 +589,8 @@ const module_board_comm_gimbal_process_data_t *module_board_comm_get_gimbal(cons
  * @param me Robot Link 对象
  * @return 底盘数据指针，若离线或未初始化则返回 NULL
  */
-const module_board_comm_chassis_process_data_t *module_board_comm_get_chassis(const module_board_comm_t *me)
+const module_board_comm_chassis_process_data_t *
+module_board_comm_get_chassis(const module_board_comm_t *me)
 {
     return ((me != NULL) && me->is_initialized && me->chassis_online) ? &me->chassis_data : NULL;
 }
@@ -604,7 +600,8 @@ const module_board_comm_chassis_process_data_t *module_board_comm_get_chassis(co
  * @param me Robot Link 对象
  * @return 发射机构数据指针，若离线或未初始化则返回 NULL
  */
-const module_board_comm_shooter_process_data_t *module_board_comm_get_shooter(const module_board_comm_t *me)
+const module_board_comm_shooter_process_data_t *
+module_board_comm_get_shooter(const module_board_comm_t *me)
 {
     return ((me != NULL) && me->is_initialized && me->shooter_online) ? &me->shooter_data : NULL;
 }
