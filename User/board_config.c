@@ -898,7 +898,7 @@ typedef struct
     volatile bool receive_pending;
 } board_config_usb_context_t;
 
-extern USBD_HandleTypeDef hUsbDeviceFS;
+extern USBD_HandleTypeDef hUsbDeviceHS;
 
 static bsp_can_device_t board_config_can_devices[BOARD_CONFIG_CAN_COUNT];
 static bsp_usart_device_t board_config_usart_devices[BOARD_CONFIG_USART_COUNT];
@@ -938,7 +938,7 @@ static bsp_status_t board_config_usb_transmit(void *device_handle, const uint8_t
     }
     do
     {
-        usb_status = usb_cdc_transmit((uint8_t *)(uintptr_t)transmit_data, (uint16_t)data_size);
+        usb_status = CDC_Transmit_HS((uint8_t *)(uintptr_t)transmit_data, (uint16_t)data_size);
         if (usb_status == USBD_OK)
         {
             return BSP_STATUS_OK;
@@ -993,7 +993,7 @@ static bsp_status_t board_config_usb_get_connected(const void *device_handle, bo
     {
         return BSP_STATUS_INVALID_ARGUMENT;
     }
-    *is_connected = hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED;
+    *is_connected = hUsbDeviceHS.dev_state == USBD_STATE_CONFIGURED;
     return BSP_STATUS_OK;
 }
 
@@ -1005,7 +1005,7 @@ static bsp_status_t board_config_usb_get_busy(const void *device_handle, bool *i
     {
         return BSP_STATUS_INVALID_ARGUMENT;
     }
-    class_data = (const USBD_CDC_HandleTypeDef *)hUsbDeviceFS.pClassData;
+    class_data = (const USBD_CDC_HandleTypeDef *)hUsbDeviceHS.pClassData;
     *is_busy = (class_data != NULL) && (class_data->TxState != 0U);
     return BSP_STATUS_OK;
 }
@@ -1045,7 +1045,7 @@ static bsp_status_t board_config_init_can(void)
 static bsp_status_t board_config_init_usart(void)
 {
     UART_HandleTypeDef *const handles[BOARD_CONFIG_USART_COUNT] = {
-        &huart2, &huart6, &huart7, &huart8, &huart5,
+        &huart5,
     };
     size_t index;
     for (index = 0U; index < BOARD_CONFIG_USART_COUNT; ++index)
@@ -1091,9 +1091,9 @@ static bsp_status_t board_config_init_exti(void)
 static bsp_status_t board_config_init_pwm(void)
 {
     TIM_HandleTypeDef *const timers[BOARD_CONFIG_PWM_COUNT] = {
-        &htim3, &htim3, &htim3, &htim3, &htim1,
+        &htim1,
     };
-    const uint32_t channels[BOARD_CONFIG_PWM_COUNT] = {1U, 2U, 3U, 4U, 1U};
+    const uint32_t channels[BOARD_CONFIG_PWM_COUNT] = {1U};
     size_t index;
     for (index = 0U; index < BOARD_CONFIG_PWM_COUNT; ++index)
     {
