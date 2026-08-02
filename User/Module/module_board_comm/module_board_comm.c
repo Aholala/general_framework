@@ -6,7 +6,7 @@
  * @date 2026-07-28
  * @copyright Copyright (c) 2026
  *
- * @note 传输 DR16、云台、底盘、发射机构和心跳关键数据。
+ * @note 传输 DR16、云台、底盘和发射机构关键数据。
  *       支持分片组装（同一数据组的多个分片共享序列号），
  *       各数据组独立超时检测。
  */
@@ -17,7 +17,7 @@
 #include <stddef.h> // NULL
 #include <string.h> // memcpy, memset
 
-/** @brief 浮点数缩放因子（int16 范围 -32768~32767，缩放到 ±32.767） */
+/** 所有协议浮点字段统一使用 0.001 分辨率。 */
 #define MODULE_BOARD_COMM_SCALE (1000.0F)
 
 /**
@@ -48,6 +48,12 @@ static int16_t module_board_comm_decode_int16(const uint8_t input[2])
  * @return 缩放并钳位后的 int16 值
  * @note 缩放因子 1000，范围 ±32.767
  */
+static bool module_board_comm_scaled_value_is_valid(float value)
+{
+    const float scaled_value = value * MODULE_BOARD_COMM_SCALE;
+    return isfinite(value) && (scaled_value >= -32768.0F) && (scaled_value <= 32767.0F);
+}
+
 static int16_t module_board_comm_encode_scaled(float value)
 {
     float scaled_value = value * MODULE_BOARD_COMM_SCALE;
@@ -173,7 +179,7 @@ module_board_comm_status_t module_board_comm_init(module_board_comm_t *me,
     // 参数校验：对象、配置、CAN 基类（已初始化）、基址不能超出 CAN ID 范围
     if ((me == NULL) || (config == NULL) || (config->can == NULL) ||
         !bsp_device_is_initialized(&config->can->super) ||
-        (config->base_identifier > (0x7FFU - (uint32_t)MODULE_BOARD_COMM_MESSAGE_COUNT)))
+        (config->base_identifier > (0x7FFU - ((uint32_t)MODULE_BOARD_COMM_MESSAGE_COUNT - 1U))))
     {
         return MODULE_BOARD_COMM_STATUS_INVALID_ARGUMENT;
     }
@@ -270,9 +276,11 @@ module_board_comm_send_gimbal(module_board_comm_t *me,
     uint8_t sequence;
 
     // 参数校验：指针非空，所有浮点值有限
-    if ((me == NULL) || (gimbal_data == NULL) || !isfinite(gimbal_data->yaw_rad) ||
-        !isfinite(gimbal_data->pitch_rad) || !isfinite(gimbal_data->yaw_velocity_rad_per_s) ||
-        !isfinite(gimbal_data->pitch_velocity_rad_per_s))
+    if ((me == NULL) || (gimbal_data == NULL) ||
+        !module_board_comm_scaled_value_is_valid(gimbal_data->yaw_rad) ||
+        !module_board_comm_scaled_value_is_valid(gimbal_data->pitch_rad) ||
+        !module_board_comm_scaled_value_is_valid(gimbal_data->yaw_velocity_rad_per_s) ||
+        !module_board_comm_scaled_value_is_valid(gimbal_data->pitch_velocity_rad_per_s))
     {
         return MODULE_BOARD_COMM_STATUS_INVALID_ARGUMENT;
     }
@@ -322,9 +330,10 @@ module_board_comm_send_chassis(module_board_comm_t *me,
     uint8_t sequence;
 
     // 参数校验
-    if ((me == NULL) || (chassis_data == NULL) || !isfinite(chassis_data->velocity_x_m_per_s) ||
-        !isfinite(chassis_data->velocity_y_m_per_s) ||
-        !isfinite(chassis_data->angular_velocity_rad_per_s))
+    if ((me == NULL) || (chassis_data == NULL) ||
+        !module_board_comm_scaled_value_is_valid(chassis_data->velocity_x_m_per_s) ||
+        !module_board_comm_scaled_value_is_valid(chassis_data->velocity_y_m_per_s) ||
+        !module_board_comm_scaled_value_is_valid(chassis_data->angular_velocity_rad_per_s))
     {
         return MODULE_BOARD_COMM_STATUS_INVALID_ARGUMENT;
     }
@@ -361,9 +370,7 @@ module_board_comm_send_shooter(module_board_comm_t *me,
     uint8_t sequence;
 
     // 参数校验
-    if ((me == NULL) || (shooter_data == NULL) ||
-        !isfinite(shooter_data->friction_velocity_rad_per_s) ||
-        !isfinite(shooter_data->feeder_position_rad))
+    if ((me == NULL) || (shooter_data == NULL))
     {
         return MODULE_BOARD_COMM_STATUS_INVALID_ARGUMENT;
     }
@@ -373,48 +380,11 @@ module_board_comm_send_shooter(module_board_comm_t *me,
     }
 
     sequence = me->transmit_sequence++;
-    // 编码：摩擦轮速度、拨弹盘位置
-    module_board_comm_encode_int16(
-        module_board_comm_encode_scaled(shooter_data->friction_velocity_rad_per_s), &payload[0]);
-    module_board_comm_encode_int16(
-        module_board_comm_encode_scaled(shooter_data->feeder_position_rad), &payload[2]);
-    // 状态和卡弹重试次数直接作为字节传输（不缩放）
-    payload[4] = shooter_data->state;
-    payload[5] = shooter_data->jam_retry_count;
+    payload[0] = shooter_data->state;
+    payload[1] = shooter_data->jam_retry_count;
+    payload[2] =
+        (shooter_data->friction_ready ? 1U : 0U) | (shooter_data->fire_permission ? 2U : 0U);
     return module_board_comm_transmit(me, MODULE_BOARD_COMM_MESSAGE_SHOOTER, payload, 0U, sequence);
-}
-
-/**
- * @brief 发送心跳帧
- * @param me Robot Link 对象
- * @param board_role 板卡角色（如 0=云台板，1=底盘板）
- * @param uptime_ms 运行时间（毫秒）
- * @return 执行状态
- */
-module_board_comm_status_t module_board_comm_send_heartbeat(module_board_comm_t *me,
-                                                            uint8_t board_role, uint32_t uptime_ms)
-{
-    uint8_t payload[6] = {
-        board_role,
-        0U,
-        (uint8_t)uptime_ms,
-        (uint8_t)(uptime_ms >> 8U),
-        (uint8_t)(uptime_ms >> 16U),
-        (uint8_t)(uptime_ms >> 24U),
-    };
-    uint8_t sequence;
-
-    if (me == NULL)
-    {
-        return MODULE_BOARD_COMM_STATUS_INVALID_ARGUMENT;
-    }
-    if (!me->is_initialized)
-    {
-        return MODULE_BOARD_COMM_STATUS_NOT_INITIALIZED;
-    }
-    sequence = me->transmit_sequence++;
-    return module_board_comm_transmit(me, MODULE_BOARD_COMM_MESSAGE_HEARTBEAT, payload, 0U,
-                                      sequence);
 }
 
 /**
@@ -520,16 +490,14 @@ module_board_comm_status_t module_board_comm_handle_frame(module_board_comm_t *m
 
     /* 发射机构数据（单帧，直接提交） */
     case MODULE_BOARD_COMM_MESSAGE_SHOOTER:
-        me->shooter_data.friction_velocity_rad_per_s = module_board_comm_decode_scaled(&payload[0]);
-        me->shooter_data.feeder_position_rad = module_board_comm_decode_scaled(&payload[2]);
-        me->shooter_data.state = payload[4];
-        me->shooter_data.jam_retry_count = payload[5];
+        me->shooter_data.state = payload[0];
+        me->shooter_data.jam_retry_count = payload[1];
+        me->shooter_data.friction_ready = (payload[2] & 1U) != 0U;
+        me->shooter_data.fire_permission = (payload[2] & 2U) != 0U;
         me->shooter_elapsed_time_ms = 0U;
         me->shooter_online = true;
         break;
 
-    /* 心跳帧 - 暂不处理 */
-    case MODULE_BOARD_COMM_MESSAGE_HEARTBEAT:
     case MODULE_BOARD_COMM_MESSAGE_COUNT:
     default:
         break;

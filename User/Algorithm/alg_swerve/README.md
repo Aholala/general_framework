@@ -130,8 +130,11 @@ ret = alg_swerve_calculate_with_availability(
 ```c
 float current_steering_angle = get_module_steering_angle(module_index);
 alg_swerve_optimize_target(current_steering_angle, &targets[module_index]);
-// 优化后，转向角度差不超过 ±90°，若反转则轮速取反
+// 优化后，目标保持在 current_steering_angle 附近的连续多圈坐标中；
+// 转向角度差不超过 ±90°，若反转则轮速取反。
 ```
+
+`current_steering_angle` 可以是多圈连续角度。不要在调用前将其压缩到 `[-π, π)`，否则会丢失当前位置圈数。
 
 ### 4.7 静止自锁
 

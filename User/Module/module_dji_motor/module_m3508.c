@@ -6,8 +6,8 @@
  * @date 2026-07-28
  * @copyright Copyright (c) 2026
  *
- * @note 固定电机型号为 M3508，使用 C620 电调的命令范围 [-16000, 16000]，
- *       默认减速比 19.0F，防止调用者误配成 M2006 或 GM6020。
+ * @note 固定电机型号为 M3508，使用 C620 电调的命令范围 [-16384, 16384]，
+ *       精确减速比 3591/187，防止调用者误配成 M2006 或 GM6020。
  *       所有功能通过转发到 module_dji_motor 实现。
  */
 
@@ -68,8 +68,8 @@ module_m3508_validate_control_mode(const module_m3508_t *const me,
  * @param config 配置参数
  * @return 执行状态
  * @note 构建 module_dji_motor_config_t，固定 motor_model = MODULE_DJI_MOTOR_M3508
- *       M3508 默认减速比为 19.0F（由 module_dji_motor 内部自动设置）
- *       C620 电调最大电流命令为 16000（由 module_dji_motor 内部自动设置）
+ *       M3508 精确减速比为 3591/187（由 module_dji_motor 内部自动设置）
+ *       C620 电调最大电流命令为 16384（由 module_dji_motor 内部自动设置）
  */
 module_motor_status_t module_m3508_init(module_m3508_t *const me,
                                         const module_m3508_config_t *const config)
@@ -93,6 +93,9 @@ module_motor_status_t module_m3508_init(module_m3508_t *const me,
         .direction_sign = config->direction_sign,
         .maximum_temperature_c = config->maximum_temperature_c,
         .current_scale_a_per_count = config->current_scale_a_per_count,
+        .position_reference = config->position_reference,
+        .encoder_zero_count = config->encoder_zero_count,
+        .position_offset_rad = config->position_offset_rad,
         .current_pid_config = config->current_pid_config,
         .velocity_pid_config = config->velocity_pid_config,
         .angle_pid_config = config->angle_pid_config,
@@ -160,10 +163,10 @@ module_motor_status_t module_m3508_disable(module_m3508_t *const me)
 /**
  * @brief 设置原始电流命令（电流模式）
  * @param me 电机对象
- * @param command_raw 原始协议命令（-16000~16000）
+ * @param command_raw 原始协议命令（-16384~16384）
  * @return 执行状态
  * @note 仅当控制模式为 CURRENT 时有效，否则返回 UNSUPPORTED
- *       C620 电调电流命令范围 [-16000, 16000]
+ *       C620 电调电流命令范围 [-16384, 16384]
  */
 module_motor_status_t module_m3508_set_direct_command_raw(module_m3508_t *const me,
                                                           int16_t command_raw)

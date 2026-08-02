@@ -208,7 +208,7 @@ BSP 目录为 `User/Bsp`。通用 BSP 对象不决定使用哪个外设实例或
 
 ### H723 `board_config` 使用顺序
 
-CubeMX 完成 HAL 外设初始化后，再初始化板级 BSP 对象：
+CubeMX 完成 HAL 外设初始化后，再初始化板级 BSP 对象。USB 由当前生成工程在 `StartDefaultTask()` 中初始化，因此若要立即使用 USB，应在 `MX_USB_DEVICE_Init()` 返回后调用 `board_config_init()`；不要在 `main()` 的 USB 初始化之前发送数据。
 
 ```c
 #include "board_config.h"
@@ -230,8 +230,8 @@ bsp_usb_vcp_t *usb_vcp = board_config_get_usb_vcp();
 bsp_dwt_t *dwt = board_config_get_dwt();
 ```
 
-当前 H723 装配包括 3 路 FDCAN Classic、5 路 UART/USART、BMI088 SPI2、
-2 路 BMI088 EXTI、5 路 PWM、USB CDC、DWT 和可选 Watchdog。具体引脚、时钟、
+当前 H723 装配包括 3 路 FDCAN Classic、1 路 DR16 UART5、BMI088 SPI2、
+2 路 BMI088 EXTI、1 路蜂鸣器 PWM、USB CDC、DWT 和可选 Watchdog。具体引脚、时钟、
 协议参数和资源上限均可直接查看 [`User/board_config.h`](User/board_config.h)；
 `board_config_is_initialized()` 可读取整体装配状态，各 getter 返回对应 BSP 对象。
 
@@ -359,6 +359,7 @@ IMU EKF 通过 getter 提供：
 - `alg_chassis_solution_t`：同时报告残差、有效约束数量和降级状态。
 - `alg_chassis_pose_t`：保存世界坐标系 `position_x_m`、`position_y_m`、`heading_rad`。
 - `module_swerve_get_steering_angle()`：读取单个舵轮当前舵角。
+- 舵角优化输出保持在当前多圈角度附近，不能在送入位置环前再次回绕到 `[-π, π)`。
 
 ### 发射机构
 
@@ -369,8 +370,10 @@ IMU EKF 通过 getter 提供：
 - `module_shooter_get_state()`
 - `module_shooter_get_pending_shots()`
 - `module_shooter_get_jam_retry_count()`
+- `module_shooter_get_friction_ready()`
+- `module_shooter_get_fire_permission()`
 
-对象内部还保存摩擦轮目标速度、拨弹目标位置、堵转累计时间和摩擦轮使能状态。
+拨弹盘每发使用一个完整的位置步进，位置环内部可继续串联速度环和电流环；速度低且电流高用于卡弹判断。视觉/云台层先把在线、目标时效、姿态误差和角速度合成为 `tracking_ready`，`module_shooter_update_fire_control()` 再结合摩擦轮、裁判许可和射击间隔排入新的一发，不把视觉 `0/1` 直接映射成拨弹电机启停。
 
 ### 视觉通信
 
@@ -391,7 +394,7 @@ IMU EKF 通过 getter 提供：
 - `module_board_comm_get_remote()`：与具体接收设备无关的 `module_board_comm_remote_process_data_t`
 - `module_board_comm_get_gimbal()`：yaw、pitch、两轴角速度、IMU 有效性和电机在线状态
 - `module_board_comm_get_chassis()`：`vx`、`vy`、`wz`、电机在线状态和自锁状态
-- `module_board_comm_get_shooter()`：摩擦轮速度、拨弹位置、发射状态和卡弹次数
+- `module_board_comm_get_shooter()`：发射状态、卡弹次数、摩擦轮到速和火控许可
 
 对象还保存各类数据的接收超时和在线标志。
 
@@ -442,6 +445,8 @@ IMU EKF 通过 getter 提供：
 - 当前只定义 mode 和 ID，ID 范围 1~7。
 - `MODULE_USB_COMM_EXTRA_DATA_SIZE` 控制预留扩展区，默认 0。
 - CRC8 初值 `0xFF`、多项式 `0x8C`、LSB first。
+- 板级 USB 接收使用 4 槽队列；队列满时报告 `BSP_STATUS_NO_RESOURCE`，不会覆盖尚未处理的旧帧。
+- USB 忙时，任务上下文按 1 ms 让出 CPU 后重试；中断或调度器启动前不会忙等，而是返回 `BSP_STATUS_BUSY`。
 
 ### 普通 UART 协议
 
@@ -486,8 +491,10 @@ static uint8_t remote_dma_buffer[2][MODULE_DR16_DMA_BUFFER_SIZE];
 ### 电机与板间 CAN
 
 - DJI M2006/M3508/GM6020 按官方反馈帧解析，命令由总线对象集中打包。
+- DJI 位置可选择上电相对零点或 13 位编码器机械零位，也可通过 `module_dji_motor_reset_position()` 在归零后重定义当前位置。
 - DM4310 使用达妙协议限制、状态命令和反馈格式。
 - `module_board_comm` 使用明确的消息类型在云台板与底盘板之间传输，不传输结构体内存镜像。
+- 板间浮点字段统一按 `×1000` 编码为小端 `int16_t`；字节编解码是协议内部实现，不属于 Algorithm/BSP 公共 API。
 - CAN ID、设备 ID 和路由表由初始化配置决定；具体 CAN/FDCAN 实例由 App 注入。
 
 ## 构建

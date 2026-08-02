@@ -8,7 +8,7 @@
  *
  * @note 固定电机型号为 GM6020，防止调用者误填 M2006/M3508 型号。
  *       继承自 module_dji_motor_t，提供电压直通、电流、速度、角度四种控制模式。
- *       控制命令为有符号 16 位原始电压命令，范围 [-30000, 30000]。
+ *       电压命令范围 [-25000, 25000]，电流命令范围 [-16384, 16384]。
  *       motor_identifier 只能为 1~7（GM6020 不支持 ID 8）。
  */
 
@@ -51,14 +51,17 @@ extern "C"
      */
     typedef struct
     {
-        const char *motor_name;                       // 调试可见的电机名称
-        uint32_t registration_key;                    // 注册键值
-        module_dji_motor_bus_t *motor_bus;            // DJI 电机总线（共享）
-        module_gm6020_control_mode_t control_mode;    // 控制模式
-        uint8_t motor_identifier;                     // 电机标识符（1~7）
-        float direction_sign;                         // 方向符号（+1 或 -1）
-        float maximum_temperature_c;                  // 最大允许温度（℃）
-        float current_scale_a_per_count;              // 电流换算因子（A/原始值）
+        const char *motor_name;                    // 调试可见的电机名称
+        uint32_t registration_key;                 // 注册键值
+        module_dji_motor_bus_t *motor_bus;         // DJI 电机总线（共享）
+        module_gm6020_control_mode_t control_mode; // 控制模式
+        uint8_t motor_identifier;                  // 电机标识符（1~7）
+        float direction_sign;                      // 方向符号（+1 或 -1）
+        float maximum_temperature_c;               // 最大允许温度（℃）
+        float current_scale_a_per_count;           // 电流换算因子（A/原始值）
+        module_dji_position_reference_t position_reference;
+        uint16_t encoder_zero_count;
+        float position_offset_rad;
         module_motor_pid_config_t current_pid_config;
         module_motor_pid_config_t velocity_pid_config;
         module_motor_pid_config_t angle_pid_config;
@@ -136,7 +139,7 @@ extern "C"
     /**
      * @brief 设置原始电压命令（电压模式）
      * @param me 电机对象
-     * @param voltage_command_raw 电压命令（-30000~30000）
+     * @param voltage_command_raw 电压命令（-25000~25000）
      * @return 执行状态
      * @note 仅当控制模式为 VOLTAGE 时有效
      */
@@ -183,7 +186,7 @@ extern "C"
     /**
      * @brief 获取当前原始电压命令值
      * @param me 电机对象
-     * @return 当前命令值（-30000~30000）
+     * @return 当前命令值（-25000~25000）
      */
     int16_t module_gm6020_get_voltage_command_raw(const module_gm6020_t *const me);
 

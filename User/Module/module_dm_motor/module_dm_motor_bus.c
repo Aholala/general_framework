@@ -161,13 +161,23 @@ module_motor_status_t module_dm_motor_bus_handle_feedback(module_dm_motor_bus_t 
     // ---- 查找匹配的电机 ----
     for (motor_index = 0U; motor_index < me->motor_count; ++motor_index)
     {
-        if ((me->motor_storage[motor_index]->feedback_identifier == frame->identifier) &&
+        module_dm_motor_t *const motor = me->motor_storage[motor_index];
+        const bool is_parameter_response =
+            ((frame->data_length == 4U) || (frame->data_length == 8U)) &&
+            (frame->data[0] == (uint8_t)motor->master_identifier) &&
+            (frame->data[1] == (uint8_t)(motor->master_identifier >> 8U)) &&
+            ((frame->data[2] == (uint8_t)MODULE_DM_PARAMETER_OPERATION_READ) ||
+             (frame->data[2] == (uint8_t)MODULE_DM_PARAMETER_OPERATION_WRITE) ||
+             (frame->data[2] == (uint8_t)MODULE_DM_PARAMETER_OPERATION_SAVE));
+        const bool is_motion_feedback =
             (frame->data_length == 8U) &&
-            ((frame->data[0] & 0x0FU) ==
-             (uint8_t)(me->motor_storage[motor_index]->master_identifier & 0x0FU)))
+            ((frame->data[0] & 0x0FU) == (uint8_t)(motor->master_identifier & 0x0FU));
+
+        if ((motor->feedback_identifier == frame->identifier) &&
+            (is_parameter_response || is_motion_feedback))
         {
             const module_motor_status_t status =
-                module_dm_motor_handle_feedback(me->motor_storage[motor_index], frame);
+                module_dm_motor_handle_feedback(motor, frame);
             if (status == MODULE_MOTOR_STATUS_OK)
             {
                 ++me->routed_frame_count; // 成功路由计数

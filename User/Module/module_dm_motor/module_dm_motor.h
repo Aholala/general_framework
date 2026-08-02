@@ -66,6 +66,28 @@ extern "C"
         MODULE_DM_FAULT_OVERLOAD = 14                // 过载
     } module_dm_fault_t;
 
+    /** @brief DM-J4310 参数协议操作码（CAN ID 固定为 0x7FF） */
+    typedef enum
+    {
+        MODULE_DM_PARAMETER_OPERATION_NONE = 0,
+        MODULE_DM_PARAMETER_OPERATION_READ = 0x33,
+        MODULE_DM_PARAMETER_OPERATION_WRITE = 0x55,
+        MODULE_DM_PARAMETER_OPERATION_SAVE = 0xAA
+    } module_dm_parameter_operation_t;
+
+    /** @brief 常用寄存器地址；其余寄存器仍可直接传入 uint8_t 地址访问 */
+    typedef enum
+    {
+        MODULE_DM_REGISTER_MASTER_ID = 0x07,
+        MODULE_DM_REGISTER_COMMAND_ID = 0x08,
+        MODULE_DM_REGISTER_COMMUNICATION_TIMEOUT = 0x09,
+        MODULE_DM_REGISTER_CONTROL_MODE = 0x0A,
+        MODULE_DM_REGISTER_POSITION_MAPPING_RANGE = 0x15,
+        MODULE_DM_REGISTER_VELOCITY_MAPPING_RANGE = 0x16,
+        MODULE_DM_REGISTER_TORQUE_MAPPING_RANGE = 0x17,
+        MODULE_DM_REGISTER_CAN_BAUD_RATE = 0x23
+    } module_dm_register_t;
+
     /* ======================== 结构体类型 ======================== */
 
     /**
@@ -107,6 +129,19 @@ extern "C"
         float velocity_limit_rad_per_s;   // 速度限制（0~100 rad/s）
         float current_limit_per_unit;     // 相电流限制标幺值（0~1）
     } module_dm_force_position_command_t;
+
+    /**
+     * @brief 最近一次参数协议响应，便于调试器直接查看
+     * @note raw_value 与 float_value 表示同一组 32 位数据；由寄存器类型决定读取哪一个。
+     */
+    typedef struct
+    {
+        module_dm_parameter_operation_t operation;
+        uint8_t register_address;
+        uint32_t raw_value;
+        float float_value;
+        bool is_valid;
+    } module_dm_parameter_response_t;
 
     /**
      * @brief 模式操作虚表（用于多态）
@@ -158,6 +193,10 @@ extern "C"
         uint32_t transmit_timeout_ms;          // 发送超时
         module_dm_fault_t fault;               // 当前故障码
         float mos_temperature_c;               // MOS 管温度（℃）
+        uint32_t requested_communication_timeout_counts; // 最近请求的超时值（50 us/count）
+        uint32_t confirmed_communication_timeout_counts; // 电机响应确认的超时值
+        bool communication_timeout_is_confirmed;         // 是否收到 TIMEOUT 读/写响应
+        module_dm_parameter_response_t parameter_response; // 最近参数响应
     };
 
     /* ======================== 公共 API ======================== */
@@ -205,6 +244,34 @@ extern "C"
      */
     module_motor_status_t module_dm_motor_send_state_command(module_dm_motor_t *const me,
                                                              module_dm_state_command_t command);
+
+    /** @brief 读取一个参数寄存器；响应由 module_dm_motor_handle_feedback() 接收 */
+    module_motor_status_t module_dm_motor_read_parameter(module_dm_motor_t *const me,
+                                                         uint8_t register_address);
+
+    /** @brief 在 DISABLED 状态写 uint32 参数；立即生效但掉电不保存 */
+    module_motor_status_t module_dm_motor_write_parameter_u32(module_dm_motor_t *const me,
+                                                              uint8_t register_address,
+                                                              uint32_t value);
+
+    /** @brief 在 DISABLED 状态写 float 参数；立即生效但掉电不保存 */
+    module_motor_status_t module_dm_motor_write_parameter_float(module_dm_motor_t *const me,
+                                                                uint8_t register_address,
+                                                                float value);
+
+    /**
+     * @brief 保存全部参数到电机 Flash
+     * @note 仅 DISABLED 状态有效；Flash 约 10000 次寿命，禁止放进周期任务或每次启动调用。
+     */
+    module_motor_status_t module_dm_motor_save_parameters(module_dm_motor_t *const me);
+
+    /** @brief 设置通信丢失超时，单位为 50 us/count；0 表示关闭通信丢失保护 */
+    module_motor_status_t
+    module_dm_motor_set_communication_timeout(module_dm_motor_t *const me, uint32_t timeout_counts);
+
+    /** @brief 获取最近一次有效参数响应；尚未收到时返回 NULL */
+    const module_dm_parameter_response_t *
+    module_dm_motor_get_parameter_response(const module_dm_motor_t *const me);
 
     /**
      * @brief 立即执行 MIT 命令（编码并发送）

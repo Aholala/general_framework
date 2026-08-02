@@ -51,14 +51,17 @@ extern "C"
      */
     typedef struct
     {
-        const char *motor_name;                       // 调试可见的电机名称
-        uint32_t registration_key;                    // 注册键值
-        module_dji_motor_bus_t *motor_bus;            // DJI 电机总线（共享）
-        module_m2006_control_mode_t control_mode;     // 控制模式
-        uint8_t motor_identifier;                     // 电机标识符（1~8）
-        float direction_sign;                         // 方向符号（+1 或 -1）
-        float maximum_temperature_c;                  // 最大允许温度（℃）
-        float current_scale_a_per_count;              // 电流换算因子（A/原始值）
+        const char *motor_name;                   // 调试可见的电机名称
+        uint32_t registration_key;                // 注册键值
+        module_dji_motor_bus_t *motor_bus;        // DJI 电机总线（共享）
+        module_m2006_control_mode_t control_mode; // 控制模式
+        uint8_t motor_identifier;                 // 电机标识符（1~8）
+        float direction_sign;                     // 方向符号（+1 或 -1）
+        float maximum_temperature_c;              // 最大允许温度（℃）
+        float current_scale_a_per_count;          // 电流换算因子（A/原始值）
+        module_dji_position_reference_t position_reference;
+        uint16_t encoder_zero_count;
+        float position_offset_rad;
         module_motor_pid_config_t current_pid_config;
         module_motor_pid_config_t velocity_pid_config;
         module_motor_pid_config_t angle_pid_config;

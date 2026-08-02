@@ -45,6 +45,40 @@ static bool module_shooter_jam_current_detected(const module_shooter_t *me,
     return abs(feeder_feedback->current_raw) >= abs(me->jam_current_threshold_raw);
 }
 
+static bool module_shooter_friction_velocity_reached(const module_shooter_t *me)
+{
+    const module_motor_feedback_t *const left_feedback =
+        module_motor_get_feedback(me->left_friction_motor);
+    const module_motor_feedback_t *const right_feedback =
+        module_motor_get_feedback(me->right_friction_motor);
+
+    if (!me->friction_enabled || (left_feedback == NULL) || (right_feedback == NULL) ||
+        !left_feedback->is_online || !right_feedback->is_online)
+    {
+        return false;
+    }
+    return (fabsf(fabsf(left_feedback->velocity_rad_per_s) -
+                  me->friction_target_velocity_rad_per_s) <=
+            me->friction_velocity_tolerance_rad_per_s) &&
+           (fabsf(fabsf(right_feedback->velocity_rad_per_s) -
+                  me->friction_target_velocity_rad_per_s) <=
+            me->friction_velocity_tolerance_rad_per_s);
+}
+
+static void module_shooter_update_friction_ready(module_shooter_t *me, float delta_time_s)
+{
+    if (module_shooter_friction_velocity_reached(me))
+    {
+        me->friction_ready_elapsed_time_s += delta_time_s;
+        me->friction_ready = me->friction_ready_elapsed_time_s >= me->friction_ready_time_s;
+    }
+    else
+    {
+        me->friction_ready_elapsed_time_s = 0.0F;
+        me->friction_ready = false;
+    }
+}
+
 /**
  * @brief 设置三个电机的目标值
  * @param me 发射机构对象
@@ -121,7 +155,14 @@ module_shooter_status_t module_shooter_init(module_shooter_t *me,
         !isfinite(config->jam_confirmation_time_s) || (config->jam_confirmation_time_s <= 0.0F) ||
         !isfinite(config->rollback_angle_rad) || (config->rollback_angle_rad <= 0.0F) ||
         !isfinite(config->rollback_position_tolerance_rad) ||
-        (config->rollback_position_tolerance_rad < 0.0F) || (config->maximum_jam_retries == 0U) ||
+        (config->rollback_position_tolerance_rad < 0.0F) || !isfinite(config->rollback_timeout_s) ||
+        (config->rollback_timeout_s <= 0.0F) ||
+        !isfinite(config->friction_velocity_tolerance_rad_per_s) ||
+        (config->friction_velocity_tolerance_rad_per_s <= 0.0F) ||
+        !isfinite(config->friction_ready_time_s) || (config->friction_ready_time_s <= 0.0F) ||
+        !isfinite(config->fire_stable_time_s) || (config->fire_stable_time_s <= 0.0F) ||
+        !isfinite(config->automatic_shot_interval_s) ||
+        (config->automatic_shot_interval_s <= 0.0F) || (config->maximum_jam_retries == 0U) ||
         (config->maximum_pending_shots == 0U))
     {
         return MODULE_SHOOTER_STATUS_INVALID_ARGUMENT;
@@ -143,6 +184,12 @@ module_shooter_status_t module_shooter_init(module_shooter_t *me,
         .jam_confirmation_time_s = config->jam_confirmation_time_s,
         .rollback_angle_rad = config->rollback_angle_rad,
         .rollback_position_tolerance_rad = config->rollback_position_tolerance_rad,
+        .rollback_timeout_s = config->rollback_timeout_s,
+        .friction_velocity_tolerance_rad_per_s = config->friction_velocity_tolerance_rad_per_s,
+        .friction_ready_time_s = config->friction_ready_time_s,
+        .fire_stable_time_s = config->fire_stable_time_s,
+        .automatic_shot_interval_s = config->automatic_shot_interval_s,
+        .automatic_shot_elapsed_time_s = config->automatic_shot_interval_s,
         .maximum_pending_shots = config->maximum_pending_shots,
         .maximum_jam_retries = config->maximum_jam_retries,
         .state = MODULE_SHOOTER_STATE_DISABLED,
@@ -187,6 +234,7 @@ module_shooter_status_t module_shooter_enable(module_shooter_t *me)
         return MODULE_SHOOTER_STATUS_NOT_READY;
     }
     me->feeder_target_position_rad = feeder_feedback->position_rad;
+    me->feeder_forward_target_position_rad = feeder_feedback->position_rad;
     me->state = MODULE_SHOOTER_STATE_READY;
     return MODULE_SHOOTER_STATUS_OK;
 }
@@ -221,6 +269,11 @@ module_shooter_status_t module_shooter_disable(module_shooter_t *me)
     // 清空状态
     me->pending_shots = 0U;
     me->friction_enabled = false;
+    me->friction_ready = false;
+    me->fire_permission = false;
+    me->friction_ready_elapsed_time_s = 0.0F;
+    me->fire_stable_elapsed_time_s = 0.0F;
+    me->rollback_elapsed_time_s = 0.0F;
     me->state = MODULE_SHOOTER_STATE_DISABLED;
     return status;
 }
@@ -245,6 +298,13 @@ module_shooter_status_t module_shooter_set_friction(module_shooter_t *me, bool i
     }
     me->friction_enabled = is_enabled;
     me->friction_target_velocity_rad_per_s = target_velocity_rad_per_s;
+    if (!is_enabled)
+    {
+        me->friction_ready = false;
+        me->friction_ready_elapsed_time_s = 0.0F;
+        me->fire_permission = false;
+        me->fire_stable_elapsed_time_s = 0.0F;
+    }
     return MODULE_SHOOTER_STATUS_OK;
 }
 
@@ -329,8 +389,10 @@ module_shooter_status_t module_shooter_reset_fault(module_shooter_t *me)
 
     // 重置状态：目标位置对齐当前位置
     me->feeder_target_position_rad = feeder_feedback->position_rad;
+    me->feeder_forward_target_position_rad = feeder_feedback->position_rad;
     me->jam_retry_count = 0U;
     me->jam_elapsed_time_s = 0.0F;
+    me->rollback_elapsed_time_s = 0.0F;
     me->state = MODULE_SHOOTER_STATE_READY;
     return MODULE_SHOOTER_STATUS_OK;
 }
@@ -377,14 +439,16 @@ module_shooter_status_t module_shooter_update(module_shooter_t *me, float delta_
 
     // ---- 计算位置误差（目标 - 实际） ----
     position_error_rad = me->feeder_target_position_rad - feeder_feedback->position_rad;
+    module_shooter_update_friction_ready(me, delta_time_s);
 
     // ---- 状态机逻辑 ----
 
     /* 状态：READY 且有待发请求 -> 进入 FEEDING */
-    if ((me->state == MODULE_SHOOTER_STATE_READY) && (me->pending_shots > 0U))
+    if ((me->state == MODULE_SHOOTER_STATE_READY) && (me->pending_shots > 0U) && me->friction_ready)
     {
         // 目标位置增加一步（方向由 feeder_direction_sign 决定）
         me->feeder_target_position_rad += me->feeder_direction_sign * me->feeder_step_rad;
+        me->feeder_forward_target_position_rad = me->feeder_target_position_rad;
         me->jam_elapsed_time_s = 0.0F;
         me->state = MODULE_SHOOTER_STATE_FEEDING;
     }
@@ -420,6 +484,7 @@ module_shooter_status_t module_shooter_update(module_shooter_t *me, float delta_
                     feeder_feedback->position_rad -
                     (me->feeder_direction_sign * me->rollback_angle_rad);
                 me->jam_elapsed_time_s = 0.0F;
+                me->rollback_elapsed_time_s = 0.0F;
                 me->state = MODULE_SHOOTER_STATE_ROLLBACK;
             }
         }
@@ -430,14 +495,23 @@ module_shooter_status_t module_shooter_update(module_shooter_t *me, float delta_
         }
     }
     /* 状态：ROLLBACK -> 等待回退到位，然后重新进入 FEEDING */
-    else if ((me->state == MODULE_SHOOTER_STATE_ROLLBACK) &&
-             (fabsf(position_error_rad) <= me->rollback_position_tolerance_rad))
+    else if (me->state == MODULE_SHOOTER_STATE_ROLLBACK)
     {
-        // 回退到位，再次尝试前进一步
-        me->feeder_target_position_rad =
-            feeder_feedback->position_rad + (me->feeder_direction_sign * me->feeder_step_rad);
-        me->jam_elapsed_time_s = 0.0F;
-        me->state = MODULE_SHOOTER_STATE_FEEDING;
+        me->rollback_elapsed_time_s += delta_time_s;
+        if (fabsf(position_error_rad) <= me->rollback_position_tolerance_rad)
+        {
+            // 回退到位，再次尝试前进一步
+            me->feeder_target_position_rad = me->feeder_forward_target_position_rad;
+            me->jam_elapsed_time_s = 0.0F;
+            me->rollback_elapsed_time_s = 0.0F;
+            me->state = MODULE_SHOOTER_STATE_FEEDING;
+        }
+        else if (me->rollback_elapsed_time_s >= me->rollback_timeout_s)
+        {
+            me->state = MODULE_SHOOTER_STATE_FAULT;
+            me->fire_permission = false;
+            return MODULE_SHOOTER_STATUS_FAULT;
+        }
     }
 
     // ---- 设置电机目标 ----
@@ -449,6 +523,51 @@ module_shooter_status_t module_shooter_update(module_shooter_t *me, float delta_
 
     // ---- 更新电机控制周期 ----
     return module_shooter_update_motors(me, delta_time_s);
+}
+
+module_shooter_status_t module_shooter_update_fire_control(
+    module_shooter_t *me, const module_shooter_fire_control_input_t *input, float delta_time_s)
+{
+    bool tracking_is_stable;
+
+    if ((me == NULL) || (input == NULL) || !isfinite(delta_time_s) || (delta_time_s <= 0.0F))
+    {
+        return MODULE_SHOOTER_STATUS_INVALID_ARGUMENT;
+    }
+    if (!me->is_initialized)
+    {
+        return MODULE_SHOOTER_STATUS_NOT_INITIALIZED;
+    }
+
+    me->automatic_shot_elapsed_time_s += delta_time_s;
+    tracking_is_stable = input->automatic_fire_enabled && input->tracking_ready &&
+                         input->referee_allows_fire && me->friction_ready &&
+                         (me->state != MODULE_SHOOTER_STATE_DISABLED) &&
+                         (me->state != MODULE_SHOOTER_STATE_FAULT) && (me->pending_shots == 0U);
+
+    if (tracking_is_stable)
+    {
+        me->fire_stable_elapsed_time_s += delta_time_s;
+    }
+    else
+    {
+        me->fire_stable_elapsed_time_s = 0.0F;
+    }
+    me->fire_permission =
+        tracking_is_stable && (me->fire_stable_elapsed_time_s >= me->fire_stable_time_s);
+
+    if (me->fire_permission && (me->state == MODULE_SHOOTER_STATE_READY) &&
+        (me->pending_shots == 0U) &&
+        (me->automatic_shot_elapsed_time_s >= me->automatic_shot_interval_s))
+    {
+        const module_shooter_status_t status = module_shooter_request_shots(me, 1U);
+        if (status != MODULE_SHOOTER_STATUS_OK)
+        {
+            return status;
+        }
+        me->automatic_shot_elapsed_time_s = 0.0F;
+    }
+    return MODULE_SHOOTER_STATUS_OK;
 }
 
 /**
@@ -479,4 +598,14 @@ uint16_t module_shooter_get_pending_shots(const module_shooter_t *me)
 uint8_t module_shooter_get_jam_retry_count(const module_shooter_t *me)
 {
     return ((me != NULL) && me->is_initialized) ? me->jam_retry_count : 0U;
+}
+
+bool module_shooter_get_friction_ready(const module_shooter_t *me)
+{
+    return (me != NULL) && me->is_initialized && me->friction_ready;
+}
+
+bool module_shooter_get_fire_permission(const module_shooter_t *me)
+{
+    return (me != NULL) && me->is_initialized && me->fire_permission;
 }

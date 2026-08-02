@@ -216,6 +216,43 @@ module_motor_status_t module_dm4310_clear_fault(module_dm4310_t *const me)
                : MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
 }
 
+module_motor_status_t
+module_dm4310_disable_communication_loss_protection(module_dm4310_t *const me, bool persist)
+{
+    module_motor_status_t status;
+
+    if (me == NULL)
+    {
+        return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    }
+    // 保存参数只允许在失能状态；在发送写命令前检查，避免只改 RAM 却误以为已持久化。
+    if (persist && (me->super.super.state != MODULE_MOTOR_STATE_DISABLED))
+    {
+        return MODULE_MOTOR_STATUS_UNSUPPORTED;
+    }
+    status = module_dm_motor_set_communication_timeout(&me->super, 0U);
+    if ((status == MODULE_MOTOR_STATUS_OK) && persist)
+    {
+        status = module_dm_motor_save_parameters(&me->super);
+    }
+    return status;
+}
+
+module_motor_status_t
+module_dm4310_read_communication_timeout(module_dm4310_t *const me)
+{
+    return (me != NULL)
+               ? module_dm_motor_read_parameter(
+                     &me->super, (uint8_t)MODULE_DM_REGISTER_COMMUNICATION_TIMEOUT)
+               : MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+}
+
+const module_dm_parameter_response_t *
+module_dm4310_get_parameter_response(const module_dm4310_t *const me)
+{
+    return (me != NULL) ? module_dm_motor_get_parameter_response(&me->super) : NULL;
+}
+
 /* ======================== 反馈与状态 ======================== */
 
 /**

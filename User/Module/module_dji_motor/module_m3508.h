@@ -9,7 +9,7 @@
  * @note 固定电机型号为 M3508，使用 C620 电调的命令范围和 19:1 默认减速比，
  *       防止调用者误配成 M2006 或 GM6020。
  *       继承自 module_dji_motor_t，提供直通、电流、速度、角度四种控制模式。
- *       原始电流命令范围 [-16000, 16000]。
+ *       原始电流命令范围 [-16384, 16384]。
  */
 
 #ifndef MODULE_M3508_H
@@ -47,19 +47,22 @@ extern "C"
      * @brief M3508 初始化配置
      * @note motor_identifier 为 1~8（M3508 支持完整的 1~8 个 ID）
      *       direction_sign 只能为 +1 或 -1
-     *       M3508 默认减速比为 19.0F（由 module_dji_motor 内部自动设置）
-     *       C620 电调最大电流命令为 16000
+     *       M3508 精确减速比为 3591/187（由 module_dji_motor 内部自动设置）
+     *       C620 电调最大电流命令为 16384
      */
     typedef struct
     {
-        const char *motor_name;                       // 调试可见的电机名称
-        uint32_t registration_key;                    // 注册键值
-        module_dji_motor_bus_t *motor_bus;            // DJI 电机总线（共享）
-        module_m3508_control_mode_t control_mode;     // 控制模式
-        uint8_t motor_identifier;                     // 电机标识符（1~8）
-        float direction_sign;                         // 方向符号（+1 或 -1）
-        float maximum_temperature_c;                  // 最大允许温度（℃）
-        float current_scale_a_per_count;              // 电流换算因子（A/原始值）
+        const char *motor_name;                   // 调试可见的电机名称
+        uint32_t registration_key;                // 注册键值
+        module_dji_motor_bus_t *motor_bus;        // DJI 电机总线（共享）
+        module_m3508_control_mode_t control_mode; // 控制模式
+        uint8_t motor_identifier;                 // 电机标识符（1~8）
+        float direction_sign;                     // 方向符号（+1 或 -1）
+        float maximum_temperature_c;              // 最大允许温度（℃）
+        float current_scale_a_per_count;          // 电流换算因子（A/原始值）
+        module_dji_position_reference_t position_reference;
+        uint16_t encoder_zero_count;
+        float position_offset_rad;
         module_motor_pid_config_t current_pid_config;
         module_motor_pid_config_t velocity_pid_config;
         module_motor_pid_config_t angle_pid_config;
@@ -137,7 +140,7 @@ extern "C"
     /**
      * @brief 设置原始协议命令（直通模式）
      * @param me 电机对象
-     * @param command_raw 原始协议命令（-16000~16000）
+     * @param command_raw 原始协议命令（-16384~16384）
      * @return 执行状态
      * @note 仅当控制模式为 DIRECT 时有效，不经过电流 PID
      */
@@ -184,7 +187,7 @@ extern "C"
     /**
      * @brief 获取当前原始电流命令值
      * @param me 电机对象
-     * @return 当前命令值（-16000~16000）
+     * @return 当前命令值（-16384~16384）
      */
     int16_t module_m3508_get_command_raw(const module_m3508_t *const me);
 

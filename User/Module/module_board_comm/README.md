@@ -2,11 +2,11 @@
 
 ## 1. 模块概述
 
-`module_board_comm` 是云台板与底盘板之间的 Classic CAN 数据协议模块，用于传输 DR16 遥控器数据、云台状态、底盘运动数据、发射机构状态和心跳信息。模块只负责协议编解码与在线状态快照，不决定 DR16 或拨弹盘的实际安装位置。
+`module_board_comm` 是云台板与底盘板之间的 Classic CAN 数据协议模块，用于传输 DR16 遥控器数据、云台状态、底盘运动数据和发射机构关键状态。模块只负责协议编解码与在线状态快照，不决定 DR16 或拨弹盘的实际安装位置。
 
 **核心功能**：
 
-- **发送**：遥控器数据（3 帧分片）、云台数据（2 帧分片）、底盘数据（1 帧）、发射机构数据（1 帧）、心跳（1 帧）
+- **发送**：遥控器数据（3 帧分片）、云台数据（2 帧分片）、底盘数据（1 帧）、发射机构数据（1 帧）
 - **接收**：自动路由并组装分片数据，各数据组独立在线超时检测
 - **分片组装**：遥控器和云台数据跨多帧传输，接收端按序列号组装，避免不同时刻的帧被错误拼合
 - **数据获取**：通过只读指针获取各数据组的最新快照
@@ -15,11 +15,11 @@
 
 | **模块负责**                          | **模块不负责**                           |
 | :------------------------------------ | :--------------------------------------- |
-| CAN 协议编解码（8 种消息类型）        | 具体遥控器的采集与归一化（由输入模块/App负责） |
+| CAN 协议编解码（7 种消息类型）        | 具体遥控器的采集与归一化（由输入模块/App负责） |
 | 分片组装（遥控器 3 帧、云台 2 帧）    | 云台/底盘/发射机构的实际控制逻辑         |
 | 各数据组独立在线超时检测              | 板卡角色和硬件安装位置的配置             |
 | 数据快照管理（staging → committed）   | CAN 硬件初始化和过滤器配置               |
-| 浮点数缩放编码（±32.767，精度 0.001） | CAN 总线仲裁和错误恢复                   |
+| 统一浮点缩放与固定小端字节序             | CAN 总线仲裁和错误恢复                   |
 
 ## 3. 消息协议
 
@@ -35,7 +35,7 @@
 
 ### 3.2 消息类型
 
-从 `base_identifier` 开始连续分配 8 个 CAN ID：
+从 `base_identifier` 开始连续分配 7 个 CAN ID：
 
 | 消息类型                    | 偏移 | 分片数   | 说明                                          |
 | :-------------------------- | :--- | :------- | :-------------------------------------------- |
@@ -46,16 +46,12 @@
 | `GIMBAL_AUXILIARY`          | 4    | 2 帧之一 | 云台辅助数据（pitch 角速度）                  |
 | `CHASSIS`                   | 5    | 1 帧     | 底盘数据（速度 + 状态）                       |
 | `SHOOTER`                   | 6    | 1 帧     | 发射机构数据                                  |
-| `HEARTBEAT`                 | 7    | 1 帧     | 心跳（板卡角色 + 运行时间）                   |
 
 ### 3.3 数据编码
 
-浮点数使用 **缩放因子 1000** 编码为 int16（范围 ±32.767，精度 0.001）：
+所有浮点字段统一乘以 `1000` 编码为 `int16_t`，分辨率为 `0.001`，可表示范围为 `-32.768 ~ 32.767`。发送端发现字段超出范围时返回 `INVALID_ARGUMENT`，不会静默截断。
 
-```c
-encoded = clamp(value * 1000, -32768, 32767)
-decoded = encoded / 1000.0
-```
+`int16_t` 的小端读写是线上协议的一部分：它保证 H723、F405 或上位机解析同一帧时字节顺序一致。实现保留为本 `.c` 文件内的私有函数，不对外暴露，也不放进 Algorithm/BSP 层。
 
 ## 4. 分片组装机制
 
@@ -106,7 +102,7 @@ module_board_comm_status_t module_board_comm_init(
 | `transmit_timeout_ms` | CAN 发送超时（毫秒）                                         |
 | `offline_timeout_ms`  | 各数据组离线超时（毫秒）                                     |
 
-**约束**：`base_identifier + 8 <= 0x7FF`（标准帧范围）。
+**约束**：`base_identifier + MODULE_BOARD_COMM_MESSAGE_COUNT - 1 <= 0x7FF`。
 
 ### 5.2 发送接口
 
@@ -116,7 +112,6 @@ module_board_comm_status_t module_board_comm_init(
 | `module_board_comm_send_gimbal`    | 发送云台数据     | 2 帧   |
 | `module_board_comm_send_chassis`   | 发送底盘数据     | 1 帧   |
 | `module_board_comm_send_shooter`   | 发送发射机构数据 | 1 帧   |
-| `module_board_comm_send_heartbeat` | 发送心跳         | 1 帧   |
 
 所有发送函数同步执行（阻塞直到 CAN 发送完成或超时）。
 
@@ -181,10 +176,10 @@ typedef struct {
 
 ```c
 typedef struct {
-    float friction_velocity_rad_per_s; // 摩擦轮速度（rad/s）
-    float feeder_position_rad;         // 拨弹盘位置（弧度）
-    uint8_t state;                     // 发射机构状态
-    uint8_t jam_retry_count;           // 卡弹重试次数
+    uint8_t state;           // 发射机构状态
+    uint8_t jam_retry_count; // 卡弹重试次数
+    bool friction_ready;     // 摩擦轮稳定到速
+    bool fire_permission;    // 自瞄火控许可
 } module_board_comm_shooter_process_data_t;
 ```
 
@@ -210,7 +205,7 @@ module_board_comm_init(&s_robot_link, &cfg);
 ```c
 // 在 CAN 接收回调中处理
 void can_rx_callback(const bsp_can_frame_t *frame) {
-    if (frame->identifier >= 0x100 && frame->identifier < 0x108) {
+if (frame->identifier >= 0x100 && frame->identifier < 0x107) {
         module_board_comm_handle_frame(&s_robot_link, frame);
     }
 }
@@ -342,7 +337,7 @@ void control_loop(void) {
 - [ ] 新序列号抢占丢弃旧事务
 - [ ] 序列号回绕（255 → 0）
 - [ ] 各数据组独立离线超时（一组离线不影响其他组）
-- [ ] CAN ID 基址边界（base_identifier + 8 <= 0x7FF）
+- [ ] CAN ID 基址边界（最后一个消息 ID 不超过 0x7FF）
 - [ ] 发送失败返回 `TRANSPORT_ERROR`
 - [ ] 两块板不同发送周期下的数据一致性
 
@@ -363,7 +358,7 @@ module_board_comm_status_t status =
 /* 3. 将本模块的 ID 范围注册进 bsp_can_dispatcher。 */
 /* CAN 路由回调中只调用 module_board_comm_handle_frame(&board_comm, frame)。 */
 
-/* 4. 各板按职责发送 remote/gimbal/chassis/shooter 或 heartbeat。 */
+/* 4. 各板按职责发送 remote/gimbal/chassis/shooter。 */
 status = module_board_comm_send_remote(&board_comm, remote_data);
 
 /* 5. 周期推进每组数据的独立离线计时。 */
@@ -379,7 +374,7 @@ const module_board_comm_chassis_process_data_t *chassis =
 | `module_board_comm_remote_process_data_t` | `module_board_comm_get_remote()` | 跨板转发的摇杆、开关、鼠标、键盘和拨轮输入 |
 | `module_board_comm_gimbal_process_data_t` | `module_board_comm_get_gimbal()` | 云台角度/角速度、IMU 和电机在线状态 |
 | `module_board_comm_chassis_process_data_t` | `module_board_comm_get_chassis()` | 车体速度、自锁和电机在线状态 |
-| `module_board_comm_shooter_process_data_t` | `module_board_comm_get_shooter()` | 摩擦轮、拨弹盘、发射状态和卡弹次数 |
+| `module_board_comm_shooter_process_data_t` | `module_board_comm_get_shooter()` | 发射状态、卡弹次数、摩擦轮到速和火控许可 |
 | `module_board_comm_t` | 调试器只读查看 | 每组在线标志、超时计时、分片掩码和序号 |
 
 所有 getter 都返回内部只读指针；多帧消息只有在全部分片通过校验后才会原子更新正式数据。

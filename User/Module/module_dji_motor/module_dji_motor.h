@@ -23,8 +23,8 @@ extern "C"
 
 /* ======================== 宏定义 ======================== */
 
-/** @brief CAN 发送组数量（3 组：0x1FF, 0x200, 0x2FF） */
-#define MODULE_DJI_MOTOR_GROUP_COUNT (3U)
+/** @brief CAN 发送组数量（0x1FF、0x200、0x2FF、0x1FE、0x2FE） */
+#define MODULE_DJI_MOTOR_GROUP_COUNT (5U)
 /** @brief 每组电机数量（4 个） */
 #define MODULE_DJI_MOTOR_PER_GROUP (4U)
 
@@ -40,7 +40,7 @@ extern "C"
     typedef enum
     {
         MODULE_DJI_MOTOR_M2006 = 0, // M2006 直流无刷电机（36:1 减速）
-        MODULE_DJI_MOTOR_M3508,     // M3508 直流无刷电机（19:1 减速）
+        MODULE_DJI_MOTOR_M3508,     // M3508 直流无刷电机（3591/187 减速）
         MODULE_DJI_MOTOR_GM6020     // GM6020 云台电机（直驱，1:1）
     } module_dji_motor_model_t;
 
@@ -55,11 +55,18 @@ extern "C"
         MODULE_DJI_CONTROL_ANGLE       // 角度环 -> 速度环 -> 电流环 -> 协议命令
     } module_dji_control_mode_t;
 
+    /** @brief 编码器位置参考方式 */
+    typedef enum
+    {
+        MODULE_DJI_POSITION_BOOT_RELATIVE = 0, // 首次反馈位置作为 0 rad
+        MODULE_DJI_POSITION_ENCODER_ABSOLUTE   // 使用编码器机械零位作为单圈绝对参考
+    } module_dji_position_reference_t;
+
     /* ======================== 总线对象 ======================== */
 
     /**
      * @brief DJI 电机总线对象
-     * @note 每条 CAN 网络创建一个总线对象，管理 3 个发送组 × 4 个槽位
+     * @note 每条 CAN 网络创建一个总线对象，管理 5 个发送组 × 4 个槽位
      */
     typedef struct
     {
@@ -78,18 +85,21 @@ extern "C"
      */
     typedef struct
     {
-        const char *motor_name;                       // 调试可见的电机名称
-        uint32_t registration_key;                    // 注册键值
-        module_dji_motor_bus_t *motor_bus;            // 所属总线
-        module_dji_motor_model_t motor_model;         // 电机型号
-        module_dji_control_mode_t control_mode;       // 控制模式
-        uint8_t motor_identifier;                     // 电机标识符（1~8）
-        float direction_sign;                         // 方向符号（+1 或 -1）
-        float maximum_temperature_c;                  // 最大允许温度（℃）
-        float current_scale_a_per_count;              // 电流换算因子（A/原始值）
-        module_motor_pid_config_t current_pid_config;  // 电流环 PID 配置
-        module_motor_pid_config_t velocity_pid_config; // 速度环 PID 配置
-        module_motor_pid_config_t angle_pid_config;    // 角度环 PID 配置
+        const char *motor_name;                             // 调试可见的电机名称
+        uint32_t registration_key;                          // 注册键值
+        module_dji_motor_bus_t *motor_bus;                  // 所属总线
+        module_dji_motor_model_t motor_model;               // 电机型号
+        module_dji_control_mode_t control_mode;             // 控制模式
+        uint8_t motor_identifier;                           // 电机标识符（1~8）
+        float direction_sign;                               // 方向符号（+1 或 -1）
+        float maximum_temperature_c;                        // 最大允许温度（℃）
+        float current_scale_a_per_count;                    // 电流换算因子（A/原始值）
+        module_dji_position_reference_t position_reference; // 位置参考方式
+        uint16_t encoder_zero_count;                        // 机械零位编码器值（0~8191）
+        float position_offset_rad;                          // 位置附加偏移（rad）
+        module_motor_pid_config_t current_pid_config;       // 电流环 PID 配置
+        module_motor_pid_config_t velocity_pid_config;      // 速度环 PID 配置
+        module_motor_pid_config_t angle_pid_config;         // 角度环 PID 配置
     } module_dji_motor_config_t;
 
     /* ======================== 电机对象 ======================== */
@@ -99,30 +109,33 @@ extern "C"
      */
     struct module_dji_motor
     {
-        module_motor_t super;                   // 电机基类
-        module_dji_motor_bus_t *motor_bus;      // 所属总线
-        module_dji_motor_model_t motor_model;   // 电机型号
-        module_dji_control_mode_t control_mode; // 控制模式
-        module_motor_pid_t current_pid;          // 电流环 PID
-        module_motor_pid_t velocity_pid;         // 速度环 PID
-        module_motor_pid_t angle_pid;            // 角度环 PID
-        float direct_command_value;              // 直通协议命令
-        float target_current_a;                  // 电流目标（A）
-        float target_velocity_rad_per_s;         // 速度目标（rad/s）
-        float target_angle_rad;                  // 角度目标（rad）
-        float direction_sign;                   // 方向符号
-        float gear_ratio;                       // 减速比
-        float maximum_temperature_c;            // 最大允许温度
-        float current_scale_a_per_count;        // 电流换算因子
-        int16_t command_value;                  // 当前命令值（CAN 电流命令）
-        int16_t maximum_command_value;          // 最大命令值（型号相关）
-        uint16_t previous_encoder_count;        // 上次编码器值（用于回绕计算）
-        int64_t accumulated_encoder_count;      // 累积编码器值（多圈）
-        uint8_t motor_identifier;               // DJI 电机 ID（1~8）
-        uint32_t receive_identifier;            // CAN 接收 ID
-        uint8_t group_index;                    // 发送组索引（0,1,2）
-        uint8_t group_slot;                     // 组内槽位（0~3）
-        bool has_previous_encoder_count;        // 是否有上次编码器值（首次反馈后置 true）
+        module_motor_t super;                               // 电机基类
+        module_dji_motor_bus_t *motor_bus;                  // 所属总线
+        module_dji_motor_model_t motor_model;               // 电机型号
+        module_dji_control_mode_t control_mode;             // 控制模式
+        module_motor_pid_t current_pid;                     // 电流环 PID
+        module_motor_pid_t velocity_pid;                    // 速度环 PID
+        module_motor_pid_t angle_pid;                       // 角度环 PID
+        float direct_command_value;                         // 直通协议命令
+        float target_current_a;                             // 电流目标（A）
+        float target_velocity_rad_per_s;                    // 速度目标（rad/s）
+        float target_angle_rad;                             // 角度目标（rad）
+        float direction_sign;                               // 方向符号
+        float gear_ratio;                                   // 减速比
+        float maximum_temperature_c;                        // 最大允许温度
+        float current_scale_a_per_count;                    // 电流换算因子
+        module_dji_position_reference_t position_reference; // 位置参考方式
+        uint16_t encoder_zero_count;                        // 机械零位编码器值
+        float position_offset_rad;                          // 位置附加偏移
+        int16_t command_value;                              // 当前命令值（CAN 电流命令）
+        int16_t maximum_command_value;                      // 最大命令值（型号相关）
+        uint16_t previous_encoder_count;                    // 上次编码器值（用于回绕计算）
+        int64_t accumulated_encoder_count;                  // 累积编码器值（多圈）
+        uint8_t motor_identifier;                           // DJI 电机 ID（1~8）
+        uint32_t receive_identifier;                        // CAN 接收 ID
+        uint8_t group_index;                                // 发送组索引（0,1,2）
+        uint8_t group_slot;                                 // 组内槽位（0~3）
+        bool has_previous_encoder_count; // 是否有上次编码器值（首次反馈后置 true）
     };
 
     /* ======================== 公共 API ======================== */
@@ -198,6 +211,13 @@ extern "C"
      * @return 当前命令值
      */
     int16_t module_dji_motor_get_command(const module_dji_motor_t *const me);
+
+    /**
+     * @brief 将当前位置重新定义为指定逻辑位置
+     * @note 不修改电调编码器，只调整软件位置偏移；适合完成机械归零后调用
+     */
+    module_motor_status_t module_dji_motor_reset_position(module_dji_motor_t *const me,
+                                                          float position_rad);
 
 #ifdef __cplusplus
 }

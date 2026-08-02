@@ -21,6 +21,7 @@
 #include "usbd_cdc.h"
 #include "usbd_cdc_if.h"
 #include "usbd_def.h"
+#include "cmsis_os2.h"
 
 #include <string.h>
 
@@ -889,13 +890,17 @@ static const bsp_dwt_driver_ops_t *board_config_get_dwt_driver_ops(void)
     return &board_config_dwt_driver_ops;
 }
 #define BOARD_CONFIG_USB_RECEIVE_CAPACITY (512U)
+#define BOARD_CONFIG_USB_RECEIVE_QUEUE_DEPTH (4U)
 #define BOARD_CONFIG_WATCHDOG_TIMEOUT_MS (2000U)
 
 typedef struct
 {
-    uint8_t receive_buffer[BOARD_CONFIG_USB_RECEIVE_CAPACITY];
-    volatile size_t receive_size;
-    volatile bool receive_pending;
+    uint8_t receive_buffer[BOARD_CONFIG_USB_RECEIVE_QUEUE_DEPTH][BOARD_CONFIG_USB_RECEIVE_CAPACITY];
+    size_t receive_size[BOARD_CONFIG_USB_RECEIVE_QUEUE_DEPTH];
+    volatile uint8_t read_index;
+    volatile uint8_t write_index;
+    volatile uint8_t pending_count;
+    volatile uint32_t overrun_count;
 } board_config_usb_context_t;
 
 extern USBD_HandleTypeDef hUsbDeviceHS;
@@ -947,10 +952,15 @@ static bsp_status_t board_config_usb_transmit(void *device_handle, const uint8_t
         {
             return BSP_STATUS_IO_ERROR;
         }
+        if ((timeout_ms == 0U) || (__get_IPSR() != 0U) || (osKernelGetState() != osKernelRunning))
+        {
+            return BSP_STATUS_BUSY;
+        }
         if ((HAL_GetTick() - started_at_ms) >= timeout_ms)
         {
             return BSP_STATUS_TIMEOUT;
         }
+        (void)osDelay(1U);
     } while (true);
 }
 
@@ -958,19 +968,29 @@ static bsp_status_t board_config_usb_receive(void *device_handle, uint8_t *recei
                                              size_t data_capacity)
 {
     board_config_usb_context_t *const context = (board_config_usb_context_t *)device_handle;
+    uint32_t interrupt_state;
+    uint8_t read_index;
     size_t copy_size;
     if ((context == NULL) || (receive_data == NULL) || (data_capacity == 0U))
     {
         return BSP_STATUS_INVALID_ARGUMENT;
     }
-    if (!context->receive_pending)
+    interrupt_state = __get_PRIMASK();
+    __disable_irq();
+    if (context->pending_count == 0U)
     {
+        __set_PRIMASK(interrupt_state);
         return BSP_STATUS_BUSY;
     }
-    copy_size = (context->receive_size < data_capacity) ? context->receive_size : data_capacity;
-    memcpy(receive_data, context->receive_buffer, copy_size);
-    context->receive_pending = false;
-    context->receive_size = 0U;
+    read_index = context->read_index;
+    copy_size = (context->receive_size[read_index] < data_capacity)
+                    ? context->receive_size[read_index]
+                    : data_capacity;
+    memcpy(receive_data, context->receive_buffer[read_index], copy_size);
+    context->receive_size[read_index] = 0U;
+    context->read_index = (uint8_t)((read_index + 1U) % BOARD_CONFIG_USB_RECEIVE_QUEUE_DEPTH);
+    --context->pending_count;
+    __set_PRIMASK(interrupt_state);
     return BSP_STATUS_OK;
 }
 
@@ -981,8 +1001,10 @@ static bsp_status_t board_config_usb_abort(void *device_handle)
     {
         return BSP_STATUS_INVALID_ARGUMENT;
     }
-    context->receive_pending = false;
-    context->receive_size = 0U;
+    context->read_index = 0U;
+    context->write_index = 0U;
+    context->pending_count = 0U;
+    (void)memset(context->receive_size, 0, sizeof(context->receive_size));
     return BSP_STATUS_OK;
 }
 
@@ -1363,16 +1385,30 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
 void usb_cdc_receive_callback(const uint8_t *receive_data, uint32_t receive_size)
 {
     size_t copy_size;
+    uint8_t write_index;
     if ((receive_data == NULL) || !board_config_initialized)
     {
+        return;
+    }
+    if (board_config_usb_context.pending_count >= BOARD_CONFIG_USB_RECEIVE_QUEUE_DEPTH)
+    {
+        if (board_config_usb_context.overrun_count != UINT32_MAX)
+        {
+            ++board_config_usb_context.overrun_count;
+        }
+        bsp_usb_vcp_notify(&board_config_usb_device.super, BSP_EVENT_ERROR, BSP_STATUS_NO_RESOURCE,
+                           receive_size);
         return;
     }
     copy_size = (receive_size < BOARD_CONFIG_USB_RECEIVE_CAPACITY)
                     ? (size_t)receive_size
                     : BOARD_CONFIG_USB_RECEIVE_CAPACITY;
-    memcpy(board_config_usb_context.receive_buffer, receive_data, copy_size);
-    board_config_usb_context.receive_size = copy_size;
-    board_config_usb_context.receive_pending = true;
+    write_index = board_config_usb_context.write_index;
+    memcpy(board_config_usb_context.receive_buffer[write_index], receive_data, copy_size);
+    board_config_usb_context.receive_size[write_index] = copy_size;
+    board_config_usb_context.write_index =
+        (uint8_t)((write_index + 1U) % BOARD_CONFIG_USB_RECEIVE_QUEUE_DEPTH);
+    ++board_config_usb_context.pending_count;
     bsp_usb_vcp_notify(&board_config_usb_device.super, BSP_EVENT_RECEIVE_PENDING, BSP_STATUS_OK,
                        copy_size);
 }

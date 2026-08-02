@@ -160,6 +160,27 @@ module_dm_motor_send_state_command(&s_motor, MODULE_DM_COMMAND_CLEAR_FAULT);
 module_dm_motor_send_state_command(&s_motor, MODULE_DM_COMMAND_SET_ZERO);
 ```
 
+### 5.6 参数寄存器和通信丢失保护
+
+参数服务使用标准帧 `0x7FF`：读操作码 `0x33`、写操作码 `0x55`、保存操作码
+`0xAA`。响应从配置的 `MST_ID` 返回，CAN 接收帧仍交给
+`module_dm_motor_bus_handle_feedback()` 或 `module_dm_motor_handle_feedback()`。
+
+```c
+/* 已 init + register，且当前保持 DISABLED。 */
+module_dm_motor_set_communication_timeout(&s_motor, 0U); /* 0 = 关闭通信丢失保护 */
+module_dm_motor_save_parameters(&s_motor);               /* 只在参数变化时保存 */
+
+/* 保存后留出手册要求的最长 30 ms，再主动回读。 */
+module_dm_motor_read_parameter(&s_motor, MODULE_DM_REGISTER_COMMUNICATION_TIMEOUT);
+const module_dm_parameter_response_t *response =
+    module_dm_motor_get_parameter_response(&s_motor);
+```
+
+`TIMEOUT` 单位为 `50 us/count`。写参数立即生效但默认不掉电保存；保存命令仅在
+Disabled 状态有效，并会一次保存全部参数。电机 Flash 约 10000 次擦写寿命，严禁把
+`module_dm_motor_save_parameters()` 放进控制循环或每次启动流程。
+
 ## 6. 故障处理
 
 - 故障码通过 `module_dm_motor_get_fault()` 获取。
@@ -240,6 +261,8 @@ module_dm_motor_bus_update(&dm_bus, delta_time_s);
 | MOS 温度 | `module_dm_motor_get_mos_temperature_c()` | 驱动器功率器件温度 |
 | 协议范围 | `module_dm_limits_t` | 位置、速度、力矩、Kp、Kd 的量化边界 |
 | 命令结构 | `module_dm_mit_command_t`、`module_dm_force_position_command_t` | MIT 与力位混合模式的完整输入 |
+| 参数响应 | `module_dm_parameter_response_t` | 最近读/写/保存响应、寄存器地址、raw/float 值 |
+| 通信超时 | `requested_communication_timeout_counts` / `confirmed_communication_timeout_counts` | 请求值、响应确认值和确认标志 |
 | 总线状态 | `module_dm_motor_bus_t`，仅调试读取 | 电机数量、轮询位置和每周期发送预算 |
 
 `control_mode` 与命令 API 不匹配时应视为调用错误；不要在运行中通过直接修改对象字段切换模式。

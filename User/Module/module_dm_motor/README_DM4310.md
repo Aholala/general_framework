@@ -120,6 +120,30 @@ const module_dm_force_position_command_t command = {
 统一反馈包含位置、速度、力矩和电机温度；MOS 温度保存在达妙派生对象中，通过专用 getter
 读取。反馈状态码 `0` 会同步为 Disabled，`1` 同步为 Enabled，`8~E` 同步为 Fault。
 
+## 关闭通信丢失自动失能
+
+`TIMEOUT` 寄存器地址是 `0x09`，时间基准为 `50 us/count`。写入 `0` 会关闭“设定周期
+未收到 CAN 指令便退出使能模式”的保护。
+
+```c
+/* 1. init + register 后保持电机为 DISABLED。 */
+status = module_dm4310_disable_communication_loss_protection(&motor, true);
+/* true = 写 TIMEOUT=0 后保存 Flash；只在首次配置或参数变化时调用。 */
+
+/* 2. 保存最多需要 30 ms；等待后回读，CAN 响应继续交给 dm_bus。 */
+status = module_dm4310_read_communication_timeout(&motor);
+
+/* 3. 收到响应后在调试器确认。 */
+const module_dm_parameter_response_t *parameter =
+    module_dm4310_get_parameter_response(&motor);
+bool timeout_is_zero = motor.super.communication_timeout_is_confirmed &&
+                       (motor.super.confirmed_communication_timeout_counts == 0U);
+```
+
+若只需本次上电有效，把 `persist` 传 `false`。持久化前接口会检查 Disabled 状态。
+Flash 约 10000 次擦写寿命，不能周期调用。关闭电机内部保护后，App 仍须保留急停、
+反馈离线、软限位和输出清零保护。
+
 ## 安全要求
 
 - 首次使用必须从调试工具读取并核对协议范围和 CAN ID；
@@ -139,15 +163,18 @@ module_motor_status_t status = module_dm4310_init(&motor, &motor_config);
 status = module_dm4310_register(&motor, &registry);
 status = module_dm_motor_bus_register(&dm_bus, module_dm4310_as_dm_motor(&motor));
 
-/* 3. CAN 反馈交给 dm_bus，确认 get_feedback 非 NULL 后再使能。 */
+/* 3. 首次装机时在 DISABLED 状态写 TIMEOUT=0、保存并回读确认。 */
+status = module_dm4310_disable_communication_loss_protection(&motor, true);
+
+/* 4. CAN 反馈交给 dm_bus，确认 get_feedback 非 NULL 后再使能。 */
 status = module_dm4310_enable(&motor);
 
-/* 4. 只调用配置控制模式对应的一个命令接口。 */
+/* 5. 只调用配置控制模式对应的一个命令接口。 */
 status = module_dm4310_command_mit(&motor, &mit_command);
 
-/* 5. 周期 module_dm_motor_bus_update 负责发送；停机先 disable。 */
+/* 6. 周期 module_dm_motor_bus_update 负责发送；停机先 disable。 */
 
-/* 6. set_zero_position 只能在 DISABLED 且机械位置明确时执行。 */
+/* 7. set_zero_position 只能在 DISABLED 且机械位置明确时执行。 */
 ```
 
 | 可读取信息 | API | 说明 |
@@ -156,5 +183,7 @@ status = module_dm4310_command_mit(&motor, &mit_command);
 | `module_dm_fault_t` | `module_dm4310_get_fault()` | 当前驱动器故障码 |
 | MOS 温度 | `module_dm4310_get_mos_temperature_c()` | 驱动器 MOS 温度 |
 | `module_dm_limits_t` | `motor.super.limits`，仅调试读取 | 当前实际用于编码/解码的协议范围 |
+| 参数响应 | `module_dm4310_get_parameter_response()` | 最近参数操作、寄存器地址及 raw/float 值 |
+| 通信超时 | `motor.super.confirmed_communication_timeout_counts` | 电机响应确认的 TIMEOUT 值 |
 
 getter 返回 NULL 或反馈离线时，App 必须禁止继续发送运动目标并进入安全状态。

@@ -91,6 +91,9 @@ module_motor_status_t module_gm6020_init(module_gm6020_t *const me,
         .direction_sign = config->direction_sign,
         .maximum_temperature_c = config->maximum_temperature_c,
         .current_scale_a_per_count = config->current_scale_a_per_count,
+        .position_reference = config->position_reference,
+        .encoder_zero_count = config->encoder_zero_count,
+        .position_offset_rad = config->position_offset_rad,
         .current_pid_config = config->current_pid_config,
         .velocity_pid_config = config->velocity_pid_config,
         .angle_pid_config = config->angle_pid_config,
@@ -167,7 +170,7 @@ module_motor_status_t module_gm6020_disable(module_gm6020_t *const me)
 /**
  * @brief 设置原始电压命令（电压模式）
  * @param me 电机对象
- * @param voltage_command_raw 电压命令（-30000~30000）
+ * @param voltage_command_raw 电压命令（-25000~25000）
  * @return 执行状态
  * @note 仅当控制模式为 VOLTAGE 时有效，否则返回 UNSUPPORTED
  */

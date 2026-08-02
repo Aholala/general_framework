@@ -131,6 +131,22 @@ static void module_dm_motor_encode_float_little_endian(float value, uint8_t outp
     output[3] = (uint8_t)(raw_value >> 24U);
 }
 
+/** @brief 将 uint32 以小端序编码到 4 字节缓冲区 */
+static void module_dm_motor_encode_u32_little_endian(uint32_t value, uint8_t output[4])
+{
+    output[0] = (uint8_t)value;
+    output[1] = (uint8_t)(value >> 8U);
+    output[2] = (uint8_t)(value >> 16U);
+    output[3] = (uint8_t)(value >> 24U);
+}
+
+/** @brief 从小端序 4 字节解码 uint32 */
+static uint32_t module_dm_motor_decode_u32_little_endian(const uint8_t input[4])
+{
+    return (uint32_t)input[0] | ((uint32_t)input[1] << 8U) |
+           ((uint32_t)input[2] << 16U) | ((uint32_t)input[3] << 24U);
+}
+
 /**
  * @brief 获取 MIT 模式的 CAN 发送 ID
  * @param me 电机对象
@@ -493,6 +509,10 @@ module_motor_status_t module_dm_motor_init(module_dm_motor_t *const me,
     me->transmit_timeout_ms = config->transmit_timeout_ms;
     me->fault = MODULE_DM_FAULT_NONE;
     me->mos_temperature_c = 0.0F;
+    me->requested_communication_timeout_counts = 0U;
+    me->confirmed_communication_timeout_counts = 0U;
+    me->communication_timeout_is_confirmed = false;
+    me->parameter_response = (module_dm_parameter_response_t){0};
 
     // ---- 初始化基类 ----
     return module_motor_init_base(&me->super, &s_module_dm_motor_ops, config->motor_name,
@@ -572,6 +592,115 @@ module_motor_status_t module_dm_motor_send_state_command(module_dm_motor_t *cons
     transmit_data[7] = command_codes[command]; // 命令码放入最后一个字节
     return module_dm_motor_transmit(me, transmit_data,
                                     me->mode_vptr->get_transmit_identifier(me), 8U);
+}
+
+/* ======================== 参数协议 ======================== */
+
+/** @brief 构造参数服务帧的 CANID_L/CANID_H 公共字段 */
+static void module_dm_motor_prepare_parameter_frame(const module_dm_motor_t *const me,
+                                                    uint8_t operation, uint8_t register_address,
+                                                    uint8_t data[8])
+{
+    (void)memset(data, 0, 8U);
+    data[0] = (uint8_t)me->master_identifier;
+    data[1] = (uint8_t)(me->master_identifier >> 8U);
+    data[2] = operation;
+    data[3] = register_address;
+}
+
+module_motor_status_t module_dm_motor_read_parameter(module_dm_motor_t *const me,
+                                                     uint8_t register_address)
+{
+    uint8_t transmit_data[8];
+
+    if ((me == NULL) || !me->super.is_registered)
+    {
+        return (me == NULL) ? MODULE_MOTOR_STATUS_INVALID_ARGUMENT
+                            : MODULE_MOTOR_STATUS_NOT_REGISTERED;
+    }
+    module_dm_motor_prepare_parameter_frame(
+        me, (uint8_t)MODULE_DM_PARAMETER_OPERATION_READ, register_address, transmit_data);
+    return module_dm_motor_transmit(me, transmit_data, 0x7FFU, 4U);
+}
+
+module_motor_status_t module_dm_motor_write_parameter_u32(module_dm_motor_t *const me,
+                                                          uint8_t register_address, uint32_t value)
+{
+    uint8_t transmit_data[8];
+
+    if ((me == NULL) || !me->super.is_registered)
+    {
+        return (me == NULL) ? MODULE_MOTOR_STATUS_INVALID_ARGUMENT
+                            : MODULE_MOTOR_STATUS_NOT_REGISTERED;
+    }
+    if (me->super.state != MODULE_MOTOR_STATE_DISABLED)
+    {
+        return MODULE_MOTOR_STATUS_UNSUPPORTED;
+    }
+    module_dm_motor_prepare_parameter_frame(
+        me, (uint8_t)MODULE_DM_PARAMETER_OPERATION_WRITE, register_address, transmit_data);
+    module_dm_motor_encode_u32_little_endian(value, &transmit_data[4]);
+    return module_dm_motor_transmit(me, transmit_data, 0x7FFU, 8U);
+}
+
+module_motor_status_t module_dm_motor_write_parameter_float(module_dm_motor_t *const me,
+                                                            uint8_t register_address, float value)
+{
+    uint8_t transmit_data[8];
+
+    if ((me == NULL) || !isfinite(value) || !me->super.is_registered)
+    {
+        if ((me != NULL) && !me->super.is_registered)
+        {
+            return MODULE_MOTOR_STATUS_NOT_REGISTERED;
+        }
+        return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    }
+    if (me->super.state != MODULE_MOTOR_STATE_DISABLED)
+    {
+        return MODULE_MOTOR_STATUS_UNSUPPORTED;
+    }
+    module_dm_motor_prepare_parameter_frame(
+        me, (uint8_t)MODULE_DM_PARAMETER_OPERATION_WRITE, register_address, transmit_data);
+    module_dm_motor_encode_float_little_endian(value, &transmit_data[4]);
+    return module_dm_motor_transmit(me, transmit_data, 0x7FFU, 8U);
+}
+
+module_motor_status_t module_dm_motor_save_parameters(module_dm_motor_t *const me)
+{
+    uint8_t transmit_data[8];
+
+    if ((me == NULL) || !me->super.is_registered)
+    {
+        return (me == NULL) ? MODULE_MOTOR_STATUS_INVALID_ARGUMENT
+                            : MODULE_MOTOR_STATUS_NOT_REGISTERED;
+    }
+    if (me->super.state != MODULE_MOTOR_STATE_DISABLED)
+    {
+        return MODULE_MOTOR_STATUS_UNSUPPORTED;
+    }
+    module_dm_motor_prepare_parameter_frame(
+        me, (uint8_t)MODULE_DM_PARAMETER_OPERATION_SAVE, 0x01U, transmit_data);
+    return module_dm_motor_transmit(me, transmit_data, 0x7FFU, 4U);
+}
+
+module_motor_status_t
+module_dm_motor_set_communication_timeout(module_dm_motor_t *const me, uint32_t timeout_counts)
+{
+    module_motor_status_t status = module_dm_motor_write_parameter_u32(
+        me, (uint8_t)MODULE_DM_REGISTER_COMMUNICATION_TIMEOUT, timeout_counts);
+    if (status == MODULE_MOTOR_STATUS_OK)
+    {
+        me->requested_communication_timeout_counts = timeout_counts;
+        me->communication_timeout_is_confirmed = false;
+    }
+    return status;
+}
+
+const module_dm_parameter_response_t *
+module_dm_motor_get_parameter_response(const module_dm_motor_t *const me)
+{
+    return ((me != NULL) && me->parameter_response.is_valid) ? &me->parameter_response : NULL;
 }
 
 /**
@@ -740,10 +869,52 @@ module_motor_status_t module_dm_motor_handle_feedback(module_dm_motor_t *const m
     uint32_t torque_raw;
     uint8_t state_code;
 
-    // ---- 参数校验 ----
+    // ---- 公共参数校验 ----
     if ((me == NULL) || (frame == NULL) || !me->super.is_registered ||
         (frame->id_type != BSP_CAN_ID_STANDARD) || (frame->frame_type != BSP_CAN_FRAME_DATA) ||
-        (frame->identifier != me->feedback_identifier) || (frame->data_length != 8U) ||
+        (frame->identifier != me->feedback_identifier))
+    {
+        return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    }
+
+    // ---- 参数读/写/保存响应 ----
+    if ((frame->data_length >= 4U) &&
+        (frame->data[0] == (uint8_t)me->master_identifier) &&
+        (frame->data[1] == (uint8_t)(me->master_identifier >> 8U)) &&
+        ((frame->data[2] == (uint8_t)MODULE_DM_PARAMETER_OPERATION_READ) ||
+         (frame->data[2] == (uint8_t)MODULE_DM_PARAMETER_OPERATION_WRITE) ||
+         (frame->data[2] == (uint8_t)MODULE_DM_PARAMETER_OPERATION_SAVE)))
+    {
+        uint32_t raw_value = 0U;
+        float float_value = 0.0F;
+
+        if ((frame->data[2] != (uint8_t)MODULE_DM_PARAMETER_OPERATION_SAVE) &&
+            (frame->data_length != 8U))
+        {
+            return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+        }
+        if (frame->data_length == 8U)
+        {
+            raw_value = module_dm_motor_decode_u32_little_endian(&frame->data[4]);
+            (void)memcpy(&float_value, &raw_value, sizeof(float_value));
+        }
+        me->parameter_response.operation = (module_dm_parameter_operation_t)frame->data[2];
+        me->parameter_response.register_address = frame->data[3];
+        me->parameter_response.raw_value = raw_value;
+        me->parameter_response.float_value = float_value;
+        me->parameter_response.is_valid = true;
+
+        if ((frame->data[2] != (uint8_t)MODULE_DM_PARAMETER_OPERATION_SAVE) &&
+            (frame->data[3] == (uint8_t)MODULE_DM_REGISTER_COMMUNICATION_TIMEOUT))
+        {
+            me->confirmed_communication_timeout_counts = raw_value;
+            me->communication_timeout_is_confirmed = true;
+        }
+        return MODULE_MOTOR_STATUS_OK;
+    }
+
+    // ---- 运动反馈校验 ----
+    if ((frame->data_length != 8U) ||
         ((frame->data[0] & 0x0FU) != (uint8_t)(me->master_identifier & 0x0FU)))
     {
         return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;

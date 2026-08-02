@@ -2,6 +2,9 @@
 
 本模块统一实现 M2006/C610、M3508/C620 和 GM6020 的 CAN 反馈、多圈角度、总线分组发送及三级 PID 控制。型号入口见 [M2006](README_M2006.md)、[M3508](README_M3508.md) 和 [GM6020](README_GM6020.md)。
 
+总线层区分 GM6020 的两套发送协议：电压模式使用 `0x1FF/0x2FF`，电流、速度和
+角度模式使用电流帧 `0x1FE/0x2FE`；M2006/M3508 使用 `0x200/0x1FF`。
+
 ## 控制链
 
 四种模式在初始化时固定：
@@ -48,6 +51,9 @@ module_dji_motor_config_t config = {
     .direction_sign = 1.0F,
     .maximum_temperature_c = 80.0F,
     .current_scale_a_per_count = current_scale_a_per_count,
+    .position_reference = MODULE_DJI_POSITION_BOOT_RELATIVE,
+    .encoder_zero_count = 0U,
+    .position_offset_rad = 0.0F,
     .current_pid_config = current_pid,
     .velocity_pid_config = velocity_pid,
     .angle_pid_config = angle_pid,
@@ -75,6 +81,7 @@ module_dji_motor_bus_flush(&motor_bus);
 | `motor` (`module_dji_motor_t`) | 型号、控制模式、DJI ID、接收 CAN ID、发送组/槽位、方向、减速比、温度上限、最终 raw 命令 |
 | `current_pid` / `velocity_pid` / `angle_pid` | PID 形式、配置、历史状态和 `alg_pid_terms_t` |
 | `target_current_a` / `target_velocity_rad_per_s` / `target_angle_rad` | 三级控制链各级目标 |
+| `position_reference` / `encoder_zero_count` / `position_offset_rad` | 上电相对零点或编码器机械零位，以及当前软件位置偏移 |
 | `module_motor_feedback_t` | 多圈角度、速度、电流、温度、原始值、在线状态和反馈计数 |
 
 也可用 `module_dji_motor_get_current_pid()`、`get_velocity_pid()`、`get_angle_pid()` 获取已启用控制环；未启用的环返回 `NULL`。
@@ -86,3 +93,12 @@ module_dji_motor_bus_flush(&motor_bus);
 - `module_motor_update()` 只计算命令；必须调用 `module_dji_motor_bus_flush()` 才会发 CAN 帧。
 - 禁用或反馈超时会清零命令。重新使能时三级 PID 按当前反馈复位，减少突跳。
 - 总运行时间读取 `total_runtime_us`，实际使能时间读取 `enabled_runtime_us`；二者都使用整数微秒，避免长期 float 累加失真。
+
+## 位置参考与归零
+
+- `MODULE_DJI_POSITION_BOOT_RELATIVE`：首次反馈定义为 `0 rad`，适合上电位置锁定；这是结构体清零后的兼容默认值。
+- `MODULE_DJI_POSITION_ENCODER_ABSOLUTE`：首次反馈按 `encoder_zero_count` 计算单圈机械绝对角，适合 GM6020 舵向零位等场景。
+- `position_offset_rad`：在编码器角度上叠加逻辑偏移。
+- 完成限位、光电或人工机械归零后，可调用 `module_dji_motor_reset_position(&motor, desired_position_rad)`，不修改电调编码器，只重定义软件当前位置。
+
+绝对模式只能给出编码器单圈内相对机械零位的位置；断电期间转过多少整圈无法由 13 位单圈编码器恢复。需要跨断电多圈绝对位置时，必须增加外部绝对编码器或机械归零流程。

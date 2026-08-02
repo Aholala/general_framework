@@ -73,8 +73,7 @@ static module_motor_status_t module_dji_motor_enable_virtual(module_motor_t *con
     }
     if (me->control_mode >= MODULE_DJI_CONTROL_VELOCITY)
     {
-        status = module_motor_pid_reset(&me->velocity_pid,
-                                        motor_base->feedback.velocity_rad_per_s,
+        status = module_motor_pid_reset(&me->velocity_pid, motor_base->feedback.velocity_rad_per_s,
                                         motor_base->feedback.current_a);
         if (status != MODULE_MOTOR_STATUS_OK)
         {
@@ -184,8 +183,8 @@ static module_motor_status_t module_dji_motor_update_virtual(module_motor_t *con
             if (me->control_mode == MODULE_DJI_CONTROL_ANGLE)
             {
                 status = module_motor_pid_update(&me->angle_pid, me->target_angle_rad,
-                                                 motor_base->feedback.position_rad,
-                                                 delta_time_s, &velocity_setpoint_rad_per_s);
+                                                 motor_base->feedback.position_rad, delta_time_s,
+                                                 &velocity_setpoint_rad_per_s);
                 if (status != MODULE_MOTOR_STATUS_OK)
                 {
                     return status;
@@ -193,17 +192,17 @@ static module_motor_status_t module_dji_motor_update_virtual(module_motor_t *con
             }
 
             status = module_motor_pid_update(&me->velocity_pid, velocity_setpoint_rad_per_s,
-                                             motor_base->feedback.velocity_rad_per_s,
-                                             delta_time_s, &current_setpoint_a);
+                                             motor_base->feedback.velocity_rad_per_s, delta_time_s,
+                                             &current_setpoint_a);
             if (status != MODULE_MOTOR_STATUS_OK)
             {
                 return status;
             }
         }
 
-        status = module_motor_pid_update(&me->current_pid, current_setpoint_a,
-                                         motor_base->feedback.current_a,
-                                         delta_time_s, &command_output);
+        status =
+            module_motor_pid_update(&me->current_pid, current_setpoint_a,
+                                    motor_base->feedback.current_a, delta_time_s, &command_output);
         if (status != MODULE_MOTOR_STATUS_OK)
         {
             return status;
@@ -249,13 +248,20 @@ module_dji_motor_get_protocol_mapping(const module_dji_motor_config_t *const con
 
     if (config->motor_model == MODULE_DJI_MOTOR_GM6020)
     {
-        // GM6020：ID 1~7，接收 ID 0x205~0x20B，组 0（ID 1~4）或组 2（ID 5~7）
+        // GM6020：电压模式用 0x1FF/0x2FF，电流及级联模式用 0x1FE/0x2FE。
         if (config->motor_identifier > 7U)
         {
             return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
         }
         *receive_identifier = 0x204U + config->motor_identifier;
-        *group_index = (config->motor_identifier <= 4U) ? 0U : 2U;
+        if (config->control_mode == MODULE_DJI_CONTROL_DIRECT)
+        {
+            *group_index = (config->motor_identifier <= 4U) ? 0U : 2U;
+        }
+        else
+        {
+            *group_index = (config->motor_identifier <= 4U) ? 3U : 4U;
+        }
         *group_slot = (uint8_t)(zero_based_identifier % 4U);
     }
     else
@@ -323,6 +329,9 @@ module_motor_status_t module_dji_motor_init(module_dji_motor_t *const me,
         ((config->direction_sign != 1.0F) && (config->direction_sign != -1.0F)) ||
         !isfinite(config->maximum_temperature_c) || (config->maximum_temperature_c <= 0.0F) ||
         !isfinite(config->current_scale_a_per_count) ||
+        (config->position_reference > MODULE_DJI_POSITION_ENCODER_ABSOLUTE) ||
+        (config->encoder_zero_count >= (uint16_t)MODULE_DJI_ENCODER_COUNTS_PER_REVOLUTION) ||
+        !isfinite(config->position_offset_rad) ||
         ((config->control_mode != MODULE_DJI_CONTROL_DIRECT) &&
          (config->current_scale_a_per_count <= 0.0F)))
     {
@@ -345,24 +354,30 @@ module_motor_status_t module_dji_motor_init(module_dji_motor_t *const me,
     me->direction_sign = config->direction_sign;
     me->maximum_temperature_c = config->maximum_temperature_c;
     me->current_scale_a_per_count = config->current_scale_a_per_count;
+    me->position_reference = config->position_reference;
+    me->encoder_zero_count = config->encoder_zero_count;
+    me->position_offset_rad = config->position_offset_rad;
 
-    // 减速比：M2006=36，M3508=19，GM6020=1
-    me->gear_ratio = (config->motor_model == MODULE_DJI_MOTOR_M2006)
-                         ? 36.0F
-                         : ((config->motor_model == MODULE_DJI_MOTOR_M3508) ? 19.0F : 1.0F);
+    // 减速比：M2006=36，M3508=3591/187（手册精确值），GM6020=1
+    me->gear_ratio =
+        (config->motor_model == MODULE_DJI_MOTOR_M2006)
+            ? 36.0F
+            : ((config->motor_model == MODULE_DJI_MOTOR_M3508) ? (3591.0F / 187.0F) : 1.0F);
 
-    // 最大命令值：M2006=10000，M3508=16000，GM6020=30000
+    // 手册量程：M2006/C610=10000，M3508/C620=16384；
+    // GM6020 电压模式=25000，电流及其级联模式=16384。
     if (config->motor_model == MODULE_DJI_MOTOR_M2006)
     {
         me->maximum_command_value = 10000;
     }
     else if (config->motor_model == MODULE_DJI_MOTOR_M3508)
     {
-        me->maximum_command_value = 16000;
+        me->maximum_command_value = 16384;
     }
     else
     {
-        me->maximum_command_value = 30000;
+        me->maximum_command_value =
+            (config->control_mode == MODULE_DJI_CONTROL_DIRECT) ? 25000 : 16384;
     }
 
     // ---- 初始化状态 ----
@@ -599,6 +614,19 @@ module_motor_status_t module_dji_motor_bus_handle_feedback(module_dji_motor_bus_
     {
         motor->previous_encoder_count = encoder_count;
         motor->has_previous_encoder_count = true;
+        if (motor->position_reference == MODULE_DJI_POSITION_ENCODER_ABSOLUTE)
+        {
+            motor->accumulated_encoder_count =
+                (int32_t)encoder_count - (int32_t)motor->encoder_zero_count;
+            if (motor->accumulated_encoder_count > 4096)
+            {
+                motor->accumulated_encoder_count -= 8192;
+            }
+            else if (motor->accumulated_encoder_count < -4096)
+            {
+                motor->accumulated_encoder_count += 8192;
+            }
+        }
     }
     // 计算增量，处理回绕：超过半圈（4096）视为回绕
     encoder_delta = (int32_t)encoder_count - (int32_t)motor->previous_encoder_count;
@@ -620,7 +648,8 @@ module_motor_status_t module_dji_motor_bus_handle_feedback(module_dji_motor_bus_
     // 位置（弧度）：累积编码器值 × 2π / (8192 × 减速比)，应用方向符号
     motor->super.feedback.position_rad =
         motor->direction_sign * (float)motor->accumulated_encoder_count * MODULE_DJI_TWO_PI /
-        (MODULE_DJI_ENCODER_COUNTS_PER_REVOLUTION * motor->gear_ratio);
+            (MODULE_DJI_ENCODER_COUNTS_PER_REVOLUTION * motor->gear_ratio) +
+        motor->position_offset_rad;
 
     // 速度（rad/s）：RPM × 2π / 60 / 减速比，应用方向符号
     motor->super.feedback.velocity_rad_per_s =
@@ -629,10 +658,10 @@ module_motor_status_t module_dji_motor_bus_handle_feedback(module_dji_motor_bus_
     // 电流
     motor->super.feedback.current_raw = current_raw;
     motor->super.feedback.is_current_a_valid = motor->current_scale_a_per_count > 0.0F;
-    motor->super.feedback.current_a = motor->super.feedback.is_current_a_valid
-                                          ? (float)current_raw * motor->current_scale_a_per_count *
-                                                motor->direction_sign
-                                          : 0.0F;
+    motor->super.feedback.current_a =
+        motor->super.feedback.is_current_a_valid
+            ? (float)current_raw * motor->current_scale_a_per_count * motor->direction_sign
+            : 0.0F;
 
     // 温度
     motor->super.feedback.motor_temperature_c = (float)frame->data[6];
@@ -654,13 +683,13 @@ module_motor_status_t module_dji_motor_bus_handle_feedback(module_dji_motor_bus_
  * @brief 刷新总线：将各槽位命令打包成 CAN 帧发送
  * @param me 总线对象
  * @return 执行状态
- * @note 三个发送组：0x1FF（组0），0x200（组1），0x2FF（组2）
+ * @note 五个发送组：0x1FF、0x200、0x2FF（电压/通用组），0x1FE、0x2FE（GM6020 电流组）
  *       每组四个电机，每个电机 2 字节命令
  */
 module_motor_status_t module_dji_motor_bus_flush(module_dji_motor_bus_t *const me)
 {
-    static const uint32_t group_identifiers[MODULE_DJI_MOTOR_GROUP_COUNT] = {0x1FFU, 0x200U,
-                                                                             0x2FFU};
+    static const uint32_t group_identifiers[MODULE_DJI_MOTOR_GROUP_COUNT] = {0x1FFU, 0x200U, 0x2FFU,
+                                                                             0x1FEU, 0x2FEU};
     size_t group_index;
     size_t slot_index;
 
@@ -713,4 +742,31 @@ module_motor_status_t module_dji_motor_bus_flush(module_dji_motor_bus_t *const m
 int16_t module_dji_motor_get_command(const module_dji_motor_t *const me)
 {
     return ((me != NULL) && me->super.is_initialized) ? me->command_value : 0;
+}
+
+module_motor_status_t module_dji_motor_reset_position(module_dji_motor_t *const me,
+                                                      float position_rad)
+{
+    float encoder_position_rad;
+
+    if ((me == NULL) || !isfinite(position_rad))
+    {
+        return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    }
+    if (!me->super.is_initialized)
+    {
+        return MODULE_MOTOR_STATUS_NOT_INITIALIZED;
+    }
+    if (!me->has_previous_encoder_count)
+    {
+        return MODULE_MOTOR_STATUS_FEEDBACK_UNAVAILABLE;
+    }
+
+    encoder_position_rad = me->direction_sign * (float)me->accumulated_encoder_count *
+                           MODULE_DJI_TWO_PI /
+                           (MODULE_DJI_ENCODER_COUNTS_PER_REVOLUTION * me->gear_ratio);
+    me->position_offset_rad = position_rad - encoder_position_rad;
+    me->super.feedback.position_rad = position_rad;
+    me->target_angle_rad = position_rad;
+    return MODULE_MOTOR_STATUS_OK;
 }

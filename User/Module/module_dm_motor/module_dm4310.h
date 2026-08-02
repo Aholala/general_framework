@@ -194,6 +194,22 @@ extern "C"
     module_motor_status_t module_dm4310_clear_fault(module_dm4310_t *const me);
 
     /**
+     * @brief 关闭通信丢失自动失能保护（写 TIMEOUT=0）
+     * @param persist true=随后保存到电机 Flash，false=仅本次上电有效
+     * @note persist=true 时电机必须处于 DISABLED；只应在首次配置或参数改变时调用。
+     */
+    module_motor_status_t
+    module_dm4310_disable_communication_loss_protection(module_dm4310_t *const me, bool persist);
+
+    /** @brief 读取 TIMEOUT 寄存器用于回读确认，响应由 handle_feedback 接收 */
+    module_motor_status_t
+    module_dm4310_read_communication_timeout(module_dm4310_t *const me);
+
+    /** @brief 获取最近一次参数响应 */
+    const module_dm_parameter_response_t *
+    module_dm4310_get_parameter_response(const module_dm4310_t *const me);
+
+    /**
      * @brief 处理 CAN 反馈帧
      * @param me 电机对象
      * @param frame CAN 帧

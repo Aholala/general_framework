@@ -6,8 +6,8 @@
  * @date 2026-07-28
  * @copyright Copyright (c) 2026
  *
- * @note 传输通用遥控输入、云台、底盘、发射机构和心跳关键数据。
- *       从 base_identifier 开始连续分配 8 个消息类型。
+ * @note 传输通用遥控输入、云台、底盘和发射机构关键数据。
+ *       从 base_identifier 开始连续分配 7 个消息类型。
  *       支持分片组装（同一数据组的多个分片共享序列号）。
  */
 
@@ -56,8 +56,7 @@ extern "C"
         MODULE_BOARD_COMM_MESSAGE_GIMBAL_AUXILIARY,            // 云台辅助数据（俯仰角速度）
         MODULE_BOARD_COMM_MESSAGE_CHASSIS,                     // 底盘数据（速度+状态）
         MODULE_BOARD_COMM_MESSAGE_SHOOTER,                     // 发射机构数据
-        MODULE_BOARD_COMM_MESSAGE_HEARTBEAT,                   // 心跳
-        MODULE_BOARD_COMM_MESSAGE_COUNT                        // 消息总数（=8）
+        MODULE_BOARD_COMM_MESSAGE_COUNT                        // 消息总数（=7）
     } module_board_comm_message_t;
 
     /* ======================== 数据结构体 ======================== */
@@ -124,10 +123,10 @@ extern "C"
      */
     typedef struct
     {
-        float friction_velocity_rad_per_s; // 摩擦轮速度（rad/s）
-        float feeder_position_rad;         // 拨弹盘位置（弧度）
-        uint8_t state;                     // 发射机构状态
-        uint8_t jam_retry_count;           // 卡弹重试次数
+        uint8_t state;           // 发射机构状态
+        uint8_t jam_retry_count; // 卡弹重试次数
+        bool friction_ready;     // 摩擦轮是否稳定到速
+        bool fire_permission;    // 当前自瞄火控许可
     } module_board_comm_shooter_process_data_t;
 
     /* ======================== 配置结构体 ======================== */
@@ -226,17 +225,6 @@ extern "C"
     module_board_comm_status_t
     module_board_comm_send_shooter(module_board_comm_t *me,
                                    const module_board_comm_shooter_process_data_t *shooter_data);
-
-    /**
-     * @brief 发送心跳帧
-     * @param me Robot Link 对象
-     * @param board_role 板卡角色
-     * @param uptime_ms 运行时间（毫秒）
-     * @return 执行状态
-     */
-    module_board_comm_status_t module_board_comm_send_heartbeat(module_board_comm_t *me,
-                                                                uint8_t board_role,
-                                                                uint32_t uptime_ms);
 
     /**
      * @brief 处理接收到的 CAN 帧
