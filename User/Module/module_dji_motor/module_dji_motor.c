@@ -107,6 +107,16 @@ static module_motor_status_t module_dji_motor_disable_virtual(module_motor_t *co
     return MODULE_MOTOR_STATUS_OK;
 }
 
+static module_motor_status_t
+module_dji_motor_can_clear_fault_virtual(const module_motor_t *const motor_base)
+{
+    const module_dji_motor_t *const me =
+        MODULE_MOTOR_CONTAINER_OF_CONST(motor_base, module_dji_motor_t, super);
+    return (motor_base->feedback.motor_temperature_c <= me->maximum_temperature_c)
+               ? MODULE_MOTOR_STATUS_OK
+               : MODULE_MOTOR_STATUS_FEEDBACK_UNAVAILABLE;
+}
+
 /**
  * @brief 设置目标值（虚函数实现）
  * @param motor_base 基类指针
@@ -219,6 +229,7 @@ static module_motor_status_t module_dji_motor_update_virtual(module_motor_t *con
 static const module_motor_ops_t s_module_dji_motor_ops = {
     .enable = module_dji_motor_enable_virtual,
     .disable = module_dji_motor_disable_virtual,
+    .can_clear_fault = module_dji_motor_can_clear_fault_virtual,
     .set_target = module_dji_motor_set_target_virtual,
     .update = module_dji_motor_update_virtual};
 
@@ -692,6 +703,7 @@ module_motor_status_t module_dji_motor_bus_flush(module_dji_motor_bus_t *const m
                                                                              0x1FEU, 0x2FEU};
     size_t group_index;
     size_t slot_index;
+    bool had_transport_error = false;
 
     if ((me == NULL) || !me->is_initialized)
     {
@@ -728,10 +740,10 @@ module_motor_status_t module_dji_motor_bus_flush(module_dji_motor_bus_t *const m
         // 发送 CAN 帧
         if (bsp_can_transmit(me->can, &frame, me->transmit_timeout_ms) != BSP_STATUS_OK)
         {
-            return MODULE_MOTOR_STATUS_TRANSPORT_ERROR;
+            had_transport_error = true;
         }
     }
-    return MODULE_MOTOR_STATUS_OK;
+    return had_transport_error ? MODULE_MOTOR_STATUS_TRANSPORT_ERROR : MODULE_MOTOR_STATUS_OK;
 }
 
 /**

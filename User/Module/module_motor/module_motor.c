@@ -392,6 +392,11 @@ module_motor_status_t module_motor_clear_fault(module_motor_t *const me)
     {
         return MODULE_MOTOR_STATUS_FEEDBACK_UNAVAILABLE;
     }
+    if ((me->vptr->can_clear_fault != NULL) &&
+        (me->vptr->can_clear_fault(me) != MODULE_MOTOR_STATUS_OK))
+    {
+        return MODULE_MOTOR_STATUS_FEEDBACK_UNAVAILABLE;
+    }
     if (me->state == MODULE_MOTOR_STATE_FAULT)
     {
         me->state = MODULE_MOTOR_STATE_DISABLED; // 恢复到禁用状态

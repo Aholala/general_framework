@@ -78,8 +78,27 @@ module_motor_status_t module_dm4310_init(module_dm4310_t *const me,
 module_motor_status_t module_dm4310_register(module_dm4310_t *const me,
                                              module_motor_registry_t *const registry)
 {
-    return (me != NULL) ? module_dm_motor_register(&me->super, registry)
-                        : MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    module_motor_status_t status;
+
+    if (me == NULL)
+    {
+        return MODULE_MOTOR_STATUS_INVALID_ARGUMENT;
+    }
+
+    status = module_dm_motor_register(&me->super, registry);
+    if (status != MODULE_MOTOR_STATUS_OK)
+    {
+        return status;
+    }
+
+    // 每次上电注册时将 TIMEOUT 写为 0，关闭驱动器内部通信丢失自动失能。
+    // 不保存到 Flash，避免启动流程反复擦写参数区。
+    status = module_dm4310_disable_communication_loss_protection(me, false);
+    if (status != MODULE_MOTOR_STATUS_OK)
+    {
+        (void)module_motor_registry_unregister(registry, &me->super.super);
+    }
+    return status;
 }
 
 /**

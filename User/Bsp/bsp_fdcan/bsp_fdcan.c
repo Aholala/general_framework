@@ -64,7 +64,12 @@ static bool bsp_fdcan_is_frame_valid(const bsp_fdcan_frame_t *const frame)
     // Classic 帧长度不能超过 8 字节
     if ((frame->format == BSP_FDCAN_FORMAT_CLASSIC) && (frame->data_length > 8U)) {
         return false;
-}
+    }
+    // CAN FD 协议不支持 RTR 远程帧，远程帧只能使用 Classic CAN 格式。
+    if ((frame->frame_type == BSP_CAN_FRAME_REMOTE) &&
+        (frame->format != BSP_FDCAN_FORMAT_CLASSIC)) {
+        return false;
+    }
     // ID 范围检查
     if ((frame->id_type == BSP_CAN_ID_STANDARD) && (frame->identifier > 0x7FFU)) {
         return false;
@@ -176,15 +181,15 @@ bsp_status_t bsp_fdcan_init(bsp_fdcan_device_t *const me, const bsp_fdcan_config
         return BSP_STATUS_INVALID_ARGUMENT;
 }
 
-    me->super.super.is_initialized = false;
-    me->driver_ops = config->driver_ops;
-    if (me->driver_ops->init != NULL)
+    *me = (bsp_fdcan_device_t){0};
+    if (config->driver_ops->init != NULL)
     {
-        status = me->driver_ops->init(config->device_handle);
+        status = config->driver_ops->init(config->device_handle);
         if (status != BSP_STATUS_OK) {
             return status;
 }
     }
+    me->driver_ops = config->driver_ops;
     me->super.callback = config->callback;
     me->super.user_context = config->user_context;
     return bsp_device_init(&me->super.super, &s_bsp_fdcan_device_ops.super, config->device_handle);

@@ -42,9 +42,6 @@ if(NOT MODULE_UART_COMM_DATA_SIZE MATCHES "^[1-9][0-9]*$" OR
 endif()
 
 add_executable(${CMAKE_PROJECT_NAME})
-set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/firmware"
-)
 
 function(framework_configure_library target_name)
     target_compile_features(${target_name} PUBLIC c_std_11)

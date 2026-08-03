@@ -151,9 +151,8 @@ bsp_status_t bsp_can_init(bsp_can_device_t *const me, const bsp_can_config_t *co
     {
         return BSP_STATUS_INVALID_ARGUMENT;
     }
-    // 先标记为未初始化，避免中途失败留下错误状态
-    me->super.super.is_initialized = false;
-    me->driver_ops = config->driver_ops; // 保存驱动操作表
+    // 先清空对象，确保任意初始化失败路径都留下确定的未初始化状态。
+    *me = (bsp_can_device_t){0};
     // 如果驱动提供了 init，则调用以初始化硬件
     if (config->driver_ops->init != NULL)
     {
@@ -162,6 +161,7 @@ bsp_status_t bsp_can_init(bsp_can_device_t *const me, const bsp_can_config_t *co
             return status;
 }
     }
+    me->driver_ops = config->driver_ops; // 保存驱动操作表
     // 保存回调与用户上下文
     me->super.callback = config->callback;
     me->super.user_context = config->user_context;

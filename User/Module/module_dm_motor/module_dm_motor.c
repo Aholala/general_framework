@@ -398,6 +398,15 @@ static module_motor_status_t module_dm_motor_disable_virtual(module_motor_t *con
     return status;
 }
 
+static module_motor_status_t
+module_dm_motor_can_clear_fault_virtual(const module_motor_t *const motor_base)
+{
+    const module_dm_motor_t *const me =
+        MODULE_MOTOR_CONTAINER_OF_CONST(motor_base, module_dm_motor_t, super);
+    return (me->fault == MODULE_DM_FAULT_NONE) ? MODULE_MOTOR_STATUS_OK
+                                               : MODULE_MOTOR_STATUS_FEEDBACK_UNAVAILABLE;
+}
+
 /**
  * @brief 设置目标值（虚函数实现）
  * @param motor_base 基类指针
@@ -415,18 +424,38 @@ static module_motor_status_t module_dm_motor_set_target_virtual(module_motor_t *
     // 不同模式将 target_value 存入不同字段
     if (me->control_mode == MODULE_DM_MODE_MIT)
     {
+        if (!module_dm_motor_is_within(target_value, me->limits.torque_min_nm,
+                                       me->limits.torque_max_nm))
+        {
+            return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
+        }
         me->mit_command.torque_nm = target_value; // MIT 模式 target 作为前馈扭矩
     }
     else if (me->control_mode == MODULE_DM_MODE_VELOCITY)
     {
+        if (!module_dm_motor_is_within(target_value, me->limits.velocity_min_rad_per_s,
+                                       me->limits.velocity_max_rad_per_s))
+        {
+            return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
+        }
         me->target_velocity_rad_per_s = target_value;
     }
     else if (me->control_mode == MODULE_DM_MODE_POSITION_VELOCITY)
     {
+        if (!module_dm_motor_is_within(target_value, me->limits.position_min_rad,
+                                       me->limits.position_max_rad))
+        {
+            return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
+        }
         me->target_position_rad = target_value;
     }
     else
     {
+        if (!module_dm_motor_is_within(target_value, me->limits.position_min_rad,
+                                       me->limits.position_max_rad))
+        {
+            return MODULE_MOTOR_STATUS_OUT_OF_RANGE;
+        }
         me->force_position_command.position_rad = target_value;
     }
     return MODULE_MOTOR_STATUS_OK;
@@ -464,6 +493,8 @@ static module_motor_status_t module_dm_motor_update_virtual(module_motor_t *cons
 /** 电机虚表 */
 static const module_motor_ops_t s_module_dm_motor_ops = {.enable = module_dm_motor_enable_virtual,
                                                          .disable = module_dm_motor_disable_virtual,
+                                                         .can_clear_fault =
+                                                             module_dm_motor_can_clear_fault_virtual,
                                                          .set_target =
                                                              module_dm_motor_set_target_virtual,
                                                          .update = module_dm_motor_update_virtual};
@@ -946,14 +977,6 @@ module_motor_status_t module_dm_motor_handle_feedback(module_dm_motor_t *const m
     if (me->fault != MODULE_DM_FAULT_NONE)
     {
         me->super.state = MODULE_MOTOR_STATE_FAULT;
-    }
-    else if (state_code == 1U)
-    {
-        me->super.state = MODULE_MOTOR_STATE_ENABLED;
-    }
-    else
-    {
-        me->super.state = MODULE_MOTOR_STATE_DISABLED;
     }
     return MODULE_MOTOR_STATUS_OK;
 }

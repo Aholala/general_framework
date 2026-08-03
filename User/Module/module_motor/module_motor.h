@@ -36,6 +36,10 @@ extern "C"
 #define MODULE_MOTOR_CONTAINER_OF(member_pointer, parent_type, member_name)                        \
     ((parent_type *)((uint8_t *)(member_pointer) - offsetof(parent_type, member_name)))
 
+/** @brief MODULE_MOTOR_CONTAINER_OF 的只读版本 */
+#define MODULE_MOTOR_CONTAINER_OF_CONST(member_pointer, parent_type, member_name)                  \
+    ((const parent_type *)((const uint8_t *)(member_pointer) - offsetof(parent_type, member_name)))
+
 /**
  * @brief 编译期检查电机派生对象是否将 super 放在首成员
  * @param derived_type 完整的派生对象类型
@@ -141,6 +145,7 @@ extern "C"
     {
         module_motor_status_t (*enable)(module_motor_t *const me);  // 使能电机
         module_motor_status_t (*disable)(module_motor_t *const me); // 禁用电机
+        module_motor_status_t (*can_clear_fault)(const module_motor_t *const me); // 检查故障是否已解除
         module_motor_status_t (*set_target)(module_motor_t *const me,
                                             float target_value);                       // 设置目标
         module_motor_status_t (*update)(module_motor_t *const me, float delta_time_s); // 周期更新
@@ -276,7 +281,7 @@ extern "C"
     module_motor_status_t module_motor_disable(module_motor_t *const me);
 
     /**
-     * @brief 清除故障状态（仅当反馈在线时）
+     * @brief 清除故障状态（仅当反馈在线且派生类确认故障已解除时）
      * @param me 电机对象
      * @return 执行状态
      * @note 清除后状态变为 DISABLED，需要显式 enable 才能恢复输出
