@@ -26,6 +26,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "app_safe.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -64,15 +66,15 @@ const osThreadAttr_t defaultTask_attributes = {
 osThreadId_t ChassisTaskHandle;
 const osThreadAttr_t ChassisTask_attributes = {
   .name = "ChassisTask",
-  .stack_size = 1024 * 4,
+  .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for GimbalTask */
 osThreadId_t GimbalTaskHandle;
 const osThreadAttr_t GimbalTask_attributes = {
   .name = "GimbalTask",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 1024 * 4,
+  .priority = (osPriority_t) osPriorityAboveNormal,
 };
 /* Definitions for IMUTask */
 osThreadId_t IMUTaskHandle;
@@ -85,8 +87,22 @@ const osThreadAttr_t IMUTask_attributes = {
 osThreadId_t SafeTaskHandle;
 const osThreadAttr_t SafeTask_attributes = {
   .name = "SafeTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityAboveNormal,
+};
+/* Definitions for CommandTask */
+osThreadId_t CommandTaskHandle;
+const osThreadAttr_t CommandTask_attributes = {
+  .name = "CommandTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for ShootTask */
+osThreadId_t ShootTaskHandle;
+const osThreadAttr_t ShootTask_attributes = {
+  .name = "ShootTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -99,6 +115,8 @@ void StartChassisTask(void *argument);
 void StartGimbalTask(void *argument);
 void StartIMUTask(void *argument);
 void StartSafeTask(void *argument);
+void StartCommandTask(void *argument);
+void StartShootTask(void *argument);
 
 extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -140,6 +158,8 @@ void vApplicationMallocFailedHook(void)
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
+  (void)app_safe_init(NULL);
+
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -173,6 +193,12 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of SafeTask */
   SafeTaskHandle = osThreadNew(StartSafeTask, NULL, &SafeTask_attributes);
+
+  /* creation of CommandTask */
+  CommandTaskHandle = osThreadNew(StartCommandTask, NULL, &CommandTask_attributes);
+
+  /* creation of ShootTask */
+  ShootTaskHandle = osThreadNew(StartShootTask, NULL, &ShootTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -268,12 +294,44 @@ __weak void StartIMUTask(void *argument)
 __weak void StartSafeTask(void *argument)
 {
   /* USER CODE BEGIN StartSafeTask */
+  app_safe_task(argument);
+  /* USER CODE END StartSafeTask */
+}
+
+/* USER CODE BEGIN Header_StartCommandTask */
+/**
+* @brief Function implementing the CommandTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartCommandTask */
+__weak void StartCommandTask(void *argument)
+{
+  /* USER CODE BEGIN StartCommandTask */
   /* Infinite loop */
   for(;;)
   {
     osDelay(1);
   }
-  /* USER CODE END StartSafeTask */
+  /* USER CODE END StartCommandTask */
+}
+
+/* USER CODE BEGIN Header_StartShootTask */
+/**
+* @brief Function implementing the ShootTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartShootTask */
+__weak void StartShootTask(void *argument)
+{
+  /* USER CODE BEGIN StartShootTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartShootTask */
 }
 
 /* Private application code --------------------------------------------------*/

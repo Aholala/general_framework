@@ -1,6 +1,12 @@
 /**
  * @file bsp_dwt.c
+ * @author Ahola邱泽钦 (aholace0328@gmail.com)
  * @brief DWT 周期计数的硬件无关换算与时间差实现。
+ * @version 1.0
+ * @date 2026-06-28
+ * 
+ * @copyright Copyright (c) 2026
+ * 
  */
 
 #include "bsp_dwt.h"

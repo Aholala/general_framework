@@ -306,7 +306,6 @@ set(bsp_include_directories
     User/Bsp/bsp_pwm
     User/Bsp/bsp_encoder
     User/Bsp/bsp_adc
-    User/Bsp/bsp_dac
     User/Bsp/bsp_usb_vcp
     User/Bsp/bsp_watchdog
     User/Bsp/bsp_dwt
@@ -329,7 +328,6 @@ add_library(bsp OBJECT
     User/Bsp/bsp_pwm/bsp_pwm.c
     User/Bsp/bsp_encoder/bsp_encoder.c
     User/Bsp/bsp_adc/bsp_adc.c
-    User/Bsp/bsp_dac/bsp_dac.c
     User/Bsp/bsp_usb_vcp/bsp_usb_vcp.c
     User/Bsp/bsp_watchdog/bsp_watchdog.c
     User/Bsp/bsp_dwt/bsp_dwt.c
@@ -417,6 +415,19 @@ target_compile_definitions(module PUBLIC
 target_link_libraries(module PUBLIC bsp alg_crc alg_pid alg_swerve)
 framework_configure_library(module)
 
+# ---------------------------------------------------------------------------
+# App layer
+# ---------------------------------------------------------------------------
+
+add_library(app OBJECT
+    User/App/SafeTask/app_safe.c
+)
+target_include_directories(app PUBLIC
+    User/App/SafeTask
+)
+target_link_libraries(app PUBLIC bsp freertos)
+framework_configure_library(app)
+
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     stm32cubemx
     stm32_drivers
@@ -438,5 +449,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     alg_omni
     alg_swerve
     module
+    app
     ${TOOLCHAIN_LINK_LIBRARIES}
 )

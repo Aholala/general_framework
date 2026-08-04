@@ -1,6 +1,12 @@
 /**
  * @file bsp_dwt.h
- * @brief 可跨 Cortex-M 平台复用的 DWT 周期计数接口。
+ * @author Ahola邱泽钦 (aholace0328@gmail.com)
+ * @brief DWT 周期计数的硬件无关换算与时间差实现。
+ * @version 1.0
+ * @date 2026-06-28
+ *
+ * @copyright Copyright (c) 2026
+ *
  */
 
 #ifndef BSP_DWT_H
