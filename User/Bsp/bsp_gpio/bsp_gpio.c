@@ -10,16 +10,16 @@
  *
  */
 
-#include "bsp_gpio.h" // 包含 GPIO 抽象层头文件
+#include <stddef.h> 
+#include "bsp_gpio.h"
 
 BSP_STATIC_ASSERT_SUPER_FIRST(bsp_gpio_device_t);
-#include <stddef.h>   // 提供 NULL
 
-    /**
-     * @brief 从基类指针获取派生设备对象（非常量版本）
-     * @param me bsp_gpio_t 基类指针
-     * @return 对应的 bsp_gpio_device_t 对象指针
-     */
+/**
+ * @brief 从基类指针获取派生设备对象（非常量版本）
+ * @param me bsp_gpio_t 基类指针
+ * @return 对应的 bsp_gpio_device_t 对象指针
+ */
     static bsp_gpio_device_t *bsp_gpio_get_device(bsp_gpio_t *const me)
 {
     // 利用 container_of 宏从基类成员地址反推出包含它的结构体地址

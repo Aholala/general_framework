@@ -83,6 +83,8 @@ set(stm32_include_directories
     ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc
     ${CMAKE_CURRENT_SOURCE_DIR}/USB_DEVICE/App
     ${CMAKE_CURRENT_SOURCE_DIR}/USB_DEVICE/Target
+    ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/Third_Party/SEGGER/Config
+    ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/Third_Party/SEGGER/RTT
 )
 
 set(stm32_application_sources
@@ -104,6 +106,8 @@ set(stm32_application_sources
     USB_DEVICE/App/usbd_desc.c
     USB_DEVICE/Target/usbd_conf.c
     startup_stm32h723xx.s
+    Middlewares/Third_Party/SEGGER/RTT/SEGGER_RTT.c
+    Middlewares/Third_Party/SEGGER/RTT/SEGGER_RTT_printf.c
 )
 
 set(stm32_driver_sources
@@ -288,6 +292,8 @@ endforeach()
 # ---------------------------------------------------------------------------
 
 set(bsp_include_directories
+    Middlewares/Third_Party/SEGGER/Config
+    Middlewares/Third_Party/SEGGER/RTT
     User/Bsp/bsp_common
     User/Bsp/bsp_gpio
     User/Bsp/bsp_exti
@@ -305,6 +311,7 @@ set(bsp_include_directories
     User/Bsp/bsp_watchdog
     User/Bsp/bsp_dwt
     User/Bsp/bsp_rtc
+    User/Bsp/bsp_log
 )
 
 add_library(bsp OBJECT
@@ -327,6 +334,7 @@ add_library(bsp OBJECT
     User/Bsp/bsp_watchdog/bsp_watchdog.c
     User/Bsp/bsp_dwt/bsp_dwt.c
     User/Bsp/bsp_rtc/bsp_rtc.c
+    User/Bsp/bsp_log/bsp_log.c
 )
 target_include_directories(bsp PUBLIC ${bsp_include_directories})
 framework_configure_library(bsp)

@@ -25,17 +25,16 @@ const alg_crc_config_t alg_crc16_0x8408_ff_config = {
 };
 
 bool alg_crc_calculate(const alg_crc_config_t *config,
-                       const uint8_t *data, size_t data_size,
+                       const uint8_t *data,
+                       size_t data_size,
                        uint32_t *result)
 {
     uint32_t crc;
     uint32_t mask;
     size_t byte_index;
 
-    if ((config == NULL) || (result == NULL) ||
-        ((data == NULL) && (data_size > 0U)) ||
-        ((config->width != 8U) && (config->width != 16U) &&
-         (config->width != 32U)) ||
+    if ((config == NULL) || (result == NULL) || ((data == NULL) && (data_size > 0U)) ||
+        ((config->width != 8U) && (config->width != 16U) && (config->width != 32U)) ||
         (config->bit_order > ALG_CRC_BIT_ORDER_LSB_FIRST))
     {
         return false;
