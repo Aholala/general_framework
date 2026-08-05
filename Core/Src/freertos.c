@@ -168,7 +168,10 @@ void vApplicationMallocFailedHook(void)
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
-  (void)app_safety_init(NULL);
+  if (app_safety_init(NULL) != BSP_STATUS_OK)
+  {
+    Error_Handler();
+  }
   app_exchange_init();
   {
     const app_vision_config_t vision_config = {
@@ -176,9 +179,15 @@ void MX_FREERTOS_Init(void) {
       .target_timeout_ms = 200U,
       .transmit_period_ms = 10U,
     };
-    (void)app_vision_init(&vision_config);
+    if (app_vision_init(&vision_config) != BSP_STATUS_OK)
+    {
+      Error_Handler();
+    }
   }
-  (void)app_robot_init();
+  if (app_robot_init() != BSP_STATUS_OK)
+  {
+    Error_Handler();
+  }
 
   /* USER CODE END Init */
 

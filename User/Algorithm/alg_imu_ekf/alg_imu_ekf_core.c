@@ -428,8 +428,12 @@ alg_imu_ekf_status_t alg_imu_ekf_reset(alg_imu_ekf_t *me,
     // 重置低通滤波器
     for (index = 0U; index < 3U; ++index)
     {
-        (void)alg_filter_low_pass_init(&me->accelerometer_filter[index],
-                                       me->config.accelerometer_lpf_cutoff_hz);
+        if (alg_filter_low_pass_init(&me->accelerometer_filter[index],
+                                     me->config.accelerometer_lpf_cutoff_hz) !=
+            ALG_FILTER_STATUS_OK)
+        {
+            return ALG_IMU_EKF_STATUS_INVALID_ARGUMENT;
+        }
         me->filtered_accelerometer_m_s2[index] = 0.0F;
         me->innovation[index] = 0.0F;
     }

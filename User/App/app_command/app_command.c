@@ -38,7 +38,11 @@ static bool app_command_get_remote(module_board_comm_remote_process_data_t *remo
         remote->update_count = data->valid_frame_count;
         if (app_command_config.board_comm != NULL)
         {
-            (void)module_board_comm_send_remote(app_command_config.board_comm, remote);
+            if (module_board_comm_send_remote(app_command_config.board_comm, remote) !=
+                MODULE_BOARD_COMM_STATUS_OK)
+            {
+                bsp_error_record(BSP_STATUS_IO_ERROR, "send_remote", 0);
+            }
         }
         return true;
     }

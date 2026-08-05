@@ -48,7 +48,6 @@ bsp_status_t bsp_exti_deinit(bsp_exti_t *me)
 
 bool bsp_exti_is_initialized(const bsp_exti_t *me)
 { return (me != NULL) && me->is_initialized && (bsp_exti_platform_ops != NULL); }
-bsp_exti_t *bsp_exti_as_base(bsp_exti_device_t *me) { return me; }
 
 bsp_status_t bsp_exti_set_callback(bsp_exti_t *me, bsp_exti_callback_t callback, void *user_context)
 {

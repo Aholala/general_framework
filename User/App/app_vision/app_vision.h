@@ -1,6 +1,7 @@
 #ifndef APP_VISION_H
 #define APP_VISION_H
 
+#include "bsp_common.h"
 #include "bsp_usb_vcp.h"
 
 #include <stdbool.h>
@@ -21,7 +22,7 @@ typedef struct
     uint32_t transmit_period_ms;
 } app_vision_config_t;
 
-bool app_vision_init(const app_vision_config_t *config);
+bsp_status_t app_vision_init(const app_vision_config_t *config);
 void app_vision_set_mode(app_vision_mode_t mode);
 void app_vision_update(uint32_t elapsed_time_ms);
 

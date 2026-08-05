@@ -47,7 +47,6 @@ bsp_status_t bsp_pwm_deinit(bsp_pwm_t *me)
 
 bool bsp_pwm_is_initialized(const bsp_pwm_t *me)
 { return (me != NULL) && me->is_initialized && (bsp_pwm_platform_ops != NULL); }
-bsp_pwm_t *bsp_pwm_as_base(bsp_pwm_device_t *me) { return me; }
 
 #define BSP_PWM_CALL(me, member) \
     (((me) == NULL) ? BSP_STATUS_INVALID_ARGUMENT : \

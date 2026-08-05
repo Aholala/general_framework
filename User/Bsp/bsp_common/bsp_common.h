@@ -175,6 +175,31 @@ extern "C"
      */
     void *bsp_device_get_handle(const bsp_device_t *const me);
 
+    /**
+     * @brief 将 bsp_status_t 转为可读字符串
+     * @param status 状态码
+     * @return 字符串字面量（如 "TIMEOUT"），非法值返回 "UNKNOWN"
+     */
+    const char *bsp_status_to_string(bsp_status_t status);
+
+    /* ---------- 全局错误寄存器 ---------- */
+
+    /**
+     * @brief 系统全局错误信息
+     * @note 任何模块在发生不可恢复错误时调用 bsp_error_record() 写入。
+     *       状态灯、裁判系统等可通过 bsp_error_read() 获取最近一次错误。
+     */
+    typedef struct
+    {
+        bsp_status_t code;    // 错误码
+        const char *source;   // 来源模块名（如 "can"/"spi"/"dr16_init"）
+        int detail;           // 模块自定义补充码（如 module_board_comm_status_t 的值）
+        bool is_valid;        // true 表示至少记录过一次错误
+    } bsp_error_t;
+
+    void bsp_error_record(bsp_status_t code, const char *source, int detail);
+    const bsp_error_t *bsp_error_read(void);
+
 #ifdef __cplusplus
 }
 #endif

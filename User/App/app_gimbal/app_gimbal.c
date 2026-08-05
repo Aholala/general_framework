@@ -9,16 +9,16 @@
 static app_gimbal_config_t app_gimbal_config;
 static bool app_gimbal_initialized;
 
-bool app_gimbal_init(const app_gimbal_config_t *config)
+bsp_status_t app_gimbal_init(const app_gimbal_config_t *config)
 {
     if ((config == NULL) || (config->pitch_motor == NULL) || (config->yaw_motor == NULL) ||
         (config->target_tolerance_rad < 0.0F))
     {
-        return false;
+        return BSP_STATUS_INVALID_ARGUMENT;
     }
     app_gimbal_config = *config;
     app_gimbal_initialized = true;
-    return true;
+    return BSP_STATUS_OK;
 }
 
 void app_gimbal_update(float delta_time_s)
@@ -97,6 +97,10 @@ void app_gimbal_update(float delta_time_s)
             .imu_valid = imu.valid,
             .motors_online = feedback.motors_online,
         };
-        (void)module_board_comm_send_gimbal(app_gimbal_config.board_comm, &board_data);
+        if (module_board_comm_send_gimbal(app_gimbal_config.board_comm, &board_data) !=
+            MODULE_BOARD_COMM_STATUS_OK)
+        {
+            bsp_error_record(BSP_STATUS_IO_ERROR, "send_gimbal", 0);
+        }
     }
 }

@@ -18,23 +18,23 @@ static void app_chassis_disable_all(void)
     }
 }
 
-bool app_chassis_init(const app_chassis_config_t *config)
+bsp_status_t app_chassis_init(const app_chassis_config_t *config)
 {
     size_t index;
     if ((config == NULL) || (config->kinematics == NULL))
     {
-        return false;
+        return BSP_STATUS_INVALID_ARGUMENT;
     }
     for (index = 0U; index < ALG_SWERVE_RECTANGULAR_MODULE_COUNT; ++index)
     {
         if (config->modules[index] == NULL)
         {
-            return false;
+            return BSP_STATUS_INVALID_ARGUMENT;
         }
     }
     app_chassis_config = *config;
     app_chassis_initialized = true;
-    return true;
+    return BSP_STATUS_OK;
 }
 
 void app_chassis_update(float delta_time_s)
@@ -119,6 +119,10 @@ void app_chassis_update(float delta_time_s)
             .motors_online = feedback.motors_online,
             .self_lock_active = feedback.self_lock_active,
         };
-        (void)module_board_comm_send_chassis(app_chassis_config.board_comm, &board_data);
+        if (module_board_comm_send_chassis(app_chassis_config.board_comm, &board_data) !=
+            MODULE_BOARD_COMM_STATUS_OK)
+        {
+            bsp_error_record(BSP_STATUS_IO_ERROR, "send_chassis", 0);
+        }
     }
 }

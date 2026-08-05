@@ -908,8 +908,8 @@ extern USBD_HandleTypeDef hUsbDeviceHS;
 static bsp_can_device_t board_config_can_devices[BOARD_CONFIG_CAN_COUNT];
 static bsp_usart_device_t board_config_usart_devices[BOARD_CONFIG_USART_COUNT];
 static bsp_spi_device_t board_config_bmi088_spi_device;
-static bsp_exti_device_t board_config_exti_devices[BOARD_CONFIG_EXTI_COUNT];
-static bsp_pwm_device_t board_config_pwm_devices[BOARD_CONFIG_PWM_COUNT];
+static bsp_exti_t board_config_exti_objects[BOARD_CONFIG_EXTI_COUNT];
+static bsp_pwm_t board_config_pwm_objects[BOARD_CONFIG_PWM_COUNT];
 static bsp_usb_vcp_device_t board_config_usb_device;
 static bsp_watchdog_device_t board_config_watchdog_device;
 static bsp_dwt_t board_config_dwt;
@@ -1042,142 +1042,302 @@ static const bsp_usb_vcp_driver_ops_t board_config_usb_driver_ops = {
     .get_busy = board_config_usb_get_busy,
 };
 
-static bsp_status_t board_config_init_can(void)
+/* ---------- 各外设回滚辅助函数 ---------- */
+
+static void board_config_deinit_exti(void)
 {
-    FDCAN_HandleTypeDef *const handles[BOARD_CONFIG_CAN_COUNT] = {
-        &hfdcan1,
-        &hfdcan2,
-        &hfdcan3,
-    };
-    size_t index;
-    for (index = 0U; index < BOARD_CONFIG_CAN_COUNT; ++index)
+    for (size_t i = 0U; i < BOARD_CONFIG_EXTI_COUNT; ++i)
     {
-        const bsp_can_config_t config = {
-            .device_handle = handles[index],
-            .driver_ops = board_config_get_can_driver_ops(),
-        };
-        if (bsp_can_init(&board_config_can_devices[index], &config) != BSP_STATUS_OK)
-        {
-            return BSP_STATUS_IO_ERROR;
-        }
+        (void)bsp_exti_deinit(&board_config_exti_objects[i]);
     }
-    return BSP_STATUS_OK;
 }
 
-static bsp_status_t board_config_init_usart(void)
+static void board_config_deinit_pwm(void)
 {
-    UART_HandleTypeDef *const handles[BOARD_CONFIG_USART_COUNT] = {
-        &huart5,
-    };
-    size_t index;
-    for (index = 0U; index < BOARD_CONFIG_USART_COUNT; ++index)
+    for (size_t i = 0U; i < BOARD_CONFIG_PWM_COUNT; ++i)
     {
-        const bsp_usart_config_t config = {
-            .device_handle = handles[index],
-            .driver_ops = board_config_get_usart_driver_ops(),
-        };
-        if (bsp_usart_init(&board_config_usart_devices[index], &config) != BSP_STATUS_OK)
-        {
-            return BSP_STATUS_IO_ERROR;
-        }
+        (void)bsp_pwm_deinit(&board_config_pwm_objects[i]);
     }
-    return BSP_STATUS_OK;
 }
 
-static bsp_status_t board_config_init_exti(void)
+static void board_config_deinit_can(size_t initialized_count)
 {
-    size_t index;
-    board_config_exti_contexts[BOARD_CONFIG_EXTI_BMI088_GYROSCOPE] = (board_config_exti_context_t){
-        .pin = BMI088_GYRO_INT_Pin,
-        .interrupt_number = BMI088_GYRO_INT_EXTI_IRQn,
-    };
-    board_config_exti_contexts[BOARD_CONFIG_EXTI_BMI088_ACCELEROMETER] =
-        (board_config_exti_context_t){
-            .pin = BMI088_ACCEL_INT_Pin,
-            .interrupt_number = BMI088_ACCEL_INT_EXTI_IRQn,
-        };
-    for (index = 0U; index < BOARD_CONFIG_EXTI_COUNT; ++index)
+    /* 逆序停止：最后初始化的 CAN 最先停止 */
+    while (initialized_count > 0U)
     {
-        const bsp_exti_config_t config = {
-            .device_handle = &board_config_exti_contexts[index],
-            .driver_ops = board_config_get_exti_driver_ops(),
-        };
-        if (bsp_exti_init(&board_config_exti_devices[index], &config) != BSP_STATUS_OK)
-        {
-            return BSP_STATUS_IO_ERROR;
-        }
+        --initialized_count;
+        (void)HAL_FDCAN_Stop((FDCAN_HandleTypeDef *)bsp_device_get_handle(
+            &board_config_can_devices[initialized_count].super.super));
+        (void)bsp_device_deinit(&board_config_can_devices[initialized_count].super.super);
     }
-    return BSP_STATUS_OK;
 }
 
-static bsp_status_t board_config_init_pwm(void)
+/**
+ * @brief 板级 BSP 初始化（带回滚）
+ *
+ * 按顺序初始化 CAN → USART → SPI → EXTI → PWM → USB VCP → DWT → Watchdog。
+ * 任一步骤失败时，逆序回滚已初始化的外设，并将错误码和步骤名写入 config。
+ *
+ * @param config 初始化配置（非 const，失败时写入诊断信息）
+ * @return BSP_STATUS_OK 成功，其他值表示失败
+ */
+bsp_status_t board_config_init(board_config_init_t *config)
 {
-    TIM_HandleTypeDef *const timers[BOARD_CONFIG_PWM_COUNT] = {
-        &htim1,
-    };
-    const uint32_t channels[BOARD_CONFIG_PWM_COUNT] = {1U};
-    size_t index;
-    for (index = 0U; index < BOARD_CONFIG_PWM_COUNT; ++index)
-    {
-        const bsp_pwm_config_t config = {
-            .device_handle = &board_config_pwm_contexts[index],
-            .driver_ops = board_config_get_pwm_driver_ops(),
-            .channel = channels[index],
-        };
-        board_config_pwm_contexts[index] = (board_config_pwm_context_t){
-            .timer = timers[index],
-            .timer_clock_hz = BOARD_CONFIG_APB_FREQUENCY_HZ * 2UL,
-        };
-        if (bsp_pwm_init(&board_config_pwm_devices[index], &config) != BSP_STATUS_OK)
-        {
-            return BSP_STATUS_IO_ERROR;
-        }
-    }
-    return BSP_STATUS_OK;
-}
+    bsp_status_t status = BSP_STATUS_OK;
+    size_t can_count = 0U;
+    bool usart_ok = false;
+    bool spi_ok = false;
+    bool exti_ok = false;
+    bool pwm_ok = false;
+    bool usb_ok = false;
+    bool wdt_ok = false;
 
-bsp_status_t board_config_init(const board_config_init_t *config)
-{
-    const bsp_spi_config_t spi_config = {
-        .device_handle = &hspi2,
-        .driver_ops = board_config_get_spi_driver_ops(),
-    };
-    const bsp_usb_vcp_config_t usb_config = {
-        .device_handle = &board_config_usb_context,
-        .driver_ops = &board_config_usb_driver_ops,
-    };
-    const bsp_dwt_config_t dwt_config = {
-        .device_handle = NULL,
-        .driver_ops = board_config_get_dwt_driver_ops(),
-    };
     if ((config == NULL) || board_config_initialized)
     {
         return (config == NULL) ? BSP_STATUS_INVALID_ARGUMENT : BSP_STATUS_BUSY;
     }
-    if ((board_config_init_can() != BSP_STATUS_OK) ||
-        (board_config_init_usart() != BSP_STATUS_OK) ||
-        (bsp_spi_init(&board_config_bmi088_spi_device, &spi_config) != BSP_STATUS_OK) ||
-        (board_config_init_exti() != BSP_STATUS_OK) || (board_config_init_pwm() != BSP_STATUS_OK) ||
-        (bsp_usb_vcp_init(&board_config_usb_device, &usb_config) != BSP_STATUS_OK) ||
-        (bsp_dwt_init(&board_config_dwt, &dwt_config) != BSP_STATUS_OK))
+    config->last_error = BSP_STATUS_OK;
+    config->failed_step = NULL;
+
+    /* ---- CAN (x3, 完整 OOP) ---- */
+    if (status == BSP_STATUS_OK)
     {
-        return BSP_STATUS_IO_ERROR;
+        FDCAN_HandleTypeDef *const handles[BOARD_CONFIG_CAN_COUNT] = {
+            &hfdcan1, &hfdcan2, &hfdcan3,
+        };
+        for (size_t i = 0U; (i < BOARD_CONFIG_CAN_COUNT) && (status == BSP_STATUS_OK); ++i)
+        {
+            const bsp_can_config_t cfg = {
+                .device_handle = handles[i],
+                .driver_ops = board_config_get_can_driver_ops(),
+            };
+            status = bsp_can_init(&board_config_can_devices[i], &cfg);
+            if (status != BSP_STATUS_OK)
+            {
+                config->failed_step = "can";
+            }
+            else
+            {
+                can_count = i + 1U;
+            }
+        }
     }
-    if (config->initialize_watchdog)
+
+    /* ---- USART (完整 OOP) ---- */
+    if (status == BSP_STATUS_OK)
     {
-        const bsp_watchdog_config_t watchdog_config = {
+        const bsp_usart_config_t cfg = {
+            .device_handle = &huart5,
+            .driver_ops = board_config_get_usart_driver_ops(),
+        };
+        status = bsp_usart_init(&board_config_usart_devices[0], &cfg);
+        if (status != BSP_STATUS_OK)
+        {
+            config->failed_step = "usart";
+        }
+        else
+        {
+            usart_ok = true;
+        }
+    }
+
+    /* ---- SPI (完整 OOP) ---- */
+    if (status == BSP_STATUS_OK)
+    {
+        const bsp_spi_config_t cfg = {
+            .device_handle = &hspi2,
+            .driver_ops = board_config_get_spi_driver_ops(),
+        };
+        status = bsp_spi_init(&board_config_bmi088_spi_device, &cfg);
+        if (status != BSP_STATUS_OK)
+        {
+            config->failed_step = "spi";
+        }
+        else
+        {
+            spi_ok = true;
+        }
+    }
+
+    /* ---- EXTI (单例 dispatcher) ---- */
+    if (status == BSP_STATUS_OK)
+    {
+        board_config_exti_contexts[BOARD_CONFIG_EXTI_BMI088_GYROSCOPE] =
+            (board_config_exti_context_t){
+                .pin = BMI088_GYRO_INT_Pin,
+                .interrupt_number = BMI088_GYRO_INT_EXTI_IRQn,
+            };
+        board_config_exti_contexts[BOARD_CONFIG_EXTI_BMI088_ACCELEROMETER] =
+            (board_config_exti_context_t){
+                .pin = BMI088_ACCEL_INT_Pin,
+                .interrupt_number = BMI088_ACCEL_INT_EXTI_IRQn,
+            };
+        for (size_t i = 0U; (i < BOARD_CONFIG_EXTI_COUNT) && (status == BSP_STATUS_OK); ++i)
+        {
+            const bsp_exti_config_t cfg = {
+                .device_handle = &board_config_exti_contexts[i],
+                .driver_ops = board_config_get_exti_driver_ops(),
+            };
+            status = bsp_exti_init(&board_config_exti_objects[i], &cfg);
+            if (status != BSP_STATUS_OK)
+            {
+                config->failed_step = "exti";
+            }
+        }
+        if (status == BSP_STATUS_OK)
+        {
+            exti_ok = true;
+        }
+    }
+
+    /* ---- PWM (单例 dispatcher，表驱动多通道) ---- */
+    if (status == BSP_STATUS_OK)
+    {
+        /*
+         * PWM 通道描述表：每个条目描述一个逻辑 PWM 外设的硬件绑定。
+         * 添加舵机或其他 PWM 外设时，在此表中追加条目并更新
+         * board_config.h 中的 board_config_pwm_index_t 枚举即可。
+         */
+        typedef struct
+        {
+            TIM_HandleTypeDef *timer;
+            uint32_t channel;
+            uint32_t timer_clock_hz;
+        } board_config_pwm_entry_t;
+
+        const board_config_pwm_entry_t entries[BOARD_CONFIG_PWM_COUNT] = {
+            [BOARD_CONFIG_PWM_BUZZER] = {&htim1, 1U, BOARD_CONFIG_APB_FREQUENCY_HZ * 2UL},
+            /* [BOARD_CONFIG_PWM_SERVO_1] = {&htim2, 1U, BOARD_CONFIG_APB_FREQUENCY_HZ * 2UL}, */
+            /* [BOARD_CONFIG_PWM_SERVO_2] = {&htim2, 2U, BOARD_CONFIG_APB_FREQUENCY_HZ * 2UL}, */
+        };
+        size_t pwm_count = 0U;
+
+        for (size_t i = 0U; (i < BOARD_CONFIG_PWM_COUNT) && (status == BSP_STATUS_OK); ++i)
+        {
+            board_config_pwm_contexts[i] = (board_config_pwm_context_t){
+                .timer = entries[i].timer,
+                .timer_clock_hz = entries[i].timer_clock_hz,
+            };
+            const bsp_pwm_config_t cfg = {
+                .device_handle = &board_config_pwm_contexts[i],
+                .driver_ops = board_config_get_pwm_driver_ops(),
+                .channel = entries[i].channel,
+            };
+            status = bsp_pwm_init(&board_config_pwm_objects[i], &cfg);
+            if (status != BSP_STATUS_OK)
+            {
+                config->failed_step = "pwm";
+            }
+            else
+            {
+                pwm_count = i + 1U;
+            }
+        }
+        pwm_ok = (status == BSP_STATUS_OK);
+    }
+
+    /* ---- USB VCP (完整 OOP) ---- */
+    if (status == BSP_STATUS_OK)
+    {
+        const bsp_usb_vcp_config_t cfg = {
+            .device_handle = &board_config_usb_context,
+            .driver_ops = &board_config_usb_driver_ops,
+        };
+        status = bsp_usb_vcp_init(&board_config_usb_device, &cfg);
+        if (status != BSP_STATUS_OK)
+        {
+            config->failed_step = "usb_vcp";
+        }
+        else
+        {
+            usb_ok = true;
+        }
+    }
+
+    /* ---- DWT (平铺结构体) ---- */
+    if (status == BSP_STATUS_OK)
+    {
+        const bsp_dwt_config_t cfg = {
+            .device_handle = NULL,
+            .driver_ops = board_config_get_dwt_driver_ops(),
+        };
+        status = bsp_dwt_init(&board_config_dwt, &cfg);
+        if (status != BSP_STATUS_OK)
+        {
+            config->failed_step = "dwt";
+        }
+    }
+
+    /* ---- Watchdog (可选, 完整 OOP) ---- */
+    if ((status == BSP_STATUS_OK) && config->initialize_watchdog)
+    {
+        const bsp_watchdog_config_t wdt_cfg = {
             .device_handle = &board_config_watchdog_context,
             .driver_ops = board_config_get_watchdog_driver_ops(),
         };
         board_config_watchdog_context.timeout_ms = BOARD_CONFIG_WATCHDOG_TIMEOUT_MS;
-        if (bsp_watchdog_init(&board_config_watchdog_device, &watchdog_config) != BSP_STATUS_OK)
+        status = bsp_watchdog_init(&board_config_watchdog_device, &wdt_cfg);
+        if (status != BSP_STATUS_OK)
         {
-            return BSP_STATUS_IO_ERROR;
+            config->failed_step = "watchdog";
         }
-        board_config_watchdog_initialized = true;
+        else
+        {
+            wdt_ok = true;
+        }
     }
-    board_config_initialized = true;
-    return BSP_STATUS_OK;
+
+    /* ---- 成功 / 回滚 ---- */
+    if (status == BSP_STATUS_OK)
+    {
+        board_config_watchdog_initialized = wdt_ok;
+        board_config_initialized = true;
+        return BSP_STATUS_OK;
+    }
+
+    config->last_error = status;
+    bsp_error_record(status, config->failed_step, 0);
+    /*
+     * 逆序回滚已初始化的外设。
+     *
+     * 回滚分两层：
+     *   1. HAL_Stop / HAL_Abort — 停止硬件（DMA、中断、时钟）
+     *   2. bsp_device_deinit / bsp_xxx_deinit — 清理 BSP 对象状态
+     *
+     * 两层职责分离：driver_ops->deinit 保持为空（CubeMX 管理 HAL 生命周期），
+     * 硬件停止由本文件的显式 HAL 调用来完成。
+     */
+    if (wdt_ok)
+    {
+        /* IWDG 一旦启动无法停止 */
+        board_config_watchdog_initialized = false;
+    }
+    /* DWT 无需硬件停止 */
+    board_config_dwt.is_initialized = false;
+    if (usb_ok)
+    {
+        (void)bsp_device_deinit(&board_config_usb_device.super.super);
+    }
+    if (pwm_ok)
+    {
+        board_config_deinit_pwm();
+    }
+    if (exti_ok)
+    {
+        board_config_deinit_exti();
+    }
+    if (spi_ok)
+    {
+        (void)HAL_SPI_Abort(&hspi2);
+        (void)bsp_device_deinit(&board_config_bmi088_spi_device.super.super);
+    }
+    if (usart_ok)
+    {
+        (void)HAL_UART_Abort(&huart5);
+        (void)bsp_device_deinit(&board_config_usart_devices[0].super.super);
+    }
+    board_config_deinit_can(can_count);
+    return status;
 }
 
 bsp_can_t *board_config_get_can(board_config_can_index_t index)
@@ -1202,14 +1362,14 @@ bsp_spi_t *board_config_get_bmi088_spi(void)
 bsp_exti_t *board_config_get_exti(board_config_exti_index_t index)
 {
     return (board_config_initialized && (index < BOARD_CONFIG_EXTI_COUNT))
-               ? bsp_exti_as_base(&board_config_exti_devices[index])
+               ? &board_config_exti_objects[index]
                : NULL;
 }
 
 bsp_pwm_t *board_config_get_pwm(board_config_pwm_index_t index)
 {
     return (board_config_initialized && (index < BOARD_CONFIG_PWM_COUNT))
-               ? bsp_pwm_as_base(&board_config_pwm_devices[index])
+               ? &board_config_pwm_objects[index]
                : NULL;
 }
 
@@ -1377,7 +1537,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
     {
         if (board_config_exti_contexts[index].pin == pin)
         {
-            bsp_exti_notify(&board_config_exti_devices[index]);
+            bsp_exti_notify(&board_config_exti_objects[index]);
         }
     }
 }

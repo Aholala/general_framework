@@ -8,16 +8,16 @@ static app_shooter_config_t app_shooter_config;
 static bool app_shooter_previous_fire_request;
 static bool app_shooter_initialized;
 
-bool app_shooter_init(const app_shooter_config_t *config)
+bsp_status_t app_shooter_init(const app_shooter_config_t *config)
 {
     if ((config == NULL) || (config->shooter == NULL))
     {
-        return false;
+        return BSP_STATUS_INVALID_ARGUMENT;
     }
     app_shooter_config = *config;
     app_shooter_previous_fire_request = false;
     app_shooter_initialized = true;
-    return true;
+    return BSP_STATUS_OK;
 }
 
 void app_shooter_update(float delta_time_s)
@@ -73,6 +73,10 @@ void app_shooter_update(float delta_time_s)
             .friction_ready = feedback.friction_ready,
             .fire_permission = feedback.fire_permission,
         };
-        (void)module_board_comm_send_shooter(app_shooter_config.board_comm, &board_data);
+        if (module_board_comm_send_shooter(app_shooter_config.board_comm, &board_data) !=
+            MODULE_BOARD_COMM_STATUS_OK)
+        {
+            bsp_error_record(BSP_STATUS_IO_ERROR, "send_shooter", 0);
+        }
     }
 }

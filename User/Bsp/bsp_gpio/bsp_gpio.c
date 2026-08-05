@@ -71,8 +71,6 @@ bool bsp_gpio_is_initialized(const bsp_gpio_t *me)
     return (me != NULL) && me->is_initialized && (bsp_gpio_platform_ops != NULL);
 }
 
-bsp_gpio_t *bsp_gpio_as_base(bsp_gpio_device_t *me) { return me; }
-
 bsp_status_t bsp_gpio_read(const bsp_gpio_t *me, bool *level)
 {
     if ((me == NULL) || (level == NULL)) return BSP_STATUS_INVALID_ARGUMENT;

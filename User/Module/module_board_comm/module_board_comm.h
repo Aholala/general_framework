@@ -187,6 +187,13 @@ extern "C"
                                                       const module_board_comm_config_t *config);
 
     /**
+     * @brief 反初始化 Robot Link 模块
+     * @param me Robot Link 对象
+     * @return 执行状态
+     */
+    module_board_comm_status_t module_board_comm_deinit(module_board_comm_t *me);
+
+    /**
      * @brief 发送遥控器数据（三帧分片）
      * @param me Robot Link 对象
      * @param remote_data 遥控器数据

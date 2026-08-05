@@ -109,12 +109,14 @@ int main(void)
   bsp_log_init();
   BSP_LOG_INFO("system startup");
   {
-    const board_config_init_t board_init = {
+    board_config_init_t board_init = {
       .initialize_watchdog = false,
     };
     if (board_config_init(&board_init) != BSP_STATUS_OK)
     {
-      BSP_LOG_ERROR("board configuration failed");
+      BSP_LOG_ERROR("board config failed: %s returned %s",
+                     board_init.failed_step != NULL ? board_init.failed_step : "unknown",
+                     bsp_status_to_string(board_init.last_error));
       Error_Handler();
     }
   }

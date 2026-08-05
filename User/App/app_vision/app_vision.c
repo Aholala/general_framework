@@ -46,12 +46,12 @@ static bool app_vision_frame_is_valid(const uint8_t *frame)
             app_vision_crc8(frame, APP_VISION_CHECKSUM_INDEX));
 }
 
-bool app_vision_init(const app_vision_config_t *config)
+bsp_status_t app_vision_init(const app_vision_config_t *config)
 {
     if ((config == NULL) || (config->usb_vcp == NULL) || (config->target_timeout_ms == 0U) ||
         (config->transmit_period_ms == 0U))
     {
-        return false;
+        return BSP_STATUS_INVALID_ARGUMENT;
     }
     app_vision_config = *config;
     app_vision_target = (app_vision_target_t){0};
@@ -59,7 +59,7 @@ bool app_vision_init(const app_vision_config_t *config)
     app_vision_transmit_elapsed_ms = 0U;
     app_vision_mode = APP_VISION_MODE_MANUAL;
     app_vision_initialized = true;
-    return true;
+    return BSP_STATUS_OK;
 }
 
 void app_vision_set_mode(app_vision_mode_t mode)

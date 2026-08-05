@@ -10,18 +10,18 @@ static app_imu_config_t app_imu_config;
 static app_imu_snapshot_t app_imu_snapshot;
 static bool app_imu_initialized;
 
-bool app_imu_init(const app_imu_config_t *config)
+bsp_status_t app_imu_init(const app_imu_config_t *config)
 {
     if ((config == NULL) || (config->sensor == NULL) ||
         (config->accelerometer_correction_gain < 0.0F) ||
         (config->accelerometer_correction_gain > 1.0F))
     {
-        return false;
+        return BSP_STATUS_INVALID_ARGUMENT;
     }
     app_imu_config = *config;
     app_imu_snapshot = (app_imu_snapshot_t){0};
     app_imu_initialized = true;
-    return true;
+    return BSP_STATUS_OK;
 }
 
 void app_imu_update(float delta_time_s)

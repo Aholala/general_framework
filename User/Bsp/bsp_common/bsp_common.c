@@ -107,3 +107,47 @@ void *bsp_device_get_handle(const bsp_device_t *const me)
 {
     return bsp_device_is_initialized(me) ? me->device_handle : NULL;
 }
+
+const char *bsp_status_to_string(bsp_status_t status)
+{
+    switch (status)
+    {
+    case BSP_STATUS_OK:
+        return "OK";
+    case BSP_STATUS_INVALID_ARGUMENT:
+        return "INVALID_ARGUMENT";
+    case BSP_STATUS_OUT_OF_RANGE:
+        return "OUT_OF_RANGE";
+    case BSP_STATUS_NOT_INITIALIZED:
+        return "NOT_INITIALIZED";
+    case BSP_STATUS_BUSY:
+        return "BUSY";
+    case BSP_STATUS_TIMEOUT:
+        return "TIMEOUT";
+    case BSP_STATUS_IO_ERROR:
+        return "IO_ERROR";
+    case BSP_STATUS_NO_RESOURCE:
+        return "NO_RESOURCE";
+    case BSP_STATUS_UNSUPPORTED:
+        return "UNSUPPORTED";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+/* ---------- 全局错误寄存器 ---------- */
+
+static bsp_error_t bsp_error_last;
+
+void bsp_error_record(bsp_status_t code, const char *source, int detail)
+{
+    bsp_error_last.code = code;
+    bsp_error_last.source = source;
+    bsp_error_last.detail = detail;
+    bsp_error_last.is_valid = true;
+}
+
+const bsp_error_t *bsp_error_read(void)
+{
+    return &bsp_error_last;
+}

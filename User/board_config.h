@@ -13,40 +13,9 @@
 /*
  * STM32H723VET6 board-level resource map.
  *
- * This file describes logical devices, peripheral instances, pins and
- * alternate functions without including a vendor HAL header. The STM32
- * platform port is responsible for translating these constants to GPIO_TypeDef
- * pointers, HAL handles, IRQ numbers and DMA channels.
- *
- * A pin is encoded as (port_index << 4) | pin_number. Use the access macros
- * below instead of relying on the encoding outside the board assembly code.
+ * 引脚、DMA、中断由 CubeMX 生成的 Core/ 文件管理，此文件只定义逻辑外设
+ * 索引、驱动操作表和时钟常量。换 MCU 时只需替换本文件和 Core/。
  */
-
-/* ------------- GPIO 端口索引宏 ------------- */
-#define BOARD_CONFIG_GPIO_PORT_A (0U)
-#define BOARD_CONFIG_GPIO_PORT_B (1U)
-#define BOARD_CONFIG_GPIO_PORT_C (2U)
-#define BOARD_CONFIG_GPIO_PORT_D (3U)
-#define BOARD_CONFIG_GPIO_PORT_E (4U)
-#define BOARD_CONFIG_GPIO_PORT_H (7U)
-
-/* ------------- GPIO 引脚编码宏 ------------- */
-/* 将端口索引和引脚号编码为一个字节：高4位为端口索引，低4位为引脚号 */
-#define BOARD_CONFIG_GPIO_PIN(port_index, pin_number)                                              \
-    ((((port_index) & 0x0FU) << 4U) | ((pin_number) & 0x0FU))
-
-/* 从编码值中提取端口索引 */
-#define BOARD_CONFIG_GPIO_PIN_PORT(encoded_pin) (((encoded_pin) >> 4U) & 0x0FU)
-
-/* 从编码值中提取引脚号 */
-#define BOARD_CONFIG_GPIO_PIN_NUMBER(encoded_pin) ((encoded_pin) & 0x0FU)
-
-/* 备用功能：NONE 表示不使用备用功能（作为普通 GPIO） */
-#define BOARD_CONFIG_ALTERNATE_FUNCTION_NONE (0xFFU)
-
-/* 引脚有效电平定义 */
-#define BOARD_CONFIG_GPIO_ACTIVE_LOW (0U)
-#define BOARD_CONFIG_GPIO_ACTIVE_HIGH (1U)
 
 /* ------------- 板级时钟频率（基于 24MHz HSE 晶振） ------------- */
 #define BOARD_CONFIG_HSE_FREQUENCY_HZ (24000000UL)           /* HSE 晶振频率 */
@@ -83,122 +52,16 @@
 #define BOARD_CONFIG_DAC_INSTANCE_COUNT (0U)     /* 未启用 DAC */
 #define BOARD_CONFIG_USB_VCP_INSTANCE_COUNT (1U) /* USB VCP 一个 */
 
-/* ------------------------------------------------------------------------- */
-/* USART 和 UART 详细定义                                                    */
-/* ------------------------------------------------------------------------- */
+/*
+ * 引脚、DMA 通道、NVIC 优先级由 CubeMX 生成的 Core/Src/fdcan.c / usart.c /
+ * spi.c / tim.c 管理。本文件只定义逻辑外设索引、时钟频率和容量上限。
+ */
 
-/* DR16 接收专用 UART5：仅 RX，PD2，AF8，波特率 100000，9 位字长，偶校验，2 停止位 */
-#define BOARD_CONFIG_DR16_UART_LOGICAL_NAME "dr16_dbus"
-#define BOARD_CONFIG_DR16_UART_INSTANCE (5U)
-#define BOARD_CONFIG_DR16_UART_RX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_D, 2U)
-#define BOARD_CONFIG_DR16_UART_ALTERNATE_FUNCTION (8U)
-#define BOARD_CONFIG_DR16_UART_RECEIVE_ONLY (1U)        /* 仅接收 */
-#define BOARD_CONFIG_DR16_UART_BAUD_RATE (100000UL)     /* 100kbps */
-#define BOARD_CONFIG_DR16_UART_WORD_LENGTH_BITS (9U)    /* 9 位数据 */
-#define BOARD_CONFIG_DR16_UART_EVEN_PARITY_ENABLED (1U) /* 偶校验 */
-#define BOARD_CONFIG_DR16_UART_STOP_BITS (2U)           /* 2 停止位 */
-
-/* ------------------------------------------------------------------------- */
-/* FDCAN                                                                     */
-/* ------------------------------------------------------------------------- */
-
-/* CAN1（逻辑名 "can1"）→ FDCAN1，RX PD0，TX PD1，AF9 */
-#define BOARD_CONFIG_CAN1_LOGICAL_NAME "can1"
-#define BOARD_CONFIG_CAN1_FDCAN_INSTANCE (1U)
-#define BOARD_CONFIG_CAN1_RX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_D, 0U)
-#define BOARD_CONFIG_CAN1_TX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_D, 1U)
-#define BOARD_CONFIG_CAN1_ALTERNATE_FUNCTION (9U)
-
-/* CAN2 → FDCAN2，RX PB5，TX PB6，AF9 */
-#define BOARD_CONFIG_CAN2_LOGICAL_NAME "can2"
-#define BOARD_CONFIG_CAN2_FDCAN_INSTANCE (2U)
-#define BOARD_CONFIG_CAN2_RX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 5U)
-#define BOARD_CONFIG_CAN2_TX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 6U)
-#define BOARD_CONFIG_CAN2_ALTERNATE_FUNCTION (9U)
-
-/* CAN3 → FDCAN3，RX PD12，TX PD13，AF5 */
-#define BOARD_CONFIG_CAN3_LOGICAL_NAME "can3"
-#define BOARD_CONFIG_CAN3_FDCAN_INSTANCE (3U)
-#define BOARD_CONFIG_CAN3_RX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_D, 12U)
-#define BOARD_CONFIG_CAN3_TX_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_D, 13U)
-#define BOARD_CONFIG_CAN3_ALTERNATE_FUNCTION (5U)
-
-/* FDCAN 全局配置：经典 CAN，1Mbit/s，预分频器、时间段等 */
-#define BOARD_CONFIG_FDCAN_NOMINAL_BIT_RATE (1000000UL) /* 1 Mbps */
-#define BOARD_CONFIG_FDCAN_NOMINAL_PRESCALER (3U)
-#define BOARD_CONFIG_FDCAN_NOMINAL_TIME_SEGMENT_1 (29U)
-#define BOARD_CONFIG_FDCAN_NOMINAL_TIME_SEGMENT_2 (10U)
-#define BOARD_CONFIG_FDCAN_NOMINAL_SYNC_JUMP_WIDTH (10U)
-
-/* 三个 FDCAN 共享消息 RAM，每个分配 259 个 32 位字 */
+/* ------------- FDCAN 消息 RAM 分配（与 CubeMX .ioc 保持一致） ------------- */
 #define BOARD_CONFIG_FDCAN_MESSAGE_RAM_WORD_COUNT (800U)
 #define BOARD_CONFIG_CAN1_MESSAGE_RAM_OFFSET_WORDS (0U)
 #define BOARD_CONFIG_CAN2_MESSAGE_RAM_OFFSET_WORDS (800U)
 #define BOARD_CONFIG_CAN3_MESSAGE_RAM_OFFSET_WORDS (1600U)
-
-/* ------------------------------------------------------------------------- */
-/* USB OTG HS（使用内部全速 PHY）                                            */
-/* ------------------------------------------------------------------------- */
-
-#define BOARD_CONFIG_USB_VCP_LOGICAL_NAME "usb_vcp"
-#define BOARD_CONFIG_USB_OTG_INSTANCE (2U) /* OTG_HS */
-#define BOARD_CONFIG_USB_OTG_ID_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_A, 10U)
-#define BOARD_CONFIG_USB_OTG_DM_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_A, 11U)
-#define BOARD_CONFIG_USB_OTG_DP_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_A, 12U)
-#define BOARD_CONFIG_USB_OTG_ALTERNATE_FUNCTION (10U)
-#define BOARD_CONFIG_USB_OTG_ID_CONNECTED (1U) /* ID 引脚接地 */
-
-/* ------------------------------------------------------------------------- */
-/* BMI088 惯性传感器：SPI2                                                  */
-/* ------------------------------------------------------------------------- */
-
-#define BOARD_CONFIG_BMI088_LOGICAL_NAME "bmi088"
-#define BOARD_CONFIG_BMI088_SPI_INSTANCE (2U)                     /* SPI2 */
-#define BOARD_CONFIG_BMI088_SPI_ALTERNATE_FUNCTION (5U)           /* AF5 */
-#define BOARD_CONFIG_BMI088_SPI_KERNEL_FREQUENCY_HZ (120000000UL) /* SPI 内核时钟 */
-#define BOARD_CONFIG_BMI088_SPI_PRESCALER (16U)                   /* 分频系数 */
-#define BOARD_CONFIG_BMI088_SPI_FREQUENCY_HZ (7500000UL)          /* 实际 SPI 时钟 7.5MHz */
-#define BOARD_CONFIG_BMI088_SPI_CLOCK_POLARITY_HIGH (1U)          /* CPOL=1 */
-#define BOARD_CONFIG_BMI088_SPI_CLOCK_PHASE_SECOND_EDGE (1U)      /* CPHA=1 */
-#define BOARD_CONFIG_BMI088_SPI_SCK_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 10U)
-#define BOARD_CONFIG_BMI088_SPI_MISO_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 14U)
-#define BOARD_CONFIG_BMI088_SPI_MOSI_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_B, 15U)
-
-/* 加速度计片选：PD8，低电平有效 */
-#define BOARD_CONFIG_BMI088_ACCELEROMETER_CHIP_SELECT_PIN                                          \
-    BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_D, 8U)
-/* 陀螺仪片选：PE15，低电平有效 */
-#define BOARD_CONFIG_BMI088_GYROSCOPE_CHIP_SELECT_PIN                                              \
-    BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_E, 15U)
-#define BOARD_CONFIG_BMI088_CHIP_SELECT_ACTIVE_LEVEL BOARD_CONFIG_GPIO_ACTIVE_LOW
-
-/* 加速度计中断：PE14，EXTI Line 14 */
-#define BOARD_CONFIG_BMI088_ACCELEROMETER_INTERRUPT_PIN                                            \
-    BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_E, 14U)
-#define BOARD_CONFIG_BMI088_ACCELEROMETER_EXTI_LINE (14U)
-
-/* 陀螺仪中断：PE13，EXTI Line 13 */
-#define BOARD_CONFIG_BMI088_GYROSCOPE_INTERRUPT_PIN                                                \
-    BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_E, 13U)
-#define BOARD_CONFIG_BMI088_GYROSCOPE_EXTI_LINE (13U)
-
-/* ------------------------------------------------------------------------- */
-/* 定时器与 PWM 输出                                                        */
-/* ------------------------------------------------------------------------- */
-
-/* 蜂鸣器 PWM：TIM1_CH1，PE9，AF1 */
-#define BOARD_CONFIG_BUZZER_PWM_LOGICAL_NAME "buzzer_pwm"
-#define BOARD_CONFIG_BUZZER_PWM_TIMER_INSTANCE (1U)
-#define BOARD_CONFIG_BUZZER_PWM_TIMER_CHANNEL (1U)
-#define BOARD_CONFIG_BUZZER_PWM_PIN BOARD_CONFIG_GPIO_PIN(BOARD_CONFIG_GPIO_PORT_E, 9U)
-#define BOARD_CONFIG_BUZZER_PWM_ALTERNATE_FUNCTION (1U)
-
-/* ------------------------------------------------------------------------- */
-/* 已知引脚冲突                                                              */
-/* ------------------------------------------------------------------------- */
-
-/* 当前板级配置未启用 I2C，也不提供 PC6/PC7 软件 I2C。 */
-#define BOARD_CONFIG_SOFTWARE_I2C_PC6_PC7_ENABLED (0U)
 
 /* ------------- 编译期容量检查（防止配置超出 BSP 上限） ------------- */
 #if BOARD_CONFIG_EXTI_INSTANCE_COUNT > BOARD_CONFIG_BSP_EXTI_MAX_INSTANCES
@@ -241,15 +104,22 @@ typedef enum
 typedef enum
 {
     BOARD_CONFIG_PWM_BUZZER = 0,
+    /* 预留舵机/其他 PWM 外设槽位（取消注释并填入实际定时器即可启用） */
+    /* BOARD_CONFIG_PWM_SERVO_1, */
+    /* BOARD_CONFIG_PWM_SERVO_2, */
     BOARD_CONFIG_PWM_COUNT
 } board_config_pwm_index_t;
 
 typedef struct
 {
     bool initialize_watchdog;
+    /** @brief 初始化失败时由 board_config_init 填充的具体错误码 */
+    bsp_status_t last_error;
+    /** @brief 初始化失败时填充的失败步骤名称（如 "can"/"usart"/"spi"） */
+    const char *failed_step;
 } board_config_init_t;
 
-bsp_status_t board_config_init(const board_config_init_t *config);
+bsp_status_t board_config_init(board_config_init_t *config);
 bsp_can_t *board_config_get_can(board_config_can_index_t index);
 bsp_usart_t *board_config_get_usart(board_config_usart_index_t index);
 bsp_spi_t *board_config_get_bmi088_spi(void);

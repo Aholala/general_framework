@@ -27,8 +27,6 @@ typedef struct bsp_pwm
     bool is_initialized;
 } bsp_pwm_t;
 
-typedef bsp_pwm_t bsp_pwm_device_t;
-
 typedef struct
 {
     void *device_handle;
@@ -40,7 +38,6 @@ bsp_status_t bsp_pwm_bind_platform(const bsp_pwm_driver_ops_t *driver_ops);
 bsp_status_t bsp_pwm_init(bsp_pwm_t *me, const bsp_pwm_config_t *config);
 bsp_status_t bsp_pwm_deinit(bsp_pwm_t *me);
 bool bsp_pwm_is_initialized(const bsp_pwm_t *me);
-bsp_pwm_t *bsp_pwm_as_base(bsp_pwm_device_t *me);
 bsp_status_t bsp_pwm_start(bsp_pwm_t *me);
 bsp_status_t bsp_pwm_stop(bsp_pwm_t *me);
 bsp_status_t bsp_pwm_set_frequency(bsp_pwm_t *me, uint32_t frequency_hz);

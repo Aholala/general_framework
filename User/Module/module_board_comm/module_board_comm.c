@@ -193,6 +193,22 @@ module_board_comm_status_t module_board_comm_init(module_board_comm_t *me,
 }
 
 /**
+ * @brief 反初始化 Robot Link 模块
+ * @param me Robot Link 对象
+ * @return 执行状态
+ */
+module_board_comm_status_t module_board_comm_deinit(module_board_comm_t *me)
+{
+    if ((me == NULL) || !me->is_initialized)
+    {
+        return (me == NULL) ? MODULE_BOARD_COMM_STATUS_INVALID_ARGUMENT
+                            : MODULE_BOARD_COMM_STATUS_NOT_INITIALIZED;
+    }
+    (void)memset(me, 0, sizeof(*me));
+    return MODULE_BOARD_COMM_STATUS_OK;
+}
+
+/**
  * @brief 发送遥控器数据（三帧分片）
  * @param me Robot Link 对象
  * @param remote_data 遥控器数据
