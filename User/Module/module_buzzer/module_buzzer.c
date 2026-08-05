@@ -107,7 +107,7 @@ module_buzzer_status_t module_buzzer_init(module_buzzer_t *me, const module_buzz
 {
     // 参数校验：对象、配置、PWM 基类（已初始化）、占空比有效性（有限且 >0 且 <=1）
     if ((me == NULL) || (config == NULL) || (config->pwm == NULL) ||
-        !bsp_device_is_initialized(&config->pwm->super) || !isfinite(config->duty_cycle) ||
+        !bsp_pwm_is_initialized(config->pwm) || !isfinite(config->duty_cycle) ||
         (config->duty_cycle <= 0.0F) || (config->duty_cycle > 1.0F))
     {
         return MODULE_BUZZER_STATUS_INVALID_ARGUMENT;

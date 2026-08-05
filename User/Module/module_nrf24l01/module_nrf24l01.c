@@ -316,8 +316,8 @@ module_nrf24l01_status_t module_nrf24l01_init(module_nrf24l01_t *me,
     if ((me == NULL) || (config == NULL) || (config->spi == NULL) ||
         !bsp_device_is_initialized(&config->spi->super) || (config->chip_enable_gpio == NULL) ||
         (config->chip_select_gpio == NULL) ||
-        !bsp_device_is_initialized(&config->chip_enable_gpio->super) ||
-        !bsp_device_is_initialized(&config->chip_select_gpio->super) || (config->channel > 125U) ||
+        !bsp_gpio_is_initialized(config->chip_enable_gpio) ||
+        !bsp_gpio_is_initialized(config->chip_select_gpio) || (config->channel > 125U) ||
         (config->address_size < 3U) || (config->address_size > 5U) ||
         (config->link_address == NULL) || (config->payload_size == 0U) ||
         (config->payload_size > MODULE_NRF24L01_MAXIMUM_PAYLOAD_SIZE) ||

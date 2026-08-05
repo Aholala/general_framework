@@ -94,7 +94,7 @@ module_servo_status_t module_servo_init(module_servo_t *me, const module_servo_c
 {
     // ---- 参数校验 ----
     if ((me == NULL) || (config == NULL) || (config->pwm == NULL) ||
-        !bsp_device_is_initialized(&config->pwm->super) || (config->frequency_hz == 0U) ||
+        !bsp_pwm_is_initialized(config->pwm) || (config->frequency_hz == 0U) ||
         !isfinite(config->minimum_pulse_width_us) || !isfinite(config->neutral_pulse_width_us) ||
         !isfinite(config->maximum_pulse_width_us) || (config->minimum_pulse_width_us <= 0.0F) ||
         (config->neutral_pulse_width_us < config->minimum_pulse_width_us) ||

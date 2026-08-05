@@ -1377,7 +1377,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
     {
         if (board_config_exti_contexts[index].pin == pin)
         {
-            bsp_exti_notify(&board_config_exti_devices[index].super);
+            bsp_exti_notify(&board_config_exti_devices[index]);
         }
     }
 }

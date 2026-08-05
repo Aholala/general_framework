@@ -2,7 +2,9 @@
 
 ## 1. 概述
 
-BSP（Board Support Package）层提供了一套**与芯片厂商无关、可多实例、可移植**的外设接口抽象。它采用 C 语言模拟面向对象的设计，通过虚表和 `container_of` 宏实现多态，将硬件访问与业务逻辑彻底解耦。
+BSP（Board Support Package）层提供与芯片厂商无关的外设接口。CAN、USART、SPI 等复杂
+通信外设保留 C 对象模型；GPIO、EXTI、PWM 使用每类一份全局 platform dispatcher 和
+轻量资源句柄，避免在 HAL 上方重复建立两层虚表。
 
 **核心原则**：
 
@@ -87,6 +89,9 @@ bsp_fdcan/                        # CAN FD 外设
 每个子模块 README 末尾均有“一页式接入顺序与可读信息”。异步接口的数据缓冲区归调用者所有，完成回调前不得释放或复用。
 
 ## 4. C 面向对象模型
+
+本节适用于需要独立生命周期或多种可替换实例的复杂外设。GPIO、EXTI、PWM 是明确例外：
+它们不继承 `bsp_device_t`，运行调用直接分发到全局 platform ops。
 
 ### 4.1 继承层次
 

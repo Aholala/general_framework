@@ -43,6 +43,8 @@ flowchart TD
 
 - `Algorithm` 不依赖 HAL、RTOS、BSP、Module 或 App。
 - 通用 `Bsp` 不直接保存某个 STM32 全局句柄，通过 `device_handle + driver_ops` 接入平台。
+- GPIO、EXTI、PWM 位于硬件近端，使用每类一份全局 platform dispatcher 和轻量资源句柄；
+  CAN、USART、SPI 等通信外设继续使用可实例化的完整 BSP 对象。
 - `Module` 只依赖所需的 BSP 和算法，不反向依赖 App。
 - `App` 负责创建实例、选择硬件、连接对象和制定安全策略。
 - `Task` 只负责周期循环和调用 App，依赖方向为 `Task -> App`，App 不依赖 Task。
