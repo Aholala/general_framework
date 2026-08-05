@@ -26,7 +26,17 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-#include "app_safe.h"
+#include "app_safety.h"
+#include "app_exchange.h"
+#include "app_vision.h"
+#include "app_robot.h"
+#include "board_config.h"
+#include "task_chassis.h"
+#include "task_command.h"
+#include "task_gimbal.h"
+#include "task_imu.h"
+#include "task_safety.h"
+#include "task_shooter.h"
 
 /* USER CODE END Includes */
 
@@ -158,7 +168,17 @@ void vApplicationMallocFailedHook(void)
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
-  (void)app_safe_init(NULL);
+  (void)app_safety_init(NULL);
+  app_exchange_init();
+  {
+    const app_vision_config_t vision_config = {
+      .usb_vcp = board_config_get_usb_vcp(),
+      .target_timeout_ms = 200U,
+      .transmit_period_ms = 10U,
+    };
+    (void)app_vision_init(&vision_config);
+  }
+  (void)app_robot_init();
 
   /* USER CODE END Init */
 
@@ -240,11 +260,7 @@ void StartDefaultTask(void *argument)
 __weak void StartChassisTask(void *argument)
 {
   /* USER CODE BEGIN StartChassisTask */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+  task_chassis_run(argument);
   /* USER CODE END StartChassisTask */
 }
 
@@ -258,11 +274,7 @@ __weak void StartChassisTask(void *argument)
 __weak void StartGimbalTask(void *argument)
 {
   /* USER CODE BEGIN StartGimbalTask */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+  task_gimbal_run(argument);
   /* USER CODE END StartGimbalTask */
 }
 
@@ -276,11 +288,7 @@ __weak void StartGimbalTask(void *argument)
 __weak void StartIMUTask(void *argument)
 {
   /* USER CODE BEGIN StartIMUTask */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+  task_imu_run(argument);
   /* USER CODE END StartIMUTask */
 }
 
@@ -294,7 +302,7 @@ __weak void StartIMUTask(void *argument)
 __weak void StartSafeTask(void *argument)
 {
   /* USER CODE BEGIN StartSafeTask */
-  app_safe_task(argument);
+  task_safety_run(argument);
   /* USER CODE END StartSafeTask */
 }
 
@@ -308,11 +316,7 @@ __weak void StartSafeTask(void *argument)
 __weak void StartCommandTask(void *argument)
 {
   /* USER CODE BEGIN StartCommandTask */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+  task_command_run(argument);
   /* USER CODE END StartCommandTask */
 }
 
@@ -326,11 +330,7 @@ __weak void StartCommandTask(void *argument)
 __weak void StartShootTask(void *argument)
 {
   /* USER CODE BEGIN StartShootTask */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+  task_shooter_run(argument);
   /* USER CODE END StartShootTask */
 }
 

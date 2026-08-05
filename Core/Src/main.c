@@ -31,6 +31,7 @@
 /* USER CODE BEGIN Includes */
 
 #include "bsp_log.h"
+#include "board_config.h"
 
 /* USER CODE END Includes */
 
@@ -107,6 +108,16 @@ int main(void)
 
   bsp_log_init();
   BSP_LOG_INFO("system startup");
+  {
+    const board_config_init_t board_init = {
+      .initialize_watchdog = false,
+    };
+    if (board_config_init(&board_init) != BSP_STATUS_OK)
+    {
+      BSP_LOG_ERROR("board configuration failed");
+      Error_Handler();
+    }
+  }
 
   /* USER CODE END 2 */
 

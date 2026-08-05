@@ -1,6 +1,11 @@
-# app_safe
+# app_safety
 
-`app_safe` provides centralized heartbeat and offline detection for application devices and
+## Responsibility
+
+The Safe application centralizes DR16, IMU, motor, board-link and task heartbeat monitoring. It
+publishes state transitions and may optionally refresh the hardware watchdog.
+
+`app_safety` provides centralized heartbeat and offline detection for application devices and
 tasks. Monitor storage is caller-owned and no dynamic memory is used.
 
 ## Usage
@@ -8,7 +13,7 @@ tasks. Monitor storage is caller-owned and no dynamic memory is used.
 Create a persistent monitor object, initialize it during application startup, then register it:
 
 ```c
-static app_safe_monitor_t remote_monitor;
+static app_safety_monitor_t remote_monitor;
 
 static void remote_offline(void *user_context)
 {
@@ -18,7 +23,7 @@ static void remote_offline(void *user_context)
 
 void app_command_init_safety(void)
 {
-    const app_safe_monitor_config_t config = {
+    const app_safety_monitor_config_t config = {
         .name = "DR16",
         .timeout_ms = 200U,
         .required = true,
@@ -27,19 +32,19 @@ void app_command_init_safety(void)
         .user_context = NULL,
     };
 
-    (void)app_safe_monitor_init(&remote_monitor, &config);
-    (void)app_safe_register(&remote_monitor);
+    (void)app_safety_monitor_init(&remote_monitor, &config);
+    (void)app_safety_register(&remote_monitor);
 }
 ```
 
 After a complete frame has passed protocol validation, refresh its monitor:
 
 ```c
-app_safe_notify_online(&remote_monitor);
+app_safety_notify_online(&remote_monitor);
 ```
 
 Do not refresh on raw interrupt activity or an invalid frame. Offline and recovery callbacks run
-once per state transition in the SafeTask context. They must only update state or publish a stop
+once per state transition in the app_safety context. They must only update state or publish a stop
 request; they must not block.
 
 ## Recommended validation
@@ -48,6 +53,6 @@ request; they must not block.
 - A never-online monitor becomes OFFLINE after its timeout.
 - Offline and online callbacks each run once per transition.
 - Tick counter wraparound does not cause a false recovery.
-- Optional monitors do not block `app_safe_all_required_online()`.
-- Registration beyond `APP_SAFE_MAX_MONITOR_COUNT` is rejected.
+- Optional monitors do not block `app_safety_all_required_online()`.
+- Registration beyond `APP_SAFETY_MAX_MONITOR_COUNT` is rejected.
 - Hardware watchdog refresh is performed only after a watchdog is attached.

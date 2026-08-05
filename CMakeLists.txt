@@ -420,13 +420,48 @@ framework_configure_library(module)
 # ---------------------------------------------------------------------------
 
 add_library(app OBJECT
-    User/App/SafeTask/app_safe.c
+    User/App/app_robot.c
+    User/App/app_exchange/app_exchange.c
+    User/App/app_vision/app_vision.c
+    User/App/app_command/app_command.c
+    User/App/app_chassis/app_chassis.c
+    User/App/app_gimbal/app_gimbal.c
+    User/App/app_imu/app_imu.c
+    User/App/app_shooter/app_shooter.c
+    User/App/app_safety/app_safety.c
 )
 target_include_directories(app PUBLIC
-    User/App/SafeTask
+    User/App
+    User/App/app_exchange
+    User/App/app_vision
+    User/App/app_command
+    User/App/app_chassis
+    User/App/app_gimbal
+    User/App/app_imu
+    User/App/app_shooter
+    User/App/app_safety
 )
-target_link_libraries(app PUBLIC bsp freertos)
+target_link_libraries(app PUBLIC bsp board_config freertos module alg_swerve)
 framework_configure_library(app)
+
+add_library(task OBJECT
+    User/App/Task/task_chassis/task_chassis.c
+    User/App/Task/task_command/task_command.c
+    User/App/Task/task_gimbal/task_gimbal.c
+    User/App/Task/task_imu/task_imu.c
+    User/App/Task/task_safety/task_safety.c
+    User/App/Task/task_shooter/task_shooter.c
+)
+target_include_directories(task PUBLIC
+    User/App/Task/task_chassis
+    User/App/Task/task_command
+    User/App/Task/task_gimbal
+    User/App/Task/task_imu
+    User/App/Task/task_safety
+    User/App/Task/task_shooter
+)
+target_link_libraries(task PUBLIC app freertos)
+framework_configure_library(task)
 
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     stm32cubemx
@@ -450,5 +485,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     alg_swerve
     module
     app
+    task
     ${TOOLCHAIN_LINK_LIBRARIES}
 )

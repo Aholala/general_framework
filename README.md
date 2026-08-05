@@ -2,7 +2,7 @@
 
 面向 RoboMaster 与通用运动控制项目的 C11 静态库框架。
 
-这个仓库提供算法、外设抽象和设备模块，`User/App` 只保留项目层入口，不预设某一台机器人的引脚、外设实例和任务编排。库中的对象均支持静态分配、多实例和显式依赖注入，不使用动态内存。
+这个仓库提供算法、外设抽象、设备模块和一套双板舵轮步兵机器人 App 模板。库中的对象均支持静态分配、多实例和显式依赖注入，不使用动态内存。
 
 ## 快速导航
 
@@ -24,13 +24,14 @@ User/
 ├── Algorithm/  与硬件无关的数学、滤波、估计、控制和底盘运动学
 ├── Bsp/        GPIO、总线、定时器等厂商无关外设对象
 ├── Module/     电机、传感器、遥控器、通信和功能设备
-├── App/        最终项目的对象实例、模式、安全策略和任务编排
+├── App/        业务 App、整车装配、数据交换和 FreeRTOS 任务适配
 └── Doc/        本项目所依据的设备手册
 ```
 
 ```mermaid
 flowchart TD
-    App["App：项目装配与任务"] --> Module["Module：设备与功能模块"]
+    Task["Task：FreeRTOS 调度适配"] --> App["App：业务控制与项目装配"]
+    App --> Module["Module：设备与功能模块"]
     App --> Algorithm["Algorithm：算法"]
     Module --> Algorithm
     Module --> Bsp["BSP：厂商无关外设接口"]
@@ -44,6 +45,15 @@ flowchart TD
 - 通用 `Bsp` 不直接保存某个 STM32 全局句柄，通过 `device_handle + driver_ops` 接入平台。
 - `Module` 只依赖所需的 BSP 和算法，不反向依赖 App。
 - `App` 负责创建实例、选择硬件、连接对象和制定安全策略。
+- `Task` 只负责周期循环和调用 App，依赖方向为 `Task -> App`，App 不依赖 Task。
+
+### App 与 Task 目录
+
+业务目录统一命名为 `User/App/app_<功能>`，例如 `app_gimbal`、`app_chassis` 和
+`app_shooter`；FreeRTOS 适配器统一放在 `User/App/Task/task_<功能>`，每个任务使用独立
+子目录并包含自己的 `.c/.h/README.md`。
+CubeMX 任务入口只转发到 `task_*_run()`，业务更新函数不包含永久循环或 RTOS 延时。
+详细说明见 [User/App/README.md](User/App/README.md)。
 
 典型数据流：
 
