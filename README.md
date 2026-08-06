@@ -6,26 +6,45 @@
 
 ## 快速导航
 
-- [整体架构](#整体架构)
+- [整体架构与框架-项目分离](#整体架构)
+- [项目配置（换机器人看这里）](#项目配置)
 - [结构体命名规则](#结构体命名规则)
 - [算法层](#算法层)
 - [BSP 层](#bsp-层)
 - [Module 层](#module-层)
 - [主要可读数据](#主要可读数据)
 - [通信协议](#通信协议)
-- [初始化与运行顺序](#初始化与运行顺序)
-- [硬件配置边界](#硬件配置边界)
+- [快速开始](#快速开始)
+- [进一步文档](#进一步文档)
 
 ## 整体架构
 
+### 框架-项目分离
+
+本仓库实现了框架与项目的彻底分离：
+
 ```text
-User/
-├── Algorithm/  与硬件无关的数学、滤波、估计、控制和底盘运动学
-├── Bsp/        GPIO、总线、定时器等厂商无关外设对象
-├── Module/     电机、传感器、遥控器、通信和功能设备
-├── App/        业务 App、整车装配、数据交换和 FreeRTOS 任务适配
-└── Doc/        本项目所依据的设备手册
+general_framework/
+├── ECF/                       ← 通用框架（跨项目复用，不随机器人变化）
+│   ├── Algorithm/             与硬件无关的数学、滤波、估计、控制和底盘运动学
+│   ├── Bsp/                   GPIO、总线、定时器等厂商无关外设对象
+│   ├── Module/                电机、传感器、遥控器、通信和功能设备
+│   └── App/                   通用 App 逻辑（底盘模式、云台控制、发射状态机…）
+│
+├── App/                        ← 项目特性化代码（换机器人只改这里）
+│   ├── config/
+│   │   └── project_config.h   ★ 集中式参数配置（PID、CAN ID、功能开关…）
+│   ├── board/
+│   │   └── board_config.h/.c   HAL 引脚映射与驱动操作表
+│   └── task/
+│       └── task_*.c            FreeRTOS 任务入口（周期调度 → 调用 App 更新）
+│
+├── Core/                       ← CubeMX 生成（不动）
+├── Drivers/                    ← STM32H7 HAL（不动）
+└── Middlewares/                ← FreeRTOS、USB（不动）
 ```
+
+移植到新机器人时只需修改 `App/` 下的文件。框架 `ECF/` 完全不动。
 
 ```mermaid
 flowchart TD
@@ -50,11 +69,11 @@ flowchart TD
 
 ### App 与 Task 目录
 
-业务目录统一命名为 `User/App/app_<功能>`，例如 `app_gimbal`、`app_chassis` 和
-`app_shooter`；FreeRTOS 适配器统一放在 `User/App/Task/task_<功能>`，每个任务使用独立
+业务目录统一命名为 `ECF/App/app_<功能>`，例如 `app_gimbal`、`app_chassis` 和
+`app_shooter`；FreeRTOS 适配器统一放在 `ECF/App/Task/task_<功能>`，每个任务使用独立
 子目录并包含自己的 `.c/.h/README.md`。
 CubeMX 任务入口只转发到 `task_*_run()`，业务更新函数不包含永久循环或 RTOS 延时。
-详细说明见 [User/App/README.md](User/App/README.md)。
+详细说明见 [ECF/App/README.md](ECF/App/README.md)。
 
 典型数据流：
 
@@ -106,7 +125,7 @@ CubeMX 任务入口只转发到 `task_*_run()`，业务更新函数不包含永�
 
 ## 算法层
 
-算法层目录为 `User/Algorithm`，全部使用 SI 单位和显式时间步长。
+算法层目录为 `ECF/Algorithm`，全部使用 SI 单位和显式时间步长。
 
 | 组件                 | 主要结构体                                                                                                                                                                                                   | 输入                                         | 输出或可观察数据                                            |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- | ----------------------------------------------------------- |
@@ -187,9 +206,9 @@ CubeMX 任务入口只转发到 `task_*_run()`，业务更新函数不包含永�
 
 ## BSP 层
 
-BSP 目录为 `User/Bsp`。通用 BSP 对象不决定使用哪个外设实例或引脚。
+BSP 目录为 `ECF/Bsp`。通用 BSP 对象不决定使用哪个外设实例或引脚。
 当前 H723 的引脚、HAL 操作表、CubeMX 句柄绑定、对象存储和回调路由集中在
-`User/board_config.h/.c`，因此具体工程配置没有放进 BSP 层。F405 暂不创建
+`App/board/board_config.h/.c`，因此具体工程配置没有放进 BSP 层。F405 暂不创建
 引脚配置或占位适配代码。
 
 | BSP                      | 主要结构体                                                               | 能读取或观察的数据                        |
@@ -243,15 +262,15 @@ bsp_dwt_t *dwt = board_config_get_dwt();
 
 当前 H723 装配包括 3 路 FDCAN Classic、1 路 DR16 UART5、BMI088 SPI2、
 2 路 BMI088 EXTI、1 路蜂鸣器 PWM、USB CDC、DWT 和可选 Watchdog。具体引脚、时钟、
-协议参数和资源上限均可直接查看 [`User/board_config.h`](User/board_config.h)；
+协议参数和资源上限均可直接查看 [`App/board/board_config.h`](App/board/board_config.h)；
 `board_config_is_initialized()` 可读取整体装配状态，各 getter 返回对应 BSP 对象。
 
 ## Module 层
 
-Module 目录为 `User/Module`。模块负责设备协议、状态机和业务数据，不负责决定板上具体引脚。
+Module 目录为 `ECF/Module`。模块负责设备协议、状态机和业务数据，不负责决定板上具体引脚。
 
 完整的接入先后顺序、带注释示例以及每个模块可读取的结构体，统一从
-[`User/Module/README.md`](User/Module/README.md) 的“快速接入和数据读取索引”进入；
+[`ECF/Module/README.md`](ECF/Module/README.md) 的“快速接入和数据读取索引”进入；
 每个子模块 README 末尾还提供一页式接入清单。
 
 | 模块                                 | 主要结构体                                                                                                                       | 功能                                        | 对外可读数据                                     |
@@ -517,13 +536,32 @@ static uint8_t remote_dma_buffer[2][MODULE_DR16_DMA_BUFFER_SIZE];
 - App：遥控映射、云台/底盘/发射机构控制、IMU 姿态、视觉通信、安全监控。全部 init 返回 `bsp_status_t`。
 - 错误处理：全局错误寄存器 `bsp_error_read()` 供任何任务查询最近一次错误。
 
+## 项目配置
+
+换机器人时只需修改 `App/` 下的文件。核心配置集中在：
+
+- **[App/config/project_config.h](App/config/project_config.h)** — 所有 PID、CAN ID、机械尺寸、DM 电机限幅、功能开关（`PROJECT_HAS_*`）
+- **[App/board/board_config.h](App/board/board_config.h)** — HAL 引脚映射与外设索引
+- **[App/task/](App/task/)** — FreeRTOS 任务入口（周期调度 → 调用 `ECF/App/` 更新）
+- **[App/board/board_config.md](App/board/board_config.md)** — 板级配置使用说明
+
+## 快速开始（新项目）
+
+1. 用 CubeMX 生成工程，包含 `Core/`、`Drivers/`、`Middlewares/`
+2. 把本仓库放入工程（git submodule 或直接拷贝）
+3. 复制 `App/` 到工程根目录，根据需要修改：
+   - 打开 `project_config.h`，启用需要的功能（`PROJECT_HAS_FIREDISH` 等）
+   - 填入实际 CAN ID、PID 参数、机械尺寸
+4. 在 `main.c` 的 `USER CODE` 区域调用 `board_config_init()` 和 `app_robot_init()`
+5. 由 `App/task/` 下的任务入口驱动 `ECF/App/` 的 `app_*_update()`
+
 ## 进一步文档
 
 - [架构与依赖规则](ARCHITECTURE.md)
-- [板级配置与初始化](User/board_config.md)
-- [Algorithm 层说明](User/Algorithm/README.md)
-- [App 层说明](User/App/README.md)
-- [BSP 层说明](User/Bsp/README.md)
-- [Module 层说明](User/Module/README.md)
+- [板级配置与初始化](App/board/board_config.md)
+- [Algorithm 层说明](ECF/Algorithm/README.md)
+- [App 层说明](ECF/App/README.md)
+- [BSP 层说明](ECF/Bsp/README.md)
+- [Module 层说明](ECF/Module/README.md)
 
 每个具体组件目录中的 README 继续描述该组件的职责边界、初始化、运行流程、内存要求、并发限制和移植注意事项；公开结构体的字段、单位和函数状态码以同目录头文件为最终依据。

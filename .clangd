@@ -1,2 +1,95 @@
 CompileFlags:
   CompilationDatabase: .build/Debug
+  Add:
+    # CubeMX / HAL / CMSIS (Drivers + Middlewares)
+    - -ICore/Inc
+    - -IDrivers/STM32H7xx_HAL_Driver/Inc
+    - -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy
+    - -IDrivers/CMSIS/Device/ST/STM32H7xx/Include
+    - -IDrivers/CMSIS/Include
+    # FreeRTOS
+    - -IMiddlewares/Third_Party/FreeRTOS/Source/include
+    - -IMiddlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2
+    - -IMiddlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F
+    # USB
+    - -IMiddlewares/ST/STM32_USB_Device_Library/Core/Inc
+    - -IMiddlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc
+    - -IUSB_DEVICE/App
+    - -IUSB_DEVICE/Target
+    # SEGGER RTT
+    - -IMiddlewares/Third_Party/SEGGER/Config
+    - -IMiddlewares/Third_Party/SEGGER/RTT
+    # ECF Framework — Algorithm
+    - -IECF/Algorithm/alg_crc
+    - -IECF/Algorithm/alg_math
+    - -IECF/Algorithm/alg_trajectory
+    - -IECF/Algorithm/alg_attitude
+    - -IECF/Algorithm/alg_filter
+    - -IECF/Algorithm/alg_kalman
+    - -IECF/Algorithm/alg_imu_ekf
+    - -IECF/Algorithm/alg_pid
+    - -IECF/Algorithm/alg_lqr
+    - -IECF/Algorithm/alg_chassis
+    - -IECF/Algorithm/alg_mecanum
+    - -IECF/Algorithm/alg_omni
+    - -IECF/Algorithm/alg_swerve
+    # ECF Framework — BSP
+    - -IECF/Bsp/bsp_common
+    - -IECF/Bsp/bsp_gpio
+    - -IECF/Bsp/bsp_exti
+    - -IECF/Bsp/bsp_usart
+    - -IECF/Bsp/bsp_spi
+    - -IECF/Bsp/bsp_i2c
+    - -IECF/Bsp/bsp_can
+    - -IECF/Bsp/bsp_fdcan
+    - -IECF/Bsp/bsp_timer
+    - -IECF/Bsp/bsp_pwm
+    - -IECF/Bsp/bsp_encoder
+    - -IECF/Bsp/bsp_adc
+    - -IECF/Bsp/bsp_usb_vcp
+    - -IECF/Bsp/bsp_watchdog
+    - -IECF/Bsp/bsp_dwt
+    - -IECF/Bsp/bsp_rtc
+    - -IECF/Bsp/bsp_log
+    # ECF Framework — Module
+    - -IECF/Module/module_device
+    - -IECF/Module/module_motor
+    - -IECF/Module/module_dji_motor
+    - -IECF/Module/module_dm_motor
+    - -IECF/Module/module_bmi088
+    - -IECF/Module/module_dr16
+    - -IECF/Module/module_swerve
+    - -IECF/Module/module_board_comm
+    - -IECF/Module/module_uart_comm
+    - -IECF/Module/module_usb_comm
+    - -IECF/Module/module_shooter
+    - -IECF/Module/module_buzzer
+    - -IECF/Module/module_oled
+    - -IECF/Module/module_ws2812
+    - -IECF/Module/module_nrf24l01
+    - -IECF/Module/module_referee
+    - -IECF/Module/module_servo
+    # ECF Framework — App
+    - -IECF/App
+    - -IECF/App/app_exchange
+    - -IECF/App/app_vision
+    - -IECF/App/app_command
+    - -IECF/App/app_chassis
+    - -IECF/App/app_gimbal
+    - -IECF/App/app_imu
+    - -IECF/App/app_shooter
+    - -IECF/App/app_safety
+    # Project App — config + task
+    - -IApp/config
+    - -IApp/task/task_chassis
+    - -IApp/task/task_command
+    - -IApp/task/task_gimbal
+    - -IApp/task/task_imu
+    - -IApp/task/task_safety
+    - -IApp/task/task_shooter
+    # Preprocessor
+    - -DSTM32H723xx
+    - -DUSE_HAL_DRIVER
+    - -DHSE_VALUE=24000000UL
+    # Language
+    - -std=c11

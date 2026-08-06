@@ -180,6 +180,7 @@ void app_robot_communication_update(uint32_t elapsed_time_ms)
     {
         return;
     }
+    // ---- DR16 遥控器（本地连接时） ----
     if (app_robot_dr16_is_local)
     {
         (void)module_dr16_process(&app_robot_dr16);

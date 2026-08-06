@@ -58,9 +58,9 @@ function(framework_configure_library target_name)
     endif()
 endfunction()
 
-# ---------------------------------------------------------------------------
-# STM32CubeMX generated target support
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# STM32CubeMX generated target support (DO NOT MODIFY THESE PATHS)
+# ===========================================================================
 
 set(stm32_definitions
     USE_PWR_LDO_SUPPLY
@@ -175,178 +175,180 @@ target_link_libraries(stm32_usb_device PUBLIC stm32cubemx)
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${stm32_application_sources})
 
-# ---------------------------------------------------------------------------
-# Algorithm layer
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# ECF Framework — Algorithm layer
+# ===========================================================================
 
-add_library(alg_crc OBJECT User/Algorithm/alg_crc/alg_crc.c)
-target_include_directories(alg_crc PUBLIC User/Algorithm/alg_crc)
+add_library(alg_crc OBJECT ECF/Algorithm/alg_crc/alg_crc.c)
+target_include_directories(alg_crc PUBLIC ECF/Algorithm/alg_crc)
 framework_configure_library(alg_crc)
 
 add_library(alg_math OBJECT
-    User/Algorithm/alg_math/alg_math_scalar.c
-    User/Algorithm/alg_math/alg_math_statistics.c
-    User/Algorithm/alg_math/alg_math_vector.c
-    User/Algorithm/alg_math/alg_math_quaternion.c
-    User/Algorithm/alg_math/alg_math_matrix.c
+    ECF/Algorithm/alg_math/alg_math_scalar.c
+    ECF/Algorithm/alg_math/alg_math_statistics.c
+    ECF/Algorithm/alg_math/alg_math_vector.c
+    ECF/Algorithm/alg_math/alg_math_quaternion.c
+    ECF/Algorithm/alg_math/alg_math_matrix.c
 )
-target_include_directories(alg_math PUBLIC User/Algorithm/alg_math)
+target_include_directories(alg_math PUBLIC ECF/Algorithm/alg_math)
 target_link_libraries(alg_math PUBLIC m)
 framework_configure_library(alg_math)
 
 add_library(alg_trajectory OBJECT
-    User/Algorithm/alg_trajectory/alg_trajectory.c
-    User/Algorithm/alg_trajectory/alg_trajectory_group.c
+    ECF/Algorithm/alg_trajectory/alg_trajectory.c
+    ECF/Algorithm/alg_trajectory/alg_trajectory_group.c
 )
-target_include_directories(alg_trajectory PUBLIC User/Algorithm/alg_trajectory)
+target_include_directories(alg_trajectory PUBLIC ECF/Algorithm/alg_trajectory)
 framework_configure_library(alg_trajectory)
 
 add_library(alg_attitude OBJECT
-    User/Algorithm/alg_attitude/alg_attitude_core.c
-    User/Algorithm/alg_attitude/alg_attitude_mahony.c
-    User/Algorithm/alg_attitude/alg_attitude_madgwick.c
-    User/Algorithm/alg_attitude/alg_attitude_output.c
+    ECF/Algorithm/alg_attitude/alg_attitude_core.c
+    ECF/Algorithm/alg_attitude/alg_attitude_mahony.c
+    ECF/Algorithm/alg_attitude/alg_attitude_madgwick.c
+    ECF/Algorithm/alg_attitude/alg_attitude_output.c
 )
-target_include_directories(alg_attitude PUBLIC User/Algorithm/alg_attitude)
+target_include_directories(alg_attitude PUBLIC ECF/Algorithm/alg_attitude)
 target_link_libraries(alg_attitude PUBLIC m)
 framework_configure_library(alg_attitude)
 
 add_library(alg_filter OBJECT
-    User/Algorithm/alg_filter/alg_filter_basic.c
-    User/Algorithm/alg_filter/alg_filter_window.c
-    User/Algorithm/alg_filter/alg_filter_fir.c
-    User/Algorithm/alg_filter/alg_filter_biquad.c
-    User/Algorithm/alg_filter/alg_filter_complementary.c
+    ECF/Algorithm/alg_filter/alg_filter_basic.c
+    ECF/Algorithm/alg_filter/alg_filter_window.c
+    ECF/Algorithm/alg_filter/alg_filter_fir.c
+    ECF/Algorithm/alg_filter/alg_filter_biquad.c
+    ECF/Algorithm/alg_filter/alg_filter_complementary.c
 )
-target_include_directories(alg_filter PUBLIC User/Algorithm/alg_filter)
+target_include_directories(alg_filter PUBLIC ECF/Algorithm/alg_filter)
 target_link_libraries(alg_filter PUBLIC m)
 framework_configure_library(alg_filter)
 
 add_library(alg_kalman OBJECT
-    User/Algorithm/alg_kalman/alg_kalman_matrix.c
-    User/Algorithm/alg_kalman/alg_kalman_scalar.c
-    User/Algorithm/alg_kalman/alg_kalman_linear.c
-    User/Algorithm/alg_kalman/alg_kalman_extended.c
+    ECF/Algorithm/alg_kalman/alg_kalman_matrix.c
+    ECF/Algorithm/alg_kalman/alg_kalman_scalar.c
+    ECF/Algorithm/alg_kalman/alg_kalman_linear.c
+    ECF/Algorithm/alg_kalman/alg_kalman_extended.c
 )
-target_include_directories(alg_kalman PUBLIC User/Algorithm/alg_kalman)
+target_include_directories(alg_kalman PUBLIC ECF/Algorithm/alg_kalman)
 target_link_libraries(alg_kalman PUBLIC m)
 framework_configure_library(alg_kalman)
 
 add_library(alg_imu_ekf OBJECT
-    User/Algorithm/alg_imu_ekf/alg_imu_ekf_core.c
-    User/Algorithm/alg_imu_ekf/alg_imu_ekf_model.c
-    User/Algorithm/alg_imu_ekf/alg_imu_ekf_update.c
-    User/Algorithm/alg_imu_ekf/alg_imu_ekf_output.c
+    ECF/Algorithm/alg_imu_ekf/alg_imu_ekf_core.c
+    ECF/Algorithm/alg_imu_ekf/alg_imu_ekf_model.c
+    ECF/Algorithm/alg_imu_ekf/alg_imu_ekf_update.c
+    ECF/Algorithm/alg_imu_ekf/alg_imu_ekf_output.c
 )
-target_include_directories(alg_imu_ekf PUBLIC User/Algorithm/alg_imu_ekf)
+target_include_directories(alg_imu_ekf PUBLIC ECF/Algorithm/alg_imu_ekf)
 target_link_libraries(alg_imu_ekf PUBLIC alg_filter alg_kalman m)
 framework_configure_library(alg_imu_ekf)
 
 add_library(alg_pid OBJECT
-    User/Algorithm/alg_pid/alg_pid_core.c
-    User/Algorithm/alg_pid/alg_pid_incremental.c
-    User/Algorithm/alg_pid/alg_pid_schedule.c
-    User/Algorithm/alg_pid/alg_pid_fuzzy.c
-    User/Algorithm/alg_pid/alg_pid_cascade.c
-    User/Algorithm/alg_pid/alg_pid_angle.c
+    ECF/Algorithm/alg_pid/alg_pid_core.c
+    ECF/Algorithm/alg_pid/alg_pid_incremental.c
+    ECF/Algorithm/alg_pid/alg_pid_schedule.c
+    ECF/Algorithm/alg_pid/alg_pid_fuzzy.c
+    ECF/Algorithm/alg_pid/alg_pid_cascade.c
+    ECF/Algorithm/alg_pid/alg_pid_angle.c
 )
-target_include_directories(alg_pid PUBLIC User/Algorithm/alg_pid)
+target_include_directories(alg_pid PUBLIC ECF/Algorithm/alg_pid)
 target_link_libraries(alg_pid PUBLIC m)
 framework_configure_library(alg_pid)
 
 add_library(alg_lqr OBJECT
-    User/Algorithm/alg_lqr/alg_lqr_matrix.c
-    User/Algorithm/alg_lqr/alg_lqr_riccati.c
-    User/Algorithm/alg_lqr/alg_lqr_controller.c
-    User/Algorithm/alg_lqr/alg_lqr_model.c
-    User/Algorithm/alg_lqr/alg_lqr_angle.c
+    ECF/Algorithm/alg_lqr/alg_lqr_matrix.c
+    ECF/Algorithm/alg_lqr/alg_lqr_riccati.c
+    ECF/Algorithm/alg_lqr/alg_lqr_controller.c
+    ECF/Algorithm/alg_lqr/alg_lqr_model.c
+    ECF/Algorithm/alg_lqr/alg_lqr_angle.c
 )
-target_include_directories(alg_lqr PUBLIC User/Algorithm/alg_lqr)
+target_include_directories(alg_lqr PUBLIC ECF/Algorithm/alg_lqr)
 target_link_libraries(alg_lqr PUBLIC m)
 framework_configure_library(alg_lqr)
 
-add_library(alg_chassis_motion OBJECT User/Algorithm/alg_chassis/alg_chassis_motion.c)
-target_include_directories(alg_chassis_motion PUBLIC User/Algorithm/alg_chassis)
+add_library(alg_chassis_motion OBJECT ECF/Algorithm/alg_chassis/alg_chassis_motion.c)
+target_include_directories(alg_chassis_motion PUBLIC ECF/Algorithm/alg_chassis)
 framework_configure_library(alg_chassis_motion)
 
 add_library(alg_chassis_wheel_monitor OBJECT
-    User/Algorithm/alg_chassis/alg_chassis_wheel_monitor.c
+    ECF/Algorithm/alg_chassis/alg_chassis_wheel_monitor.c
 )
-target_include_directories(alg_chassis_wheel_monitor PUBLIC User/Algorithm/alg_chassis)
+target_include_directories(alg_chassis_wheel_monitor PUBLIC ECF/Algorithm/alg_chassis)
 target_link_libraries(alg_chassis_wheel_monitor PUBLIC alg_chassis_motion)
 framework_configure_library(alg_chassis_wheel_monitor)
 
 foreach(chassis_algorithm IN ITEMS mecanum omni swerve)
     add_library(alg_${chassis_algorithm} OBJECT
-        User/Algorithm/alg_${chassis_algorithm}/alg_${chassis_algorithm}.c
+        ECF/Algorithm/alg_${chassis_algorithm}/alg_${chassis_algorithm}.c
     )
     target_include_directories(alg_${chassis_algorithm}
-        PUBLIC User/Algorithm/alg_${chassis_algorithm}
+        PUBLIC ECF/Algorithm/alg_${chassis_algorithm}
     )
     target_link_libraries(alg_${chassis_algorithm} PUBLIC alg_chassis_motion)
     framework_configure_library(alg_${chassis_algorithm})
 endforeach()
 
-# ---------------------------------------------------------------------------
-# BSP layer
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# ECF Framework — BSP layer
+# ===========================================================================
 
 set(bsp_include_directories
     Middlewares/Third_Party/SEGGER/Config
     Middlewares/Third_Party/SEGGER/RTT
-    User/Bsp/bsp_common
-    User/Bsp/bsp_gpio
-    User/Bsp/bsp_exti
-    User/Bsp/bsp_usart
-    User/Bsp/bsp_spi
-    User/Bsp/bsp_i2c
-    User/Bsp/bsp_can
-    User/Bsp/bsp_fdcan
-    User/Bsp/bsp_timer
-    User/Bsp/bsp_pwm
-    User/Bsp/bsp_encoder
-    User/Bsp/bsp_adc
-    User/Bsp/bsp_usb_vcp
-    User/Bsp/bsp_watchdog
-    User/Bsp/bsp_dwt
-    User/Bsp/bsp_rtc
-    User/Bsp/bsp_log
+    ECF/Bsp/bsp_common
+    ECF/Bsp/bsp_gpio
+    ECF/Bsp/bsp_exti
+    ECF/Bsp/bsp_usart
+    ECF/Bsp/bsp_spi
+    ECF/Bsp/bsp_i2c
+    ECF/Bsp/bsp_can
+    ECF/Bsp/bsp_fdcan
+    ECF/Bsp/bsp_timer
+    ECF/Bsp/bsp_pwm
+    ECF/Bsp/bsp_encoder
+    ECF/Bsp/bsp_adc
+    ECF/Bsp/bsp_usb_vcp
+    ECF/Bsp/bsp_watchdog
+    ECF/Bsp/bsp_dwt
+    ECF/Bsp/bsp_rtc
+    ECF/Bsp/bsp_log
 )
 
 add_library(bsp OBJECT
-    User/Bsp/bsp_common/bsp_common.c
-    User/Bsp/bsp_gpio/bsp_gpio.c
-    User/Bsp/bsp_exti/bsp_exti.c
-    User/Bsp/bsp_usart/bsp_usart.c
-    User/Bsp/bsp_spi/bsp_spi.c
-    User/Bsp/bsp_i2c/bsp_i2c.c
-    User/Bsp/bsp_can/bsp_can.c
-    User/Bsp/bsp_can/bsp_can_dispatcher.c
-    User/Bsp/bsp_fdcan/bsp_fdcan.c
-    User/Bsp/bsp_fdcan/bsp_fdcan_classic_adapter.c
-    User/Bsp/bsp_timer/bsp_timer.c
-    User/Bsp/bsp_pwm/bsp_pwm.c
-    User/Bsp/bsp_encoder/bsp_encoder.c
-    User/Bsp/bsp_adc/bsp_adc.c
-    User/Bsp/bsp_usb_vcp/bsp_usb_vcp.c
-    User/Bsp/bsp_watchdog/bsp_watchdog.c
-    User/Bsp/bsp_dwt/bsp_dwt.c
-    User/Bsp/bsp_rtc/bsp_rtc.c
-    User/Bsp/bsp_log/bsp_log.c
+    ECF/Bsp/bsp_common/bsp_common.c
+    ECF/Bsp/bsp_gpio/bsp_gpio.c
+    ECF/Bsp/bsp_exti/bsp_exti.c
+    ECF/Bsp/bsp_usart/bsp_usart.c
+    ECF/Bsp/bsp_spi/bsp_spi.c
+    ECF/Bsp/bsp_i2c/bsp_i2c.c
+    ECF/Bsp/bsp_can/bsp_can.c
+    ECF/Bsp/bsp_can/bsp_can_dispatcher.c
+    ECF/Bsp/bsp_fdcan/bsp_fdcan.c
+    ECF/Bsp/bsp_fdcan/bsp_fdcan_classic_adapter.c
+    ECF/Bsp/bsp_timer/bsp_timer.c
+    ECF/Bsp/bsp_pwm/bsp_pwm.c
+    ECF/Bsp/bsp_encoder/bsp_encoder.c
+    ECF/Bsp/bsp_adc/bsp_adc.c
+    ECF/Bsp/bsp_usb_vcp/bsp_usb_vcp.c
+    ECF/Bsp/bsp_watchdog/bsp_watchdog.c
+    ECF/Bsp/bsp_dwt/bsp_dwt.c
+    ECF/Bsp/bsp_rtc/bsp_rtc.c
+    ECF/Bsp/bsp_log/bsp_log.c
 )
 target_include_directories(bsp PUBLIC ${bsp_include_directories})
 framework_configure_library(bsp)
 
-# ---------------------------------------------------------------------------
-# Concrete H723 board configuration (outside the generic BSP layer)
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# Board Configuration (project-specific — at App/config/)
+# ===========================================================================
+# NOTE: board_config.c/.h is project-specific hardware glue.
+# It lives at App/config/board_config.c and is built here.
+# ===========================================================================
 
 add_library(board_config OBJECT
-    User/board_config.c
-    User/board_config.h
+    App/config/board_config.c
 )
 target_include_directories(board_config
-    PUBLIC User
+    PUBLIC App/config
     PRIVATE ${bsp_include_directories}
 )
 target_include_directories(board_config SYSTEM PRIVATE ${stm32_include_directories})
@@ -354,54 +356,54 @@ target_compile_definitions(board_config PRIVATE ${stm32_definitions})
 target_link_libraries(board_config PUBLIC bsp stm32cubemx)
 framework_configure_library(board_config)
 
-# ---------------------------------------------------------------------------
-# Module layer
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# ECF Framework — Module layer
+# ===========================================================================
 
 set(module_include_directories
-    User/Module/module_device
-    User/Module/module_motor
-    User/Module/module_dji_motor
-    User/Module/module_dm_motor
-    User/Module/module_bmi088
-    User/Module/module_dr16
-    User/Module/module_swerve
-    User/Module/module_board_comm
-    User/Module/module_uart_comm
-    User/Module/module_usb_comm
-    User/Module/module_shooter
-    User/Module/module_buzzer
-    User/Module/module_oled
-    User/Module/module_ws2812
-    User/Module/module_nrf24l01
-    User/Module/module_referee
-    User/Module/module_servo
+    ECF/Module/module_device
+    ECF/Module/module_motor
+    ECF/Module/module_dji_motor
+    ECF/Module/module_dm_motor
+    ECF/Module/module_bmi088
+    ECF/Module/module_dr16
+    ECF/Module/module_swerve
+    ECF/Module/module_board_comm
+    ECF/Module/module_uart_comm
+    ECF/Module/module_usb_comm
+    ECF/Module/module_shooter
+    ECF/Module/module_buzzer
+    ECF/Module/module_oled
+    ECF/Module/module_ws2812
+    ECF/Module/module_nrf24l01
+    ECF/Module/module_referee
+    ECF/Module/module_servo
 )
 
 add_library(module OBJECT
-    User/Module/module_device/module_device.c
-    User/Module/module_motor/module_motor.c
-    User/Module/module_motor/module_motor_health.c
-    User/Module/module_dji_motor/module_dji_motor.c
-    User/Module/module_dji_motor/module_m2006.c
-    User/Module/module_dji_motor/module_m3508.c
-    User/Module/module_dji_motor/module_gm6020.c
-    User/Module/module_dm_motor/module_dm_motor.c
-    User/Module/module_dm_motor/module_dm_motor_bus.c
-    User/Module/module_dm_motor/module_dm4310.c
-    User/Module/module_bmi088/module_bmi088.c
-    User/Module/module_dr16/module_dr16.c
-    User/Module/module_swerve/module_swerve.c
-    User/Module/module_board_comm/module_board_comm.c
-    User/Module/module_uart_comm/module_uart_comm.c
-    User/Module/module_usb_comm/module_usb_comm.c
-    User/Module/module_shooter/module_shooter.c
-    User/Module/module_buzzer/module_buzzer.c
-    User/Module/module_oled/module_oled.c
-    User/Module/module_ws2812/module_ws2812.c
-    User/Module/module_nrf24l01/module_nrf24l01.c
-    User/Module/module_nrf24l01/module_nrf24l01_link.c
-    User/Module/module_servo/module_servo.c
+    ECF/Module/module_device/module_device.c
+    ECF/Module/module_motor/module_motor.c
+    ECF/Module/module_motor/module_motor_health.c
+    ECF/Module/module_dji_motor/module_dji_motor.c
+    ECF/Module/module_dji_motor/module_m2006.c
+    ECF/Module/module_dji_motor/module_m3508.c
+    ECF/Module/module_dji_motor/module_gm6020.c
+    ECF/Module/module_dm_motor/module_dm_motor.c
+    ECF/Module/module_dm_motor/module_dm_motor_bus.c
+    ECF/Module/module_dm_motor/module_dm4310.c
+    ECF/Module/module_bmi088/module_bmi088.c
+    ECF/Module/module_dr16/module_dr16.c
+    ECF/Module/module_swerve/module_swerve.c
+    ECF/Module/module_board_comm/module_board_comm.c
+    ECF/Module/module_uart_comm/module_uart_comm.c
+    ECF/Module/module_usb_comm/module_usb_comm.c
+    ECF/Module/module_shooter/module_shooter.c
+    ECF/Module/module_buzzer/module_buzzer.c
+    ECF/Module/module_oled/module_oled.c
+    ECF/Module/module_ws2812/module_ws2812.c
+    ECF/Module/module_nrf24l01/module_nrf24l01.c
+    ECF/Module/module_nrf24l01/module_nrf24l01_link.c
+    ECF/Module/module_servo/module_servo.c
 )
 target_include_directories(module PUBLIC ${module_include_directories})
 target_compile_definitions(module PUBLIC
@@ -411,53 +413,62 @@ target_compile_definitions(module PUBLIC
 target_link_libraries(module PUBLIC bsp alg_crc alg_pid alg_swerve)
 framework_configure_library(module)
 
-# ---------------------------------------------------------------------------
-# App layer
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# ECF Framework — App layer (generic app logic, NOT project-specific)
+# ===========================================================================
 
 add_library(app OBJECT
-    User/App/app_robot.c
-    User/App/app_exchange/app_exchange.c
-    User/App/app_vision/app_vision.c
-    User/App/app_command/app_command.c
-    User/App/app_chassis/app_chassis.c
-    User/App/app_gimbal/app_gimbal.c
-    User/App/app_imu/app_imu.c
-    User/App/app_shooter/app_shooter.c
-    User/App/app_safety/app_safety.c
+    ECF/App/app_exchange/app_exchange.c
+    ECF/App/app_vision/app_vision.c
+    ECF/App/app_command/app_command.c
+    ECF/App/app_chassis/app_chassis.c
+    ECF/App/app_gimbal/app_gimbal.c
+    ECF/App/app_imu/app_imu.c
+    ECF/App/app_shooter/app_shooter.c
+    ECF/App/app_safety/app_safety.c
 )
 target_include_directories(app PUBLIC
-    User/App
-    User/App/app_exchange
-    User/App/app_vision
-    User/App/app_command
-    User/App/app_chassis
-    User/App/app_gimbal
-    User/App/app_imu
-    User/App/app_shooter
-    User/App/app_safety
+    ECF/App
+    ECF/App/app_exchange
+    ECF/App/app_vision
+    ECF/App/app_command
+    ECF/App/app_chassis
+    ECF/App/app_gimbal
+    ECF/App/app_imu
+    ECF/App/app_shooter
+    ECF/App/app_safety
 )
-target_link_libraries(app PUBLIC bsp board_config freertos module alg_swerve)
+target_link_libraries(app PUBLIC bsp module alg_swerve stm32cubemx)
 framework_configure_library(app)
 
+# ===========================================================================
+# Project App — Task layer (project-specific task wrappers)
+# ===========================================================================
+
 add_library(task OBJECT
-    User/App/Task/task_chassis/task_chassis.c
-    User/App/Task/task_command/task_command.c
-    User/App/Task/task_gimbal/task_gimbal.c
-    User/App/Task/task_imu/task_imu.c
-    User/App/Task/task_safety/task_safety.c
-    User/App/Task/task_shooter/task_shooter.c
+    App/app_robot.c
+    App/task/task_chassis/task_chassis.c
+    App/task/task_command/task_command.c
+    App/task/task_gimbal/task_gimbal.c
+    App/task/task_imu/task_imu.c
+    App/task/task_safety/task_safety.c
+    App/task/task_shooter/task_shooter.c
 )
 target_include_directories(task PUBLIC
-    User/App/Task/task_chassis
-    User/App/Task/task_command
-    User/App/Task/task_gimbal
-    User/App/Task/task_imu
-    User/App/Task/task_safety
-    User/App/Task/task_shooter
+    App/task/task_chassis
+    App/task/task_command
+    App/task/task_gimbal
+    App/task/task_imu
+    App/task/task_safety
+    App/task/task_shooter
+    App/config
 )
-target_link_libraries(task PUBLIC app freertos)
+target_link_libraries(task PUBLIC app board_config freertos)
 framework_configure_library(task)
+
+# ===========================================================================
+# Final executable link
+# ===========================================================================
 
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     stm32cubemx
