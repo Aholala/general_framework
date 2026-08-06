@@ -1,104 +1,114 @@
-# DJI 电机模块
+# module_dji_motor — DJI 电机（M2006/M3508/GM6020）
 
-本模块统一实现 M2006/C610、M3508/C620 和 GM6020 的 CAN 反馈、多圈角度、总线分组发送及三级 PID 控制。型号入口见 [M2006](README_M2006.md)、[M3508](README_M3508.md) 和 [GM6020](README_GM6020.md)。
+继承 `module_motor_t`。CAN 总线分组 + 三级串级 PID（角度→速度→电流）。
 
-总线层区分 GM6020 的两套发送协议：电压模式使用 `0x1FF/0x2FF`，电流、速度和
-角度模式使用电流帧 `0x1FE/0x2FE`；M2006/M3508 使用 `0x200/0x1FF`。
+## 架构
 
-## 控制链
+```
+module_dji_motor_bus_t（一条 CAN 总线, 最多 4 个槽位）
+  ├── slot[0] → module_dji_motor_t（如 M3508 云台偏航）
+  ├── slot[1] → module_dji_motor_t（如 M3508 云台俯仰）
+  ├── slot[2] → module_dji_motor_t（如 M2006 拨弹）
+  └── slot[3] → module_dji_motor_t（如 GM6020 底盘）
 
-四种模式在初始化时固定：
-
-| 模式 | 控制链 | 目标单位 |
-| --- | --- | --- |
-| `MODULE_DJI_CONTROL_DIRECT` | 原始协议命令直接发送 | raw count |
-| `MODULE_DJI_CONTROL_CURRENT` | 电流 PID → 协议命令 | A |
-| `MODULE_DJI_CONTROL_VELOCITY` | 速度 PID → 电流 PID → 协议命令 | rad/s |
-| `MODULE_DJI_CONTROL_ANGLE` | 角度 PID → 速度 PID → 电流 PID → 协议命令 | rad |
-
-`current_*` 始终表示安培值或电流环。跳过 PID 的接口统一叫 `*_direct_command_raw`，不会再把“原始命令”误称为电流 PID。
-
-每一级使用独立的 `module_motor_pid_config_t`，通过 `form` 选择：
-
-```c
-module_motor_pid_config_t current_pid = {
-    .form = MODULE_MOTOR_PID_POSITIONAL,
-    .positional_config = current_positional_config,
-};
-
-module_motor_pid_config_t velocity_pid = {
-    .form = MODULE_MOTOR_PID_INCREMENTAL,
-    .incremental_config = velocity_incremental_config,
-};
+bus_handle_feedback(frame) → 按 ID 分发到槽位电机
+bus_flush() → 打包所有槽位命令 → CAN 发送
 ```
 
-位置式/增量式指 PID 算法形式，不是角度环/速度环名称。三个环可分别选择，不要求相同。
+## 三种电机对比
 
-## 接入顺序
+| 型号 | 电调 | 反馈帧 ID | 命令帧 ID | 控制方式 |
+|------|------|-----------|-----------|---------|
+| M2006 | C610 | 0x201~0x204 | 0x200 | 电流 |
+| M3508 | C620 | 0x201~0x204 | 0x200(1-4) / 0x1FF(5-8) | 电流 |
+| GM6020 | 内置 | 0x205~0x208 | 0x1FF(1-4) / 0x2FF(5-8) | 电压 |
+
+## 用法
 
 ```c
-/* 1. 初始化 CAN BSP、DJI 总线和 module_motor_registry。 */
-module_dji_motor_bus_init(&motor_bus, can, 2U);
+// 1. 初始化总线
+module_dji_motor_bus_t bus;
+module_dji_motor_bus_init(&bus, board_config_get_can(BOARD_CONFIG_CAN_1), 5);
 
-/* 2. 填写型号、ID、方向、电流换算和三个 PID 配置。 */
-module_dji_motor_config_t config = {
-    .motor_name = "drive_left",
-    .registration_key = 1U,
-    .motor_bus = &motor_bus,
-    .motor_model = MODULE_DJI_MOTOR_M3508,
-    .control_mode = MODULE_DJI_CONTROL_ANGLE,
-    .motor_identifier = 1U,
-    .direction_sign = 1.0F,
-    .maximum_temperature_c = 80.0F,
-    .current_scale_a_per_count = current_scale_a_per_count,
-    .position_reference = MODULE_DJI_POSITION_BOOT_RELATIVE,
-    .encoder_zero_count = 0U,
-    .position_offset_rad = 0.0F,
-    .current_pid_config = current_pid,
-    .velocity_pid_config = velocity_pid,
-    .angle_pid_config = angle_pid,
+// 2. 初始化电机（以 M3508 为例）
+module_motor_registry_t reg;
+module_motor_t *storage[10];
+module_motor_registry_init(&reg, storage, 10);
+
+module_m3508_t pitch_motor;
+module_m3508_config_t cfg = {
+    .super = {
+        .bus = &bus,
+        .motor_name = "pitch",
+        .registration_key = 1,
+        .motor_identifier = 0x202,     // CAN ID
+        .direction = 1,                 // 1=正向, -1=反向
+        .current_limit_a = 8.0f,
+        .feedback_timeout_ms = 100,
+        .enable_current_pid = true,
+        .enable_velocity_pid = true,
+        .enable_angle_pid = true,
+        .current_pid  = { .form = POSITIONAL, .positional_config = {...} },
+        .velocity_pid = { .form = POSITIONAL, .positional_config = {...} },
+        .angle_pid    = { .form = POSITIONAL, .positional_config = {...} },
+    },
+    .position_offset_rad = 0.0f,
 };
-module_dji_motor_init(&motor, &config);
-module_dji_motor_register(&motor, &registry);
+module_m3508_init(&pitch_motor, &cfg);
+module_dji_motor_register(&pitch_motor.super, &reg);
 
-/* 3. CAN 接收任务先路由反馈；收到有效反馈后再 enable。 */
-module_dji_motor_bus_handle_feedback(&motor_bus, &receive_frame);
-module_motor_enable(module_dji_motor_as_base(&motor));
+// 3. CAN 接收循环（在 FreeRTOS 任务中）
+bsp_can_frame_t frame;
+while (bsp_can_receive(can, BSP_CAN_RX_FIFO_0, &frame) == BSP_STATUS_OK) {
+    module_dji_motor_bus_handle_feedback(&bus, &frame);
+}
 
-/* 4. 设置与固定模式对应的目标，周期调用 update。 */
-module_motor_set_target(module_dji_motor_as_base(&motor), target_angle_rad);
-module_motor_update(module_dji_motor_as_base(&motor), delta_time_s);
+// 4. 设目标 + 更新
+module_motor_set_target(&pitch_motor.super, 0.5f);  // 0.5 rad
+module_motor_update(&pitch_motor.super, 0.001f);     // PID 更新
 
-/* 5. 一组电机全部 update 后统一发送。 */
-module_dji_motor_bus_flush(&motor_bus);
+// 5. 发送命令
+module_dji_motor_bus_flush(&bus);  // 打包所有槽位 → CAN 发送
+
+// 6. 读取反馈
+const module_motor_feedback_t *fb = module_motor_get_feedback(&pitch_motor.super);
+
+// 7. PID 分量调试
+const module_motor_pid_t *pid = module_dji_motor_get_current_pid(&pitch_motor.super);
+const alg_pid_terms_t *terms = module_motor_pid_get_terms(pid);
 ```
 
-## 结构体中可查看的信息
+## 关键结构体
 
-| 位置 | 信息 |
-| --- | --- |
-| `motor.super` (`module_motor_t`) | 电机名称、注册键、协议 ID、状态、反馈、最近 `delta_time_s`、总运行时间、累计使能时间、更新次数、最近状态 |
-| `motor` (`module_dji_motor_t`) | 型号、控制模式、DJI ID、接收 CAN ID、发送组/槽位、方向、减速比、温度上限、最终 raw 命令 |
-| `current_pid` / `velocity_pid` / `angle_pid` | PID 形式、配置、历史状态和 `alg_pid_terms_t` |
-| `target_current_a` / `target_velocity_rad_per_s` / `target_angle_rad` | 三级控制链各级目标 |
-| `position_reference` / `encoder_zero_count` / `position_offset_rad` | 上电相对零点或编码器机械零位，以及当前软件位置偏移 |
-| `module_motor_feedback_t` | 多圈角度、速度、电流、温度、原始值、在线状态和反馈计数 |
+| 结构体 | 用途 |
+|--------|------|
+| `module_dji_motor_bus_t` | CAN 总线：4 槽位 + 命令打包 |
+| `module_dji_motor_t` | DJI 电机基类（继承 `module_motor_t`） |
+| `module_dji_motor_config_t` | 通用配置：PID 使能、方向、CAN 映射、限幅 |
+| `module_m2006_t/config_t` | M2006 派生 |
+| `module_m3508_t/config_t` | M3508 派生 |
+| `module_gm6020_t/config_t` | GM6020 派生 |
 
-也可用 `module_dji_motor_get_current_pid()`、`get_velocity_pid()`、`get_angle_pid()` 获取已启用控制环；未启用的环返回 `NULL`。
+## 三级 PID 控制链
 
-## 运行约束
+```
+目标角度 → [角度 PID] → 目标速度 → [速度 PID] → 目标电流 → [电流 PID] → CAN 命令
+                                              ↑ 可旁路（set_target 直接设速度）
+                          ↑ 可旁路（set_target 直接设电流）
+```
 
-- 非直通模式必须配置有效的 `current_scale_a_per_count`，并在反馈在线后运行。
-- `direction_sign` 同时规范反馈和命令方向，App 只使用逻辑正方向。
-- `module_motor_update()` 只计算命令；必须调用 `module_dji_motor_bus_flush()` 才会发 CAN 帧。
-- 禁用或反馈超时会清零命令。重新使能时三级 PID 按当前反馈复位，减少突跳。
-- 总运行时间读取 `total_runtime_us`，实际使能时间读取 `enabled_runtime_us`；二者都使用整数微秒，避免长期 float 累加失真。
+通过 `enable_angle_pid` / `enable_velocity_pid` / `enable_current_pid` 选择启用的级数。
 
-## 位置参考与归零
+## API 速查
 
-- `MODULE_DJI_POSITION_BOOT_RELATIVE`：首次反馈定义为 `0 rad`，适合上电位置锁定；这是结构体清零后的兼容默认值。
-- `MODULE_DJI_POSITION_ENCODER_ABSOLUTE`：首次反馈按 `encoder_zero_count` 计算单圈机械绝对角，适合 GM6020 舵向零位等场景。
-- `position_offset_rad`：在编码器角度上叠加逻辑偏移。
-- 完成限位、光电或人工机械归零后，可调用 `module_dji_motor_reset_position(&motor, desired_position_rad)`，不修改电调编码器，只重定义软件当前位置。
-
-绝对模式只能给出编码器单圈内相对机械零位的位置；断电期间转过多少整圈无法由 13 位单圈编码器恢复。需要跨断电多圈绝对位置时，必须增加外部绝对编码器或机械归零流程。
+| 函数 | 功能 |
+|------|------|
+| `module_dji_motor_bus_init(bus, can, timeout)` | 初始化总线 |
+| `module_dji_motor_bus_handle_feedback(bus, frame)` | 分发 CAN 反馈帧 |
+| `module_dji_motor_bus_flush(bus)` | 打包发送所有槽位命令 |
+| `module_m2006_init/m3508_init/gm6020_init(me, cfg)` | 初始化电机 |
+| `module_dji_motor_register/unregister(me, reg)` | 注册/注销到总线+注册表 |
+| `module_dji_motor_as_base(me)` | 向上转型 → `module_motor_t *` |
+| `module_dji_motor_reset_position(me, rad)` | 重定义当前位置 |
+| `module_dji_motor_get_command(me)` | 获取当前 CAN 命令值 |
+| `module_dji_motor_get_current/velocity/angle_pid(me)` | 获取各级 PID 对象 |

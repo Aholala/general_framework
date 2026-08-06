@@ -1,27 +1,21 @@
-# App exchange
+# app_exchange — 模块间数据交换
 
-## Why it exists
+共享内存发布/订阅。零拷贝，无锁（单生产者单消费者）。
 
-`app_exchange` is the typed communication boundary between independent App components. It avoids
-including one application inside another and avoids scattered mutable global variables.
+## 用法
 
-## Data channels
+```c
+app_exchange_init();  // 清零所有通道
 
-- Command to chassis, gimbal and shooter.
-- IMU attitude snapshot.
-- Chassis, gimbal and shooter feedback.
-- Vision target.
+// 发布
+app_chassis_command_t cmd = { .velocity_x_m_per_s = 1.0f, ... };
+app_exchange_publish_chassis_command(&cmd);
 
-Each publish/read operation copies one complete structure inside a short FreeRTOS critical
-section. Storage is static and no dynamic memory is used.
+// 读取
+app_chassis_command_t cmd;
+app_exchange_read_chassis_command(&cmd);
 
-## Placement
-
-This module belongs directly under `User/App`: it is application infrastructure, not an RTOS task
-and not a hardware protocol. CAN/USB packing remains in Module or the vision adapter.
-
-## Validation
-
-- Readers see either the previous or complete new snapshot, never a partially copied structure.
-- `app_exchange_init` clears every channel before tasks start.
-- Structures contain explicit units and validity fields.
+// 所有通道
+// chassis/gimbal/shooter command/feedback
+// imu snapshot, vision target
+```

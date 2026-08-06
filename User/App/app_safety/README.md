@@ -1,58 +1,14 @@
-# app_safety
+# app_safety — 安全监控
 
-## Responsibility
+看门狗喂狗 + 遥控失联检测 + 电机健康汇总。
 
-The Safe application centralizes DR16, IMU, motor, board-link and task heartbeat monitoring. It
-publishes state transitions and may optionally refresh the hardware watchdog.
-
-`app_safety` provides centralized heartbeat and offline detection for application devices and
-tasks. Monitor storage is caller-owned and no dynamic memory is used.
-
-## Usage
-
-Create a persistent monitor object, initialize it during application startup, then register it:
+## 用法
 
 ```c
-static app_safety_monitor_t remote_monitor;
+app_safety_init(NULL);  // NULL = 不用看门狗
 
-static void remote_offline(void *user_context)
-{
-    (void)user_context;
-    /* Publish an emergency-stop request. Keep callbacks non-blocking. */
-}
-
-void app_command_init_safety(void)
-{
-    const app_safety_monitor_config_t config = {
-        .name = "DR16",
-        .timeout_ms = 200U,
-        .required = true,
-        .offline_callback = remote_offline,
-        .online_callback = NULL,
-        .user_context = NULL,
-    };
-
-    (void)app_safety_monitor_init(&remote_monitor, &config);
-    (void)app_safety_register(&remote_monitor);
-}
+// 周期更新
+app_safety_update(dt);
+// 自动检查：遥控在线、电机健康、CAN 通信
+// 失联 → 自动无力模式
 ```
-
-After a complete frame has passed protocol validation, refresh its monitor:
-
-```c
-app_safety_notify_online(&remote_monitor);
-```
-
-Do not refresh on raw interrupt activity or an invalid frame. Offline and recovery callbacks run
-once per state transition in the app_safety context. They must only update state or publish a stop
-request; they must not block.
-
-## Recommended validation
-
-- A monitor remains STARTING until its first valid heartbeat.
-- A never-online monitor becomes OFFLINE after its timeout.
-- Offline and online callbacks each run once per transition.
-- Tick counter wraparound does not cause a false recovery.
-- Optional monitors do not block `app_safety_all_required_online()`.
-- Registration beyond `APP_SAFETY_MAX_MONITOR_COUNT` is rejected.
-- Hardware watchdog refresh is performed only after a watchdog is attached.

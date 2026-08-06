@@ -1,27 +1,27 @@
-# Chassis application
+# app_chassis — 底盘控制
 
-## Responsibility
+舵轮底盘运动控制。支持跟随/旋转/无力三种模式。
 
-`app_chassis` converts a body/reference-frame velocity command into four swerve-module targets.
-It owns chassis mode transitions but delegates kinematics to `alg_swerve` and individual wheel
-actuation to `module_swerve`.
+## 用法
 
-## Supported modes
+```c
+app_chassis_config_t cfg = {
+    .kinematics = &swerve,
+    .modules[0] = &swerve_fl, .modules[1] = &swerve_fr,
+    .modules[2] = &swerve_rl, .modules[3] = &swerve_rr,
+};
+app_chassis_init(&cfg);
 
-- No-force: all drive and steering motors are disabled.
-- Normal: translation is expressed relative to the gimbal heading.
-- Spin: translation remains gimbal-relative while the body rotates continuously.
-- Follow-gimbal: body angular velocity closes the gimbal/body heading error.
-- Stationary self-lock: zero wheel speed with steering axes forming a mechanical lock pattern.
+// 周期更新
+app_chassis_update(dt);
+// 从 app_exchange 读取命令 → 运动学逆解 → 控制舵轮
+```
 
-## Inputs and outputs
+## 底盘模式
 
-Input is `app_chassis_command_t`. Output is `app_chassis_feedback_t`, optionally mirrored to the
-other controller through `module_board_comm`.
-
-## Validation
-
-- No-force disables all eight chassis motors.
-- Spin does not rotate the reference-frame translation vector.
-- A zero command enters self-lock when configured.
-- A failed wheel module produces offline/degraded feedback.
+| 模式 | 说明 |
+|------|------|
+| `NORMAL` | 正常遥控（X/Y/W 三自由度） |
+| `SPIN` | 小陀螺（绕 Z 轴恒速旋转） |
+| `FOLLOW_GIMBAL` | 底盘跟随云台指向 |
+| `NO_FORCE` | 无力模式（所有电机断电） |

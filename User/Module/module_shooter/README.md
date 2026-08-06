@@ -1,332 +1,61 @@
-# 发射机构控制模块 (module_shooter)
+# module_shooter — 发射机构
 
-## 1. 模块概述
+双摩擦轮 + 拨弹电机的状态机控制。`DISABLED → READY → FEEDING → ROLLBACK → FAULT`。
 
-`module_shooter` 是 RoboMaster 发射机构的状态机控制模块，组合左右摩擦轮电机和拨弹电机，提供摩擦轮启停、排队发射、位置步进、堵转确认、自动回退、有限重试和故障锁存功能。该模块基于 `module_motor` 基类，可与 M3508、M2006 或其他实现同一基类的电机配合使用。
+## 关键结构体
 
-**核心功能**：
+| 结构体 | 用途 |
+|--------|------|
+| `module_shooter_t` | 发射机构对象 |
+| `module_shooter_config_t` | 配置：摩擦轮电机、拨弹电机、射击参数 |
+| `module_shooter_state_t` | 状态枚举：`DISABLED/READY/FEEDING/ROLLBACK/FAULT` |
 
-- 左右摩擦轮独立方向控制与速度设定
-- 拨弹盘步进式位置控制（每次射击步进固定角度）
-- 排队发射（支持多发连续射击，带队列上限保护）
-- 堵转检测（速度阈值 + 电流阈值双重判断）
-- 堵转后自动回退并重试（有限重试次数）
-- 故障锁存（超过最大重试次数或电机异常）
-- 取消待发请求（清空队列）
-
-**设计哲学**：
-
-- **状态机驱动**：通过有限状态机管理发射流程，逻辑清晰可预测。
-- **故障安全**：堵重试次数限制和故障锁存，防止硬件损坏。
-- **非阻塞设计**：`update` 函数仅推进状态和设置电机目标，不阻塞主循环。
-- **模块化**：与具体电机型号解耦，通过 `module_motor_t *` 注入依赖。
-
-## 2. 设计边界
-
-| **模块负责**               | **模块不负责**                      |
-| :------------------------- | :---------------------------------- |
-| 拨弹电机步进控制和堵转检测 | 电机 PID 参数调优（由电机层负责）   |
-| 摩擦轮使能/禁用和速度控制  | 热量限制和裁判系统弹速限制          |
-| 发射队列、摩擦轮到速与自瞄火控 | 视觉协议解析和云台控制             |
-| 堵转回退和重试机制         | 拨弹盘的实际安装位置（由 App 配置） |
-| 故障锁存和恢复             | 裁判系统帧协议解析                  |
-
-## 3. 状态机
-
-```text
-                    ┌──────────────────────────────────────┐
-                    │              DISABLED               │
-                    │        (所有目标归零)               │
-                    └──────────────────┬───────────────────┘
-                                       │ module_shooter_enable()
-                                       ▼
-                    ┌──────────────────────────────────────┐
-                    │               READY                 │
-                    │      (摩擦轮可运行，等待射击)        │
-                    └──────────────────┬───────────────────┘
-                                       │ pending_shots > 0 且摩擦轮稳定到速
-                                       ▼
-                    ┌──────────────────────────────────────┐
-                    │              FEEDING                │
-                    │    (拨弹盘向目标位置运动)             │
-                    └──────────┬────────────┬─────────────┘
-                               │            │
-                    ┌──────────▼────────┐   │ 正常到位
-                    │     堵转检测       │   │
-                    │  (速度低+电流高)   │   │
-                    └──────────┬────────┘   │
-                               │            │
-                               ▼            ▼
-                    ┌──────────────────────────────────────┐
-                    │              ROLLBACK               │
-                    │      (反向退让，释放卡弹)             │
-                    └──────────────────┬───────────────────┘
-                                       │ 回退到位
-                                       ▼
-                    ┌──────────────────────────────────────┐
-                    │              FEEDING                │
-                    │        (再次尝试送弹)                 │
-                    └──────────────────┬───────────────────┘
-                                       │ 超过最大重试
-                                       ▼
-                    ┌──────────────────────────────────────┐
-                    │               FAULT                 │
-                    │          (故障锁存，停机)             │
-                    └──────────────────────────────────────┘
-```
-
-| 状态       | 说明                         | 电机目标                                 |
-| :--------- | :--------------------------- | :--------------------------------------- |
-| `DISABLED` | 所有电机禁用，目标归零       | 无输出                                   |
-| `READY`    | 就绪，等待射击请求           | 摩擦轮按设定运行，拨弹保持当前位置       |
-| `FEEDING`  | 送弹中，拨弹盘向目标位置运动 | 拨弹目标 = 当前 + step_rad               |
-| `ROLLBACK` | 堵转后退让                   | 拨弹目标 = 当前位置 - rollback_angle_rad |
-| `FAULT`    | 故障锁存，停止所有操作       | 无输出                                   |
-
-## 4. 核心配置参数
-
-| 参数                               | 说明                             | 典型值     |
-| :--------------------------------- | :------------------------------- | :--------- |
-| `feeder_step_rad`                  | 单次射击拨弹盘步进角度           | 2.0 rad    |
-| `feeder_position_tolerance_rad`    | 拨弹到位容差                     | 0.05 rad   |
-| `jam_velocity_threshold_rad_per_s` | 堵转速度阈值（低于此值视为堵转） | 0.5 rad/s  |
-| `jam_current_threshold_a`          | 堵转电流阈值（优先使用）         | 3.0 A      |
-| `jam_current_threshold_raw`        | 堵转电流原始值阈值（备用）       | 需实车标定 |
-| `jam_confirmation_time_s`          | 堵转确认时间                     | 0.2 s      |
-| `rollback_angle_rad`               | 堵转回退角度                     | 0.5 rad    |
-| `rollback_position_tolerance_rad`  | 回退到位容差                     | 0.05 rad   |
-| `rollback_timeout_s`               | 回退无法到位时进入故障的超时     | 0.5 s      |
-| `friction_velocity_tolerance_rad_per_s` | 摩擦轮到速容差              | 10 rad/s   |
-| `friction_ready_time_s`            | 左右摩擦轮连续到速确认时间       | 0.1 s      |
-| `fire_stable_time_s`               | 上层开火条件连续成立时间         | 0.05 s     |
-| `automatic_shot_interval_s`        | 自动射击最小发射间隔             | 0.1 s      |
-| `maximum_jam_retries`              | 最大堵转重试次数                 | 3 次       |
-| `maximum_pending_shots`            | 最大待发弹量                     | 20 发      |
-
-## 5. 堵转检测机制
-
-堵转在 `FEEDING` 状态下检测，需同时满足以下条件：
-
-1. **速度低于阈值**：`|feeder_feedback.velocity_rad_per_s| <= jam_velocity_threshold_rad_per_s`
-2. **电流超过阈值**：优先使用 `jam_current_threshold_a`（安培），若 `is_current_a_valid` 为 false，则使用 `jam_current_threshold_raw`（原始值）
-3. **持续确认时间**：上述条件持续 `jam_confirmation_time_s` 后确认堵转
-
-**检测到堵转后的处理流程**：
-
-```text
-堵转确认
-  ↓
-jam_retry_count++
-  ↓
-超过 maximum_jam_retries? ──是──→ FAULT（故障锁存）
-  ↓ 否
-ROLLBACK（回退 rollback_angle_rad）
-  ↓
-等待回退到位（误差 ≤ rollback_position_tolerance_rad）
-  ├─ 超过 rollback_timeout_s → FAULT
-  ↓
-FEEDING（恢复本发原始位置目标，不重复叠加步进角）
-```
-
-## 6. API 参考
-
-| 函数                                 | 说明                                       | 返回值                              |
-| :----------------------------------- | :----------------------------------------- | :---------------------------------- |
-| `module_shooter_init`                | 初始化发射机构                             | `OK` / `INVALID_ARGUMENT`           |
-| `module_shooter_enable`              | 使能发射机构（使能三个电机，状态 → READY） | `OK` / `MOTOR_ERROR` / `NOT_READY`  |
-| `module_shooter_disable`             | 禁用发射机构（禁用电机，清空队列）         | `OK` / `MOTOR_ERROR`                |
-| `module_shooter_set_friction`        | 设置摩擦轮使能状态和目标速度               | `OK` / `INVALID_ARGUMENT`           |
-| `module_shooter_request_shots`       | 请求发射（加入队列）                       | `OK` / `INVALID_ARGUMENT` / `FAULT` |
-| `module_shooter_cancel_shots`        | 取消所有待发射请求                         | `OK`                                |
-| `module_shooter_reset_fault`         | 清除故障状态（需电机在线）                 | `OK` / `NOT_READY`                  |
-| `module_shooter_update`              | 周期更新状态机                             | `OK` / `FAULT` / `NOT_READY`        |
-| `module_shooter_update_fire_control` | 检查视觉、姿态、摩擦轮和裁判许可，按节拍排入单发 | `OK` / 参数错误 |
-| `module_shooter_get_state`           | 获取当前状态                               | 状态枚举                            |
-| `module_shooter_get_pending_shots`   | 获取待发弹量                               | 弹量                                |
-| `module_shooter_get_jam_retry_count` | 获取当前堵重重试次数                       | 重试次数                            |
-| `module_shooter_get_friction_ready`  | 获取摩擦轮是否稳定到速                     | `bool`                              |
-| `module_shooter_get_fire_permission` | 获取当前自瞄火控许可                       | `bool`                              |
-
-## 7. 使用示例
-
-### 7.1 初始化
+## 读取状态
 
 ```c
-static module_shooter_t s_shooter;
+module_shooter_state_t state = module_shooter_get_state(&shooter);
+uint8_t pending = module_shooter_get_pending_shots(&shooter);  // 待发弹量
+uint8_t jams    = module_shooter_get_jam_retry_count(&shooter); // 卡弹次数
+bool friction_ok = module_shooter_get_friction_ready(&shooter);
+bool can_fire    = module_shooter_get_fire_permission(&shooter);
+```
 
-const module_shooter_config_t cfg = {
-    .left_friction_motor = &left_friction_motor.super,
-    .right_friction_motor = &right_friction_motor.super,
-    .feeder_motor = &feeder_motor.super,
-    .left_friction_direction_sign = 1.0F,
-    .right_friction_direction_sign = -1.0F,   // 左右摩擦轮反向旋转
-    .feeder_direction_sign = 1.0F,
-    .feeder_step_rad = 2.0F,
-    .feeder_position_tolerance_rad = 0.05F,
-    .jam_velocity_threshold_rad_per_s = 0.5F,
-    .jam_current_threshold_a = 3.0F,
-    .jam_current_threshold_raw = 3000,
-    .jam_confirmation_time_s = 0.2F,
-    .rollback_angle_rad = 0.5F,
-    .rollback_position_tolerance_rad = 0.05F,
-    .rollback_timeout_s = 0.5F,
-    .friction_velocity_tolerance_rad_per_s = 10.0F,
-    .friction_ready_time_s = 0.1F,
-    .fire_stable_time_s = 0.05F,
-    .automatic_shot_interval_s = 0.1F,
-    .maximum_jam_retries = 3,
-    .maximum_pending_shots = 20,
+## 用法
+
+```c
+module_shooter_t shooter;
+module_shooter_config_t cfg = {
+    .friction_motor = &friction_m3508,
+    .feeder_motor   = &feeder_m2006,
+    .friction_velocity_rad_per_s = 500,
+    .feed_angle_rad = 0.628f,     // 每发步进角度
+    .feed_timeout_ms = 500,
+    .jam_current_threshold_a = 2.0f,
 };
+module_shooter_init(&shooter, &cfg);
 
-module_shooter_init(&s_shooter, &cfg);
+// 设置摩擦轮速度 + 拨弹盘位置
+module_shooter_set_friction_velocity(&shooter, 500);
+module_shooter_set_feed_position(&shooter, 0.628f);
+
+// 火控更新（由 App 周期性调用）
+module_shooter_update_fire_control(&shooter, tracking_ready, referee_ok, fire_cmd);
+
+// 周期更新状态机
+module_shooter_update(&shooter, dt);
 ```
 
-### 7.2 启用和设置摩擦轮
+## API 速查
 
-```c
-// 使能发射机构
-module_shooter_enable(&s_shooter);
-
-// 启动摩擦轮（目标速度 300 rad/s）
-module_shooter_set_friction(&s_shooter, true, 300.0F);
-
-// 请求发射 1 发
-module_shooter_request_shots(&s_shooter, 1);
-```
-
-### 7.3 周期更新
-
-```c
-void control_loop(float dt) {
-    // 更新发射机构状态机
-    module_shooter_status_t status = module_shooter_update(&s_shooter, dt);
-    if (status == MODULE_SHOOTER_STATUS_FAULT) {
-        // 故障处理：停止摩擦轮，记录错误
-        module_shooter_set_friction(&s_shooter, false, 0.0F);
-    }
-
-    // 检查状态
-    if (module_shooter_get_state(&s_shooter) == MODULE_SHOOTER_STATE_READY) {
-        // 可以继续请求发射
-    }
-}
-```
-
-### 7.4 自瞄火控调用顺序
-
-视觉发送的 `0/1` 只能决定是否允许产生**下一发请求**，不能直接控制拨弹速度。已经开始的一发始终由位置环完成一个完整步进，避免视觉许可 `010101` 时拨弹盘反复启停。
-
-```c
-void shooter_control_loop(float dt)
-{
-    bool tracking_ready = vision_online && vision_target_valid &&
-                          (vision_age_ms <= VISION_TIMEOUT_MS) &&
-                          (fabsf(vision_target_yaw - actual_yaw) <= YAW_FIRE_TOLERANCE_RAD) &&
-                          (fabsf(vision_target_pitch - actual_pitch) <= PITCH_FIRE_TOLERANCE_RAD) &&
-                          (fabsf(actual_yaw_velocity) <= YAW_FIRE_VELOCITY_LIMIT) &&
-                          (fabsf(actual_pitch_velocity) <= PITCH_FIRE_VELOCITY_LIMIT);
-
-    module_shooter_fire_control_input_t fire_input = {
-        .automatic_fire_enabled = operator_auto_fire,
-        .tracking_ready = tracking_ready,
-        .referee_allows_fire = referee_heat_allows_fire,
-    };
-
-    /* 1. 火控只在条件稳定且射击间隔满足时排入 1 发。 */
-    module_shooter_update_fire_control(&s_shooter, &fire_input, dt);
-
-    /* 2. 发射状态机执行摩擦轮到速、完整位置步进、卡弹和回退。 */
-    module_shooter_update(&s_shooter, dt);
-
-    /* 3. DJI 电机总线在全部电机 update 后统一 flush。 */
-}
-```
-
-视觉在线、目标有效、数据时效、yaw/pitch 误差和角速度属于云台/视觉层，统一折叠成 `tracking_ready`。发射模块只再检查自动火控开关、裁判许可、摩擦轮到速、状态机状态和 `fire_stable_time_s`，避免依赖视觉协议或云台结构体。
-
-### 7.5 故障恢复
-
-```c
-// 故障发生后，需检查电机状态并手动恢复
-if (module_shooter_get_state(&s_shooter) == MODULE_SHOOTER_STATE_FAULT) {
-    // 确保所有电机在线
-    if (电机已恢复) {
-        module_shooter_reset_fault(&s_shooter);
-        module_shooter_enable(&s_shooter);
-    }
-}
-```
-
-## 8. 错误码速查
-
-| 状态码             | 触发场景                                       |
-| :----------------- | :--------------------------------------------- |
-| `INVALID_ARGUMENT` | 参数为空、阈值非法、方向符号非法、步进角度 ≤ 0 |
-| `NOT_INITIALIZED`  | 对象未初始化                                   |
-| `NOT_READY`        | 电机离线或反馈无效                             |
-| `MOTOR_ERROR`      | 电机使能/禁用/设置目标/更新失败                |
-| `FAULT`            | 超过最大堵重重试次数                           |
-
-## 9. 注意事项
-
-- **电机依赖**：三个电机必须在调用 `enable` 前已注册、初始化且在线。
-- **故障恢复**：`reset_fault` 需要拨弹电机在线且反馈有效，否则返回 `NOT_READY`。
-- **队列上限**：`maximum_pending_shots` 防止遥控器抖动导致无界累积。
-- **摩擦轮方向**：左右摩擦轮通常反向旋转，通过 `direction_sign` 配置。
-- **电流阈值**：优先使用安培阈值（需电机层正确换算），否则使用原始值。
-
-## 10. 建议验证测试项
-
-- [ ] 摩擦轮启停方向正确（左右反向）
-- [ ] 单发：从 READY → FEEDING → READY 完整流程
-- [ ] 多发：连续请求多发射击，队列正常递减
-- [ ] 队列上限：超过 `maximum_pending_shots` 返回错误
-- [ ] 正常到位：拨弹盘到达目标位置后状态回到 READY
-- [ ] 瞬时大电流不误判（未达到确认时间不触发）
-- [ ] 持续堵转：触发 ROLLBACK → FEEDING 重试
-- [ ] 超过最大重试：进入 FAULT 并锁存
-- [ ] 任一电机离线：`update` 返回 `NOT_READY`
-- [ ] 故障恢复：`reset_fault` 后状态回到 READY
-- [ ] 摩擦轮未到速时，已有待发请求保持排队但拨弹盘不运动
-- [ ] 视觉许可 `010101` 时，已经开始的单发位置步进不中断
-- [ ] 回退无法到位超过 `rollback_timeout_s` 后进入 FAULT
-
----
-
-**总结**：`module_shooter` 提供了完整的 RoboMaster 发射机构控制方案，通过状态机管理送弹流程、堵转检测和故障恢复。其模块化设计使其可与任意 `module_motor` 派生类配合，适应不同电机型号和安装方向。配合电机层和上层控制逻辑，可构建可靠的弹丸发射系统。
-
-## 一页式接入顺序与可读信息
-
-```c
-/* 1. 三个电机必须先初始化、注册并能提供有效反馈。 */
-static module_shooter_t shooter;
-
-/* 2. 配置中注入左右摩擦轮和拨弹电机，以及速度、堵转和重试参数。 */
-module_shooter_status_t status = module_shooter_init(&shooter, &shooter_config);
-
-/* 3. 使能模块，再设置摩擦轮目标；未使能时不接受发射流程。 */
-status = module_shooter_enable(&shooter);
-status = module_shooter_set_friction(
-    &shooter, friction_enabled, target_friction_velocity_rad_per_s);
-
-/* 4A. 手动射击：请求只增加待发数量，摩擦轮到速后才执行。 */
-status = module_shooter_request_shots(&shooter, shot_count);
-
-/* 4B. 自瞄射击：每周期输入视觉/姿态/裁判状态，满足稳定时间后自动排入一发。 */
-status = module_shooter_update_fire_control(&shooter, &fire_control_input, delta_time_s);
-
-/* 5. 固定周期调用状态机；完整位置步进不会被下一帧视觉 0 中断。 */
-status = module_shooter_update(&shooter, delta_time_s);
-
-/* 6. 停机先 cancel_shots，再 disable；FAULT 只能显式 reset_fault。 */
-```
-
-| 可读取信息 | API | 说明 |
-| --- | --- | --- |
-| `module_shooter_state_t` | `module_shooter_get_state()` | 禁用、准备、送弹、回退或故障状态 |
-| 待发弹数 | `module_shooter_get_pending_shots()` | 尚未完成的发射请求数量 |
-| 堵转重试次数 | `module_shooter_get_jam_retry_count()` | 当前发射流程已经执行的回退次数 |
-| 摩擦轮就绪 | `module_shooter_get_friction_ready()` | 左右摩擦轮在容差内连续稳定到速 |
-| 火控许可 | `module_shooter_get_fire_permission()` | 视觉、姿态、裁判和摩擦轮条件均已稳定满足 |
-| 电机反馈 | `module_motor_get_feedback()` | 三个依赖电机的位置、速度、温度和在线状态 |
-| `module_shooter_t` | 调试器只读查看 | 状态机计时、目标值和内部阶段；应用不要直接修改 |
+| 函数 | 功能 |
+|------|------|
+| `module_shooter_init(me, cfg)` | 初始化 |
+| `module_shooter_set_friction_velocity(me, rad_per_s)` | 设摩擦轮目标速度 |
+| `module_shooter_set_feed_position(me, rad)` | 设拨弹步进角度 |
+| `module_shooter_update_fire_control(me, tracking, ref_ok, fire)` | 火控决策 |
+| `module_shooter_update(me, dt)` | 周期更新状态机 |
+| `module_shooter_get_state(me)` | 读状态 |
+| `module_shooter_get_pending_shots(me)` | 待发弹量 |
+| `module_shooter_get_jam_retry_count(me)` | 卡弹次数 |
+| `module_shooter_get_friction_ready(me)` | 摩擦轮到速？ |
+| `module_shooter_get_fire_permission(me)` | 火控许可？ |

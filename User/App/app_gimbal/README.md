@@ -1,26 +1,27 @@
-# Gimbal application
+# app_gimbal — 云台控制
 
-## Responsibility
+偏航(Yaw)+俯仰(Pitch)双轴云台。PID/LQR 两种控制模式，IMU/编码器两种反馈模式。
 
-`app_gimbal` controls a two-axis gimbal through the generic `module_motor_t` interface. The project
-mapping is DM4310 pitch on CAN1 and voltage-firmware GM6020 yaw on CAN2.
+## 用法
 
-## Selectable control
+```c
+app_gimbal_config_t cfg = {
+    .yaw_motor   = &yaw_gm6020,
+    .pitch_motor = &pitch_gm6020,
+    .target_tolerance_rad = 0.01f,
+};
+app_gimbal_init(&cfg);
 
-- PID: angle targets are passed to motors configured for cascaded angle control.
-- LQR template: position and velocity errors are combined using injected gains.
-- Encoder lock: motor encoder position is the feedback source.
-- IMU lock: the latest valid IMU attitude is the feedback source.
+// 周期更新
+app_gimbal_update(dt);
+// 从 app_exchange 读取命令 → 控制电机 → 发布反馈
+```
 
-## Inputs and outputs
+## 控制模式
 
-Input is `app_gimbal_command_t` plus `app_imu_snapshot_t`. Output is
-`app_gimbal_feedback_t`, including angles, angular velocities, online state and target-lock state.
-The feedback is also available to the chassis board and vision computer.
-
-## Validation
-
-- Invalid/disabled command disables both axes.
-- IMU mode falls back safely when the IMU snapshot is invalid.
-- Pitch remains limited by Command application configuration.
-- Target lock requires both axes inside the configured tolerance.
+| 模式 | 说明 |
+|------|------|
+| `APP_GIMBAL_CONTROL_PID` | 双环 PID（位置+速度） |
+| `APP_GIMBAL_CONTROL_LQR` | LQR 最优控制 |
+| `APP_GIMBAL_FEEDBACK_IMU` | IMU 姿态作反馈（绝对角度） |
+| `APP_GIMBAL_FEEDBACK_ENCODER` | 电机编码器作反馈（相对角度） |

@@ -1,26 +1,25 @@
-# Shooter application
+# app_shooter — 发射机构控制
 
-## Responsibility
+双摩擦轮 + 拨弹盘。读取 `module_shooter` 状态 + 裁判系统火控信号。
 
-`app_shooter` coordinates two M3508 friction motors and one M3508 feeder through
-`module_shooter`. Feeder location is selected at compile time for upper-feed (gimbal board) or
-lower-feed (chassis board) robots.
+## 用法
 
-## Behaviour
+```c
+app_shooter_config_t cfg = {
+    .shooter = &shooter,
+    .board_comm = &link,
+};
+app_shooter_init(&cfg);
 
-- Dial enables friction wheels and requests manual shots.
-- Automatic fire requires automatic mode and a stable visual lock.
-- A rising fire request queues one shot.
-- `module_shooter` performs jam confirmation, rollback, retry and fault latching.
+// 周期更新
+app_shooter_update(dt);
+// 从 app_exchange 读取命令 → module_shooter_update_fire_control → 发布反馈
+```
 
-## Outputs
+## 火控条件
 
-`app_shooter_feedback_t` reports state, retry count, friction-ready state and fire permission. It
-is mirrored over board communication so either controller can observe the firing mechanism.
-
-## Validation
-
-- Disabling friction cancels actuator output safely.
-- Holding a manual request does not enqueue a shot every task cycle.
-- Low feeder speed plus high current triggers rollback.
-- Retry exhaustion latches a shooter fault.
+射击需同时满足：
+1. `tracking_ready` = 视觉目标有效 + 姿态误差在容差内
+2. `referee_ok` = 裁判系统允许发射（热量+弹量）
+3. `fire_requested` = 遥控器触发（拨轮/鼠标）
+4. `friction_ready` = 摩擦轮到速
