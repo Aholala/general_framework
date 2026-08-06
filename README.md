@@ -15,7 +15,6 @@
 - [通信协议](#通信协议)
 - [初始化与运行顺序](#初始化与运行顺序)
 - [硬件配置边界](#硬件配置边界)
-- [构建](#构建)
 
 ## 整体架构
 
@@ -109,23 +108,23 @@ CubeMX 任务入口只转发到 `task_*_run()`，业务更新函数不包含永�
 
 算法层目录为 `User/Algorithm`，全部使用 SI 单位和显式时间步长。
 
-| 组件                   | 主要结构体                                                                                                                                                                                                   | 输入                                         | 输出或可观察数据                                            |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- | ----------------------------------------------------------- |
-| `alg_crc`              | `alg_crc_config_t`                                                                                                                                                                                           | 数据、位宽、多项式、初值、位序               | 统一 CRC8/CRC16/CRC32 结果                                  |
-| `alg_math`             | `alg_math_vector2_t`、`alg_math_vector3_t`、`alg_math_quaternion_t`、`alg_math_matrix_t`、`alg_math_statistics_t`                                                                                            | 标量、向量、矩阵、样本                       | 向量/矩阵结果，均值、方差、标准差；含一维查表与双线性插值   |
-| `alg_filter`           | `alg_filter_low_pass_t`、`alg_filter_high_pass_t`、`alg_filter_exponential_t`、`alg_filter_moving_average_t`、`alg_filter_median_t`、`alg_filter_fir_t`、`alg_filter_biquad_t`、`alg_filter_complementary_t` | 新采样值、时间步长                           | 滤波输出以及对象内部历史状态                                |
-| `alg_kalman`           | `alg_kalman_scalar_t`、`alg_kalman_linear_t`、`alg_kalman_extended_t`                                                                                                                                        | 状态、测量、模型函数、噪声矩阵               | 状态估计、协方差和创新计算结果                              |
-| `alg_attitude`         | `alg_attitude_config_t`、`alg_attitude_quaternion_t`、`alg_attitude_rotation_matrix_t`、`alg_attitude_t`                                                                                                     | 三轴陀螺仪、三轴加速度计、`dt`               | 四元数、旋转矩阵、roll/pitch/yaw；支持 Mahony 与 Madgwick   |
-| `alg_imu_ekf`          | `alg_imu_ekf_config_t`、`alg_imu_ekf_quaternion_t`、`alg_imu_ekf_euler_t`、`alg_imu_ekf_diagnostics_t`、`alg_imu_ekf_t`                                                                                      | 六轴 IMU 数据、`dt`                          | 四元数、欧拉角、陀螺零偏、校正角速度、重力方向和 EKF 诊断量 |
-| `alg_pid`              | `alg_pid_config_t`、`alg_pid_input_t`、`alg_pid_terms_t`、`alg_pid_t`                                                                                                                                        | 目标、反馈、前馈、`dt`                       | P/I/D/FF 分量、限幅前输出和最终输出                         |
-| `alg_pid` 扩展         | `alg_pid_incremental_t`、`alg_pid_gain_schedule_t`、`alg_pid_fuzzy_t`、`alg_pid_cascade_t`、`alg_pid_angle_t`                                                                                                | 增量误差、调度变量、模糊输入、位置与速度反馈 | 增量输出、调度增益、模糊修正、串级输出和角度控制输出        |
-| `alg_lqr`              | `alg_lqr_controller_t`、`alg_lqr_dare_config_t`、`alg_lqr_finite_config_t`、`alg_lqr_angle_t`                                                                                                                | 状态、目标、系统矩阵、权重矩阵               | 控制量、DARE/有限时域结果和二维角度控制输出                 |
-| `alg_trajectory`       | `alg_trajectory_config_t`、`alg_trajectory_state_t`、`alg_trajectory_t`、`alg_trajectory_group_t`                                                                                                            | 位置/速度目标、约束、`dt`                    | 位置、速度、加速度轨迹；梯形速度与 S 曲线                   |
-| `alg_chassis`          | `alg_chassis_velocity_t`、`alg_chassis_pose_t`、`alg_chassis_constraint_t`、`alg_chassis_solution_t`                                                                                                         | 轮速约束或车体速度                           | 降级速度解、拟合残差、里程计位姿                            |
-| `alg_chassis` 轮状态   | `alg_chassis_wheel_monitor_config_t`、`alg_chassis_wheel_monitor_wheel_state_t`                                                                                                                              | 各轮残差                                     | 故障/恢复计数和每轮故障标志                                 |
-| `alg_mecanum`          | `alg_mecanum_config_t`、`alg_mecanum_t`                                                                                                                                                                      | `alg_chassis_velocity_t` 或四轮速度          | 四轮麦克纳姆逆解、正解和里程计                              |
-| `alg_omni`             | `alg_omni_wheel_config_t`、`alg_omni_t`                                                                                                                                                                      | 车体速度或任意数量全向轮速度                 | 通用全向轮逆解、加权正解和里程计                            |
-| `alg_swerve`           | `alg_swerve_command_t`、`alg_swerve_module_target_t`、`alg_swerve_t`                                                                                                                                         | 车体命令、舵角和轮速                         | 任意数量舵轮目标、正解和目标优化                            |
+| 组件                 | 主要结构体                                                                                                                                                                                                   | 输入                                         | 输出或可观察数据                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- | ----------------------------------------------------------- |
+| `alg_crc`            | `alg_crc_config_t`                                                                                                                                                                                           | 数据、位宽、多项式、初值、位序               | 统一 CRC8/CRC16/CRC32 结果                                  |
+| `alg_math`           | `alg_math_vector2_t`、`alg_math_vector3_t`、`alg_math_quaternion_t`、`alg_math_matrix_t`、`alg_math_statistics_t`                                                                                            | 标量、向量、矩阵、样本                       | 向量/矩阵结果，均值、方差、标准差；含一维查表与双线性插值   |
+| `alg_filter`         | `alg_filter_low_pass_t`、`alg_filter_high_pass_t`、`alg_filter_exponential_t`、`alg_filter_moving_average_t`、`alg_filter_median_t`、`alg_filter_fir_t`、`alg_filter_biquad_t`、`alg_filter_complementary_t` | 新采样值、时间步长                           | 滤波输出以及对象内部历史状态                                |
+| `alg_kalman`         | `alg_kalman_scalar_t`、`alg_kalman_linear_t`、`alg_kalman_extended_t`                                                                                                                                        | 状态、测量、模型函数、噪声矩阵               | 状态估计、协方差和创新计算结果                              |
+| `alg_attitude`       | `alg_attitude_config_t`、`alg_attitude_quaternion_t`、`alg_attitude_rotation_matrix_t`、`alg_attitude_t`                                                                                                     | 三轴陀螺仪、三轴加速度计、`dt`               | 四元数、旋转矩阵、roll/pitch/yaw；支持 Mahony 与 Madgwick   |
+| `alg_imu_ekf`        | `alg_imu_ekf_config_t`、`alg_imu_ekf_quaternion_t`、`alg_imu_ekf_euler_t`、`alg_imu_ekf_diagnostics_t`、`alg_imu_ekf_t`                                                                                      | 六轴 IMU 数据、`dt`                          | 四元数、欧拉角、陀螺零偏、校正角速度、重力方向和 EKF 诊断量 |
+| `alg_pid`            | `alg_pid_config_t`、`alg_pid_input_t`、`alg_pid_terms_t`、`alg_pid_t`                                                                                                                                        | 目标、反馈、前馈、`dt`                       | P/I/D/FF 分量、限幅前输出和最终输出                         |
+| `alg_pid` 扩展       | `alg_pid_incremental_t`、`alg_pid_gain_schedule_t`、`alg_pid_fuzzy_t`、`alg_pid_cascade_t`、`alg_pid_angle_t`                                                                                                | 增量误差、调度变量、模糊输入、位置与速度反馈 | 增量输出、调度增益、模糊修正、串级输出和角度控制输出        |
+| `alg_lqr`            | `alg_lqr_controller_t`、`alg_lqr_dare_config_t`、`alg_lqr_finite_config_t`、`alg_lqr_angle_t`                                                                                                                | 状态、目标、系统矩阵、权重矩阵               | 控制量、DARE/有限时域结果和二维角度控制输出                 |
+| `alg_trajectory`     | `alg_trajectory_config_t`、`alg_trajectory_state_t`、`alg_trajectory_t`、`alg_trajectory_group_t`                                                                                                            | 位置/速度目标、约束、`dt`                    | 位置、速度、加速度轨迹；梯形速度与 S 曲线                   |
+| `alg_chassis`        | `alg_chassis_velocity_t`、`alg_chassis_pose_t`、`alg_chassis_constraint_t`、`alg_chassis_solution_t`                                                                                                         | 轮速约束或车体速度                           | 降级速度解、拟合残差、里程计位姿                            |
+| `alg_chassis` 轮状态 | `alg_chassis_wheel_monitor_config_t`、`alg_chassis_wheel_monitor_wheel_state_t`                                                                                                                              | 各轮残差                                     | 故障/恢复计数和每轮故障标志                                 |
+| `alg_mecanum`        | `alg_mecanum_config_t`、`alg_mecanum_t`                                                                                                                                                                      | `alg_chassis_velocity_t` 或四轮速度          | 四轮麦克纳姆逆解、正解和里程计                              |
+| `alg_omni`           | `alg_omni_wheel_config_t`、`alg_omni_t`                                                                                                                                                                      | 车体速度或任意数量全向轮速度                 | 通用全向轮逆解、加权正解和里程计                            |
+| `alg_swerve`         | `alg_swerve_command_t`、`alg_swerve_module_target_t`、`alg_swerve_t`                                                                                                                                         | 车体命令、舵角和轮速                         | 任意数量舵轮目标、正解和目标优化                            |
 
 当前底盘解算只保留三类：
 
@@ -193,27 +192,27 @@ BSP 目录为 `User/Bsp`。通用 BSP 对象不决定使用哪个外设实例或
 `User/board_config.h/.c`，因此具体工程配置没有放进 BSP 层。F405 暂不创建
 引脚配置或占位适配代码。
 
-| BSP                      | 主要结构体                                                               | 能读取或观察的数据                             |
-| ------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------- |
-| `bsp_common`             | `bsp_status_t`、`bsp_transfer_mode_t`、`bsp_event_t`、`bsp_device_ops_t` | 统一状态码、阻塞/中断/DMA 模式和事件类型       |
-| `bsp_gpio`               | `bsp_gpio_t`、`bsp_gpio_config_t`、`bsp_gpio_driver_ops_t`               | `bsp_gpio_read()` 读取高低电平                 |
-| `bsp_exti`               | `bsp_exti_t`、`bsp_exti_config_t`                                        | 通过回调观察外部中断事件                       |
-| `bsp_usart`              | `bsp_usart_t`、`bsp_usart_config_t`                                      | 收发完成/错误回调，`bsp_usart_get_busy()`      |
-| `bsp_spi`                | `bsp_spi_t`、`bsp_spi_config_t`                                          | 收发完成/错误回调，`bsp_spi_get_busy()`        |
-| `bsp_i2c`                | `bsp_i2c_t`、`bsp_i2c_config_t`                                          | 内存读写、设备就绪状态和总线忙状态             |
-| `bsp_can`                | `bsp_can_frame_t`、`bsp_can_filter_t`、`bsp_can_t`                       | 接收帧、发送邮箱余量和事件回调                 |
-| `bsp_can` 分发器         | `bsp_can_route_t`、`bsp_can_dispatcher_t`                                | 按 ID/掩码将帧路由到模块                       |
-| `bsp_fdcan`              | `bsp_fdcan_frame_t`、`bsp_fdcan_protocol_status_t`、`bsp_fdcan_t`        | CAN FD 帧、协议状态和发送余量                  |
-| `bsp_fdcan` Classic 适配 | `bsp_fdcan_classic_adapter_t`                                            | 将 Classic CAN 风格模块接到 FDCAN              |
-| `bsp_timer`              | `bsp_timer_t`、`bsp_timer_config_t`                                      | 计数值、周期和频率                             |
-| `bsp_pwm`                | `bsp_pwm_t`、`bsp_pwm_config_t`                                          | 频率、脉宽计数和占空比                         |
-| `bsp_encoder`            | `bsp_encoder_t`、`bsp_encoder_config_t`                                  | 计数、增量和方向                               |
-| `bsp_adc`                | `bsp_adc_t`、`bsp_adc_config_t`                                          | 原始 ADC、归一化值和电压                       |
-| `bsp_dac`                | `bsp_dac_t`、`bsp_dac_config_t`                                          | 当前原始输出值                                 |
-| `bsp_usb_vcp`            | `bsp_usb_vcp_t`、`bsp_usb_vcp_config_t`                                  | 连接状态、忙状态和接收事件                     |
-| `bsp_watchdog`           | `bsp_watchdog_t`、`bsp_watchdog_config_t`                                | 超时时间和看门狗复位标志                       |
-| `bsp_dwt`                | `bsp_dwt_t`、`bsp_dwt_config_t`、`bsp_dwt_time_point_t`                  | 平台注入的 DWT 周期计数、计数频率和时间差       |
-| `bsp_rtc`                | `bsp_rtc_t`、`bsp_rtc_time_t`                                            | 日期时间和 Unix 时间                           |
+| BSP                      | 主要结构体                                                               | 能读取或观察的数据                        |
+| ------------------------ | ------------------------------------------------------------------------ | ----------------------------------------- |
+| `bsp_common`             | `bsp_status_t`、`bsp_transfer_mode_t`、`bsp_event_t`、`bsp_device_ops_t` | 统一状态码、阻塞/中断/DMA 模式和事件类型  |
+| `bsp_gpio`               | `bsp_gpio_t`、`bsp_gpio_config_t`、`bsp_gpio_driver_ops_t`               | `bsp_gpio_read()` 读取高低电平            |
+| `bsp_exti`               | `bsp_exti_t`、`bsp_exti_config_t`                                        | 通过回调观察外部中断事件                  |
+| `bsp_usart`              | `bsp_usart_t`、`bsp_usart_config_t`                                      | 收发完成/错误回调，`bsp_usart_get_busy()` |
+| `bsp_spi`                | `bsp_spi_t`、`bsp_spi_config_t`                                          | 收发完成/错误回调，`bsp_spi_get_busy()`   |
+| `bsp_i2c`                | `bsp_i2c_t`、`bsp_i2c_config_t`                                          | 内存读写、设备就绪状态和总线忙状态        |
+| `bsp_can`                | `bsp_can_frame_t`、`bsp_can_filter_t`、`bsp_can_t`                       | 接收帧、发送邮箱余量和事件回调            |
+| `bsp_can` 分发器         | `bsp_can_route_t`、`bsp_can_dispatcher_t`                                | 按 ID/掩码将帧路由到模块                  |
+| `bsp_fdcan`              | `bsp_fdcan_frame_t`、`bsp_fdcan_protocol_status_t`、`bsp_fdcan_t`        | CAN FD 帧、协议状态和发送余量             |
+| `bsp_fdcan` Classic 适配 | `bsp_fdcan_classic_adapter_t`                                            | 将 Classic CAN 风格模块接到 FDCAN         |
+| `bsp_timer`              | `bsp_timer_t`、`bsp_timer_config_t`                                      | 计数值、周期和频率                        |
+| `bsp_pwm`                | `bsp_pwm_t`、`bsp_pwm_config_t`                                          | 频率、脉宽计数和占空比                    |
+| `bsp_encoder`            | `bsp_encoder_t`、`bsp_encoder_config_t`                                  | 计数、增量和方向                          |
+| `bsp_adc`                | `bsp_adc_t`、`bsp_adc_config_t`                                          | 原始 ADC、归一化值和电压                  |
+| `bsp_dac`                | `bsp_dac_t`、`bsp_dac_config_t`                                          | 当前原始输出值                            |
+| `bsp_usb_vcp`            | `bsp_usb_vcp_t`、`bsp_usb_vcp_config_t`                                  | 连接状态、忙状态和接收事件                |
+| `bsp_watchdog`           | `bsp_watchdog_t`、`bsp_watchdog_config_t`                                | 超时时间和看门狗复位标志                  |
+| `bsp_dwt`                | `bsp_dwt_t`、`bsp_dwt_config_t`、`bsp_dwt_time_point_t`                  | 平台注入的 DWT 周期计数、计数频率和时间差 |
+| `bsp_rtc`                | `bsp_rtc_t`、`bsp_rtc_time_t`                                            | 日期时间和 Unix 时间                      |
 
 板级可读对象通过 `board_config_get_can()`、`board_config_get_usart()` 等 getter
 获得。通用 BSP 本身不提供任何具体开发板 getter。
@@ -255,33 +254,33 @@ Module 目录为 `User/Module`。模块负责设备协议、状态机和业务�
 [`User/Module/README.md`](User/Module/README.md) 的“快速接入和数据读取索引”进入；
 每个子模块 README 末尾还提供一页式接入清单。
 
-| 模块                  | 主要结构体                                                                                                 | 功能                                        | 对外可读数据                                     |
-| --------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------ |
-| `module_device`       | `module_device_t`、`module_device_ops_t`                                                                   | 模块统一基类                                | 初始化状态、注册键                               |
-| `module_motor`        | `module_motor_t`、`module_motor_feedback_t`、`module_motor_registry_t`                                     | 通用电机基类与注册表                        | 名称、ID、dt、累计运行时间、状态及完整反馈       |
-| `module_dji_motor`    | `module_dji_motor_t`、`module_dji_motor_bus_t`                                                             | DJI 电机 CAN 协议与三级串级 PID             | 电流/速度/角度 PID、各级目标、CAN 映射及命令     |
-| `module_dji_motor / module_m2006`  | `module_m2006_t`、`module_m2006_config_t`                                                     | M2006 + C610                                | 通用反馈、三级 PID、原始协议命令                 |
-| `module_dji_motor / module_m3508`  | `module_m3508_t`、`module_m3508_config_t`                                                     | M3508 + C620                                | 通用反馈、三级 PID、原始协议命令                 |
-| `module_dji_motor / module_gm6020` | `module_gm6020_t`、`module_gm6020_config_t`                                                   | GM6020                                      | 通用反馈、三级 PID、原始电压命令                 |
-| `module_dm_motor`     | `module_dm_motor_t`、`module_dm_limits_t`、`module_dm_mit_command_t`、`module_dm_force_position_command_t` | 达妙电机 MIT、位置速度等控制                | 通用反馈、故障码、MOS 温度                       |
-| `module_dm_motor_bus` | `module_dm_motor_bus_t`                                                                                    | 达妙 CAN 总线分发                           | 反馈处理状态                                     |
-| `module_dm_motor / module_dm4310` | `module_dm4310_t`、`module_dm4310_config_t`                                                  | DM-J4310-2EC 专用限制和默认值               | 通用反馈、故障码、MOS 温度                       |
-| `module_motor / module_motor_health` | `module_motor_health_observation_t`、`module_motor_health_state_t`、`module_motor_health_t`            | 多电机在线、温度、堵转、跟踪和饱和诊断      | 每个电机的原因掩码、计时和可用性                 |
-| `module_bmi088`       | `module_bmi088_raw_data_t`、`module_bmi088_process_data_t`、`module_bmi088_t`                                      | BMI088 初始化、读取、换算、轴映射和零偏标定 | 原始计数、加速度、角速度、温度、时间戳和有效性   |
-| `module_dr16`         | `module_dr16_process_data_t`、`module_dr16_t`                                                                      | DR16/DBUS 双 DMA 接收与解码                 | 摇杆、开关、鼠标、键盘、拨轮、统计和在线状态     |
-| `module_swerve`       | `module_swerve_t`、`module_swerve_config_t`                                                                | 单个舵轮的转向与驱动执行                    | 当前舵角；接收 `alg_swerve_module_target_t`      |
-| `module_shooter`      | `module_shooter_t`、`module_shooter_state_t`                                                               | 双摩擦轮与拨弹电机状态机                    | 状态、待发弹量和卡弹重试次数                     |
-| `module_servo`        | `module_servo_t`、`module_servo_config_t`                                                                  | 标准 PWM 舵机                               | 当前命令角度                                     |
-| `module_buzzer`       | `module_buzzer_note_t`、`module_buzzer_t`                                                                  | 音符、频率和时序播放                        | 是否正在播放                                     |
-| `module_ws2812`       | `module_ws2812_color_t`、`module_ws2812_effect_state_t`、`module_ws2812_t`                                 | 灯珠帧缓冲和内置效果                        | 忙状态和效果运行状态                             |
-| `module_oled`         | `module_oled_t`、`module_oled_config_t`                                                                    | I2C 单色页式 OLED 帧缓冲                    | 对象内帧缓冲和初始化状态                         |
-| `module_nrf24l01`     | `module_nrf24l01_t`、`module_nrf24l01_ace_link_t`、`module_nrf24l01_ace_link_packet_t`                    | nRF24L01 原始收发与独立 ACE 链路协议        | 收到的数据包、序号、管道号和重发/丢包统计        |
-| `module_uart_comm`     | `module_uart_comm_process_data_t`、`module_uart_comm_t`                                                    | 普通 UART 独立固定帧协议                    | 原始数据区、更新计数和 CRC 统计                  |
-| `module_usb_comm`      | `module_usb_comm_data_t`、`module_usb_comm_t`                                                              | USB CDC 视觉 mode/ID 协议                   | mode、ID、扩展区和解析统计                       |
-| `module_board_comm`   | `module_board_comm_remote_process_data_t`、`module_board_comm_gimbal_process_data_t`、`module_board_comm_chassis_process_data_t`   | 云台板与底盘板 Classic CAN 通信             | 遥控、云台、底盘、发射机构数据和各链路在线状态   |
-| `module_referee`      | `module_referee_t`、`module_referee_statistics_t`                                                          | 裁判系统流式接收、CRC 和命令路由            | 在线状态和解析统计                               |
-| `module_referee_data` | `module_referee_process_data_t` 及各子数据结构                                                                     | 裁判系统强类型数据仓库                      | 比赛、机器人、功率热量、位置、受击、射击、弹量等 |
-| `module_referee / module_referee_ui` | `module_referee_ui_graphic_t`、`module_referee_ui_t`                                         | 裁判系统客户端图形打包                      | 图形配置及发送状态                               |
+| 模块                                 | 主要结构体                                                                                                                       | 功能                                        | 对外可读数据                                     |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------ |
+| `module_device`                      | `module_device_t`、`module_device_ops_t`                                                                                         | 模块统一基类                                | 初始化状态、注册键                               |
+| `module_motor`                       | `module_motor_t`、`module_motor_feedback_t`、`module_motor_registry_t`                                                           | 通用电机基类与注册表                        | 名称、ID、dt、累计运行时间、状态及完整反馈       |
+| `module_dji_motor`                   | `module_dji_motor_t`、`module_dji_motor_bus_t`                                                                                   | DJI 电机 CAN 协议与三级串级 PID             | 电流/速度/角度 PID、各级目标、CAN 映射及命令     |
+| `module_dji_motor / module_m2006`    | `module_m2006_t`、`module_m2006_config_t`                                                                                        | M2006 + C610                                | 通用反馈、三级 PID、原始协议命令                 |
+| `module_dji_motor / module_m3508`    | `module_m3508_t`、`module_m3508_config_t`                                                                                        | M3508 + C620                                | 通用反馈、三级 PID、原始协议命令                 |
+| `module_dji_motor / module_gm6020`   | `module_gm6020_t`、`module_gm6020_config_t`                                                                                      | GM6020                                      | 通用反馈、三级 PID、原始电压命令                 |
+| `module_dm_motor`                    | `module_dm_motor_t`、`module_dm_limits_t`、`module_dm_mit_command_t`、`module_dm_force_position_command_t`                       | 达妙电机 MIT、位置速度等控制                | 通用反馈、故障码、MOS 温度                       |
+| `module_dm_motor_bus`                | `module_dm_motor_bus_t`                                                                                                          | 达妙 CAN 总线分发                           | 反馈处理状态                                     |
+| `module_dm_motor / module_dm4310`    | `module_dm4310_t`、`module_dm4310_config_t`                                                                                      | DM-J4310-2EC 专用限制和默认值               | 通用反馈、故障码、MOS 温度                       |
+| `module_motor / module_motor_health` | `module_motor_health_observation_t`、`module_motor_health_state_t`、`module_motor_health_t`                                      | 多电机在线、温度、堵转、跟踪和饱和诊断      | 每个电机的原因掩码、计时和可用性                 |
+| `module_bmi088`                      | `module_bmi088_raw_data_t`、`module_bmi088_process_data_t`、`module_bmi088_t`                                                    | BMI088 初始化、读取、换算、轴映射和零偏标定 | 原始计数、加速度、角速度、温度、时间戳和有效性   |
+| `module_dr16`                        | `module_dr16_process_data_t`、`module_dr16_t`                                                                                    | DR16/DBUS 双 DMA 接收与解码                 | 摇杆、开关、鼠标、键盘、拨轮、统计和在线状态     |
+| `module_swerve`                      | `module_swerve_t`、`module_swerve_config_t`                                                                                      | 单个舵轮的转向与驱动执行                    | 当前舵角；接收 `alg_swerve_module_target_t`      |
+| `module_shooter`                     | `module_shooter_t`、`module_shooter_state_t`                                                                                     | 双摩擦轮与拨弹电机状态机                    | 状态、待发弹量和卡弹重试次数                     |
+| `module_servo`                       | `module_servo_t`、`module_servo_config_t`                                                                                        | 标准 PWM 舵机                               | 当前命令角度                                     |
+| `module_buzzer`                      | `module_buzzer_note_t`、`module_buzzer_t`                                                                                        | 音符、频率和时序播放                        | 是否正在播放                                     |
+| `module_ws2812`                      | `module_ws2812_color_t`、`module_ws2812_effect_state_t`、`module_ws2812_t`                                                       | 灯珠帧缓冲和内置效果                        | 忙状态和效果运行状态                             |
+| `module_oled`                        | `module_oled_t`、`module_oled_config_t`                                                                                          | I2C 单色页式 OLED 帧缓冲                    | 对象内帧缓冲和初始化状态                         |
+| `module_nrf24l01`                    | `module_nrf24l01_t`、`module_nrf24l01_ace_link_t`、`module_nrf24l01_ace_link_packet_t`                                           | nRF24L01 原始收发与独立 ACE 链路协议        | 收到的数据包、序号、管道号和重发/丢包统计        |
+| `module_uart_comm`                   | `module_uart_comm_process_data_t`、`module_uart_comm_t`                                                                          | 普通 UART 独立固定帧协议                    | 原始数据区、更新计数和 CRC 统计                  |
+| `module_usb_comm`                    | `module_usb_comm_data_t`、`module_usb_comm_t`                                                                                    | USB CDC 视觉 mode/ID 协议                   | mode、ID、扩展区和解析统计                       |
+| `module_board_comm`                  | `module_board_comm_remote_process_data_t`、`module_board_comm_gimbal_process_data_t`、`module_board_comm_chassis_process_data_t` | 云台板与底盘板 Classic CAN 通信             | 遥控、云台、底盘、发射机构数据和各链路在线状态   |
+| `module_referee`                     | `module_referee_t`、`module_referee_statistics_t`                                                                                | 裁判系统流式接收、CRC 和命令路由            | 在线状态和解析统计                               |
+| `module_referee_data`                | `module_referee_process_data_t` 及各子数据结构                                                                                   | 裁判系统强类型数据仓库                      | 比赛、机器人、功率热量、位置、受击、射击、弹量等 |
+| `module_referee / module_referee_ui` | `module_referee_ui_graphic_t`、`module_referee_ui_t`                                                                             | 裁判系统客户端图形打包                      | 图形配置及发送状态                               |
 
 ## 主要可读数据
 
@@ -391,13 +390,13 @@ IMU EKF 通过 getter 提供：
 
 `module_usb_comm_get_data()` 返回：
 
-| 字段                   | 含义                     |
-| ---------------------- | ------------------------ |
-| `data.mode`            | 当前模式                 |
-| `data.id`              | 目标 ID，范围 1~7        |
-| `data.extra_data[]`    | 宏启用后的预留扩展数据区 |
-| `update_count`         | 有效帧更新计数           |
-| `is_valid`             | 是否至少收到过一个有效帧 |
+| 字段                | 含义                     |
+| ------------------- | ------------------------ |
+| `data.mode`         | 当前模式                 |
+| `data.id`           | 目标 ID，范围 1~7        |
+| `data.extra_data[]` | 宏启用后的预留扩展数据区 |
+| `update_count`      | 有效帧更新计数           |
+| `is_valid`          | 是否至少收到过一个有效帧 |
 
 ### 板间通信
 
@@ -509,47 +508,22 @@ static uint8_t remote_dma_buffer[2][MODULE_DR16_DMA_BUFFER_SIZE];
 - 板间浮点字段统一按 `×1000` 编码为小端 `int16_t`；字节编解码是协议内部实现，不属于 Algorithm/BSP 公共 API。
 - CAN ID、设备 ID 和路由表由初始化配置决定；具体 CAN/FDCAN 实例由 App 注入。
 
-## 构建
-
-工程只维护根目录一个 `CMakeLists.txt`。构建产物和缓存放在 `.build/`，最终固件输出到：
-
-```text
-firmware/general_framework.elf
-```
-
-Debug：
-
-```powershell
-cmake --preset Debug
-cmake --build --preset Debug
-```
-
-Release：
-
-```powershell
-cmake --preset Release
-cmake --build --preset Release
-```
-
-Debug 和 Release 使用同一固件输出路径，后执行的构建会覆盖前一个 ELF。
-
 ## 当前完整性
 
-- Algorithm：已包含数学、滤波、Kalman、Mahony/Madgwick、IMU EKF、PID、LQR、轨迹，以及 PID/LQR 各自的角度控制封装和麦轮、全向轮、舵轮解算。
-- BSP：已包含厂商无关的常见控制器外设抽象。
-- 板级适配：`User/board_config.h/.c` 包含当前 H723 引脚、HAL 操作表、对象装配和回调路由。
-- Module：已包含主要 RoboMaster 电机、DM4310、BMI088、DR16、裁判系统、视觉、板间通信、NRF24、显示与执行功能模块。
-- App：有意不实现具体机器人逻辑，等待最终项目创建实例、分配引脚并进行编排。
-
-“可以编译”只表示接口和依赖完整；正式上车前仍需要按目标 PCB 完成 `.ioc`、中断优先级、DMA 内存、缓存一致性、控制参数、方向符号、限幅和失联安全测试。
+- Algorithm：数学、滤波、Kalman、Mahony/Madgwick、IMU EKF、PID、LQR、轨迹、底盘运动学（麦轮/全向/舵轮）。
+- BSP：两种设计模式——CAN/USART/SPI 使用完整 OOP（vptr+container_of），GPIO/EXTI/PWM/DWT 使用单例 dispatcher。全部有 deinit。
+- 板级适配：`board_config_init()` 带回滚和错误诊断，失败时打印外设名 + 错误码。PWM 表驱动多通道。
+- Module：DJI 电机(M2006/M3508/GM6020)、DM4310、BMI088、DR16、板间通信、蜂鸣器、舵机、OLED、nRF24L01、WS2812、UART/USB 通信。
+- App：遥控映射、云台/底盘/发射机构控制、IMU 姿态、视觉通信、安全监控。全部 init 返回 `bsp_status_t`。
+- 错误处理：全局错误寄存器 `bsp_error_read()` 供任何任务查询最近一次错误。
 
 ## 进一步文档
 
 - [架构与依赖规则](ARCHITECTURE.md)
+- [板级配置与初始化](User/board_config.md)
 - [Algorithm 层说明](User/Algorithm/README.md)
 - [App 层说明](User/App/README.md)
 - [BSP 层说明](User/Bsp/README.md)
-- [STM32H723 板级配置](User/board_config.h)
 - [Module 层说明](User/Module/README.md)
 
 每个具体组件目录中的 README 继续描述该组件的职责边界、初始化、运行流程、内存要求、并发限制和移植注意事项；公开结构体的字段、单位和函数状态码以同目录头文件为最终依据。

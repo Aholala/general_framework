@@ -367,3 +367,48 @@ void bsp_uart_notify(bsp_uart_t *me, bsp_event_t event, bsp_status_t status, siz
 | `bsp_device_t`        | 可通过 `bsp_device_is_initialized()` 和 `bsp_device_get_handle()` 观察 |
 
 `device_handle` 只用于平台适配器，Module/App 不应把它强转为 STM32 HAL 类型。
+
+---
+
+## 全局错误寄存器（v2.0 新增）
+
+`bsp_error_t` 是一个全局单例，任何模块在发生不可恢复错误时写入，任何任务可随时读取。
+
+```c
+// 写入（init 失败、运行时 CAN 错误等）
+bsp_error_record(BSP_STATUS_TIMEOUT, "spi", 0);
+
+// 读取（状态灯任务、裁判系统等）
+const bsp_error_t *err = bsp_error_read();
+if (err->is_valid && err->code != BSP_STATUS_OK) {
+    // err->source = "spi", err->code = BSP_STATUS_TIMEOUT
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `code` | `bsp_status_t` | 错误码 |
+| `source` | `const char *` | 来源模块名 |
+| `detail` | `int` | 模块自定义补充码 |
+| `is_valid` | `bool` | `true` 表示至少记录过一次错误（区分"未初始化"和"记录过 OK"） |
+
+相关 API：
+- `bsp_error_record(code, source, detail)` — 写入
+- `bsp_error_read()` — 读取（返回 `const bsp_error_t *`）
+- `bsp_status_to_string(code)` — 错误码转可读字符串（如 `BSP_STATUS_TIMEOUT` → `"TIMEOUT"`）
+
+## 两种设计模式
+
+BSP 层使用两种模式，按外设复杂度选择：
+
+| 模式 | 适用 | 结构 | 调用路径 |
+|------|------|------|---------|
+| **完整 OOP** | CAN/USART/SPI/USB/WDT（有多态需求） | `bsp_device_t super` + `vptr` + `container_of` | 3 次跳转（validate → vptr → driver_ops） |
+| **单例 dispatcher** | GPIO/EXTI/PWM/DWT（永远单一实现） | `bind_platform()` + 全局 ops 指针 + 平铺结构体 | 1 次跳转（判空 → platform_ops） |
+
+单例 dispatcher 的派生规则：
+1. 不用 `bsp_device_t`、不用 `super`、不用 `vptr`
+2. `bsp_xxx_bind_platform()` 在启动期注册全局 ops
+3. `bsp_xxx_init()` 绑定 `device_handle` + 标记 `is_initialized`
+4. 公共 API 直接调用 `platform_ops->fn(device_handle, ...)`
+5. 同一固件只能绑定一套平台 ops（和教程 ch15 `platform_pin.c` 一致）

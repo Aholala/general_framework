@@ -378,3 +378,12 @@ const module_board_comm_chassis_process_data_t *chassis =
 | `module_board_comm_t` | 调试器只读查看 | 每组在线标志、超时计时、分片掩码和序号 |
 
 所有 getter 都返回内部只读指针；多帧消息只有在全部分片通过校验后才会原子更新正式数据。
+
+## 反初始化（v2.0 新增）
+
+```c
+// 停机或换板时清理
+module_board_comm_deinit(&s_robot_link);
+```
+
+`deinit` 清零全部字段（`memset(me, 0, sizeof(*me))`），将对象恢复为未初始化状态。不停止 CAN 硬件（CAN 不属于本模块）。通常在 `app_robot_init()` 的回滚路径中调用。\|
