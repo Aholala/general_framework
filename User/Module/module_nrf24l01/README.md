@@ -34,4 +34,4 @@ module_nrf24l01_stop(&radio);
 
 ## ACE 链路
 
-`module_nrf24l01_ace_link_t` 封装地址、序号、CRC16 校验。提供 `ace_link_send/ace_link_receive` 高层接口。默认使用 3 字节公共链路地址 `module_nrf24l01_ace_link_address`。
+`module_nrf24l01_link_t` 封装地址、序号、CRC16 校验。提供 `link_send/link_receive` 高层接口。默认使用 3 字节公共链路地址 `module_nrf24l01_link_address`。

@@ -400,11 +400,7 @@ add_library(module OBJECT
     User/Module/module_oled/module_oled.c
     User/Module/module_ws2812/module_ws2812.c
     User/Module/module_nrf24l01/module_nrf24l01.c
-    User/Module/module_nrf24l01/module_nrf24l01_ace_link.c
-    User/Module/module_referee/module_referee.c
-    User/Module/module_referee/module_referee_crc.c
-    User/Module/module_referee/module_referee_data.c
-    User/Module/module_referee/module_referee_ui.c
+    User/Module/module_nrf24l01/module_nrf24l01_link.c
     User/Module/module_servo/module_servo.c
 )
 target_include_directories(module PUBLIC ${module_include_directories})

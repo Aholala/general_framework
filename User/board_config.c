@@ -1210,8 +1210,6 @@ bsp_status_t board_config_init(board_config_init_t *config)
             /* [BOARD_CONFIG_PWM_SERVO_1] = {&htim2, 1U, BOARD_CONFIG_APB_FREQUENCY_HZ * 2UL}, */
             /* [BOARD_CONFIG_PWM_SERVO_2] = {&htim2, 2U, BOARD_CONFIG_APB_FREQUENCY_HZ * 2UL}, */
         };
-        size_t pwm_count = 0U;
-
         for (size_t i = 0U; (i < BOARD_CONFIG_PWM_COUNT) && (status == BSP_STATUS_OK); ++i)
         {
             board_config_pwm_contexts[i] = (board_config_pwm_context_t){
@@ -1227,10 +1225,6 @@ bsp_status_t board_config_init(board_config_init_t *config)
             if (status != BSP_STATUS_OK)
             {
                 config->failed_step = "pwm";
-            }
-            else
-            {
-                pwm_count = i + 1U;
             }
         }
         pwm_ok = (status == BSP_STATUS_OK);

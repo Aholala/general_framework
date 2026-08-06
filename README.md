@@ -274,7 +274,7 @@ Module 目录为 `User/Module`。模块负责设备协议、状态机和业务�
 | `module_buzzer`                      | `module_buzzer_note_t`、`module_buzzer_t`                                                                                        | 音符、频率和时序播放                        | 是否正在播放                                     |
 | `module_ws2812`                      | `module_ws2812_color_t`、`module_ws2812_effect_state_t`、`module_ws2812_t`                                                       | 灯珠帧缓冲和内置效果                        | 忙状态和效果运行状态                             |
 | `module_oled`                        | `module_oled_t`、`module_oled_config_t`                                                                                          | I2C 单色页式 OLED 帧缓冲                    | 对象内帧缓冲和初始化状态                         |
-| `module_nrf24l01`                    | `module_nrf24l01_t`、`module_nrf24l01_ace_link_t`、`module_nrf24l01_ace_link_packet_t`                                           | nRF24L01 原始收发与独立 ACE 链路协议        | 收到的数据包、序号、管道号和重发/丢包统计        |
+| `module_nrf24l01`                    | `module_nrf24l01_t`、`module_nrf24l01_link_t`、`module_nrf24l01_link_packet_t`                                           | nRF24L01 原始收发与独立 ACE 链路协议        | 收到的数据包、序号、管道号和重发/丢包统计        |
 | `module_uart_comm`                   | `module_uart_comm_process_data_t`、`module_uart_comm_t`                                                                          | 普通 UART 独立固定帧协议                    | 原始数据区、更新计数和 CRC 统计                  |
 | `module_usb_comm`                    | `module_usb_comm_data_t`、`module_usb_comm_t`                                                                                    | USB CDC 视觉 mode/ID 协议                   | mode、ID、扩展区和解析统计                       |
 | `module_board_comm`                  | `module_board_comm_remote_process_data_t`、`module_board_comm_gimbal_process_data_t`、`module_board_comm_chassis_process_data_t` | 云台板与底盘板 Classic CAN 通信             | 遥控、云台、底盘、发射机构数据和各链路在线状态   |
@@ -472,7 +472,7 @@ IMU EKF 通过 getter 提供：
 ### nRF24L01 ACE 链路
 
 - nRF24L01 原始驱动允许固定 `payload_size` 为 1~32；ACE 链路协议要求 7~32。
-- 默认 ACE 公共链路地址为 `module_nrf24l01_ace_link_address`，地址宽度 3 字节。
+- 默认 ACE 公共链路地址为 `module_nrf24l01_link_address`，地址宽度 3 字节。
 - 两端必须使用相同频道、地址宽度、链路地址、固定载荷长度和数据率。
 - 具体 CE/CSN/IRQ 引脚及 SPI 实例由 App/板级配置决定。
 

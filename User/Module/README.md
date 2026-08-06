@@ -115,7 +115,7 @@ Module 层位于 BSP 层之上，是业务逻辑与硬件抽象之间的桥梁�
 | [`DM4310`](module_dm_motor/README_DM4310.md)              | 从实际电机读取协议参数 → init/register → 反馈 → enable → 匹配模式命令                          | 通用反馈、故障、MOS 温度、协议 limits                          |
 | [`module_bmi088`](module_bmi088/README.md)                | SPI/片选/延时 → init/start → 可选校准 → 周期 read                                              | `module_bmi088_process_data_t`、`module_bmi088_raw_data_t`     |
 | [`module_dr16`](module_dr16/README.md)                    | DBUS USART/DMA 双缓冲 → init/start → process/update_time                                       | `module_dr16_process_data_t`                                   |
-| [`module_nrf24l01`](module_nrf24l01/README.md)            | 原始驱动 init/start → ACE link init → RX/TX → 周期接收/发送轮询                                 | `module_nrf24l01_ace_link_packet_t`、重发/丢包计数             |
+| [`module_nrf24l01`](module_nrf24l01/README.md)            | 原始驱动 init/start → ACE link init → RX/TX → 周期接收/发送轮询                                 | `module_nrf24l01_link_packet_t`、重发/丢包计数             |
 | [`module_referee`](module_referee/README.md)              | USART/四类缓冲区/路由 → init/start → 周期 update → 消费 update_mask                            | `module_referee_process_data_t`、`module_referee_statistics_t` |
 | [`module_referee_ui`](module_referee/README_UI.md)        | 裁判模块在线 → 队列配置 → init/start → enqueue → 周期 update                                   | `module_referee_ui_graphic_t`、队列和丢弃计数                  |
 | [`module_board_comm`](module_board_comm/README.md)        | 两板统一 CAN ID → init/路由 → 发送/接收 → update_time                                          | 遥控、云台、底盘和发射机构数据结构体                           |
